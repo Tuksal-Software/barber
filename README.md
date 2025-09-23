@@ -12,7 +12,7 @@ Modern, responsive berber salonu web sitesi ve randevu sistemi. Next.js 14+ (App
 - [x] **İletişim Sayfası** - Form, bilgiler, harita placeholder
 - [x] **Responsive Tasarım** - Mobile-first yaklaşım
 - [x] **Modern UI/UX** - Sade slate tema, smooth animasyonlar
-
+s
 ### ✅ **Tamamlanan Özellikler (Faz 2)**
 - [x] **Randevu Sistemi** - Step-by-step wizard
 - [x] **Hizmet Seçimi** - Kategori filtreleme, detaylı bilgiler
