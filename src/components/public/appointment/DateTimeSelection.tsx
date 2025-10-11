@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { Barber } from '@/types'
 import { Calendar, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import { getBarberAvailability } from '@/lib/actions/appointment'
+import { format, addDays, isToday, isSameDay } from 'date-fns'
+import { tr } from 'date-fns/locale'
 
 interface DateTimeSelectionProps {
   selectedBarber?: Barber
@@ -191,26 +193,23 @@ export default function DateTimeSelection({
               <p className="text-slate-600">Bu tarihte müsait saat bulunmuyor</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {availableTimeSlots.map((slot) => (
                 <button
                   key={slot.time}
                   onClick={() => handleTimeSelect(slot.time)}
                   disabled={!slot.isAvailable}
-                  className={`p-3 rounded-lg border-2 transition-all ${
+                  className={`h-14 rounded-xl border-2 transition-all duration-300 font-semibold ${
                     !slot.isAvailable
-                      ? 'border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+                      ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed line-through'
                       : isTimeSlotSelected(slot.time)
-                      ? 'border-slate-600 bg-slate-600 text-white'
-                      : 'border-slate-200 hover:border-slate-400 text-slate-700 hover:bg-slate-50'
+                      ? 'border-teal-400 bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg scale-105'
+                      : 'border-gray-200 hover:border-teal-300 text-gray-700 hover:bg-teal-50 hover:scale-105 hover:shadow-md'
                   }`}
                 >
-                  <div className="text-sm font-medium">
+                  <div className="text-base font-semibold">
                     {slot.time}
                   </div>
-                  {!slot.isAvailable && (
-                    <div className="text-xs mt-1">Dolu</div>
-                  )}
                 </button>
               ))}
             </div>
@@ -219,13 +218,13 @@ export default function DateTimeSelection({
       )}
 
       {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-800 mb-2">Bilgi:</h4>
-        <ul className="text-sm text-blue-700 space-y-1">
+      <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-lg p-4">
+        <h4 className="font-semibold text-teal-800 mb-2">ℹ️ Bilgi:</h4>
+        <ul className="text-sm text-teal-700 space-y-1">
           <li>• Gelecek 30 gün içinden tarih seçebilirsiniz</li>
           <li>• Dolu saatler gri renkte gösterilir ve seçilemez</li>
-          <li>• Berber çalışma saatleri: 09:00 - 18:00</li>
-          <li>• Her randevu 1 saat sürer</li>
+          <li>• Müsait saatler: 10:00 - 22:00 arası</li>
+          <li>• Berberin çalışma saatleri dışındaki slotlar disabled gösterilir</li>
         </ul>
       </div>
     </div>

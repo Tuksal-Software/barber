@@ -40,7 +40,7 @@ export default function Navigation() {
         <div className="flex items-center justify-between py-4">
           {/* Logo */}
           <Link href="/" className="text-2xl font-bold text-slate-900">
-            Elite Berber
+            The Mens Hair
           </Link>
 
           {/* Desktop Navigation */}
@@ -54,14 +54,11 @@ export default function Navigation() {
             <Link href="/hizmetler" className="text-slate-700 hover:text-slate-900 transition-colors">
               Hizmetler
             </Link>
-            <Link href="/galeri" className="text-slate-700 hover:text-slate-900 transition-colors">
-              Galeri
-            </Link>
             <Link href="/iletisim" className="text-slate-700 hover:text-slate-900 transition-colors">
               İletişim
             </Link>
             <Link 
-              href="/randevu" 
+              href="/randevu-al" 
               className="bg-slate-600 text-white px-6 py-2 rounded-lg hover:bg-slate-700 transition-colors font-medium"
             >
               Randevu Al
@@ -103,13 +100,6 @@ export default function Navigation() {
                 Hizmetler
               </Link>
               <Link 
-                href="/galeri" 
-                className="text-slate-700 hover:text-slate-900 transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Galeri
-              </Link>
-              <Link 
                 href="/iletisim" 
                 className="text-slate-700 hover:text-slate-900 transition-colors py-2"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -117,7 +107,7 @@ export default function Navigation() {
                 İletişim
               </Link>
               <Link 
-                href="/randevu" 
+                href="/randevu-al" 
                 className="bg-slate-600 text-white px-6 py-3 rounded-lg hover:bg-slate-700 transition-colors font-medium text-center"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
