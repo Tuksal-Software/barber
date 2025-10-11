@@ -9,7 +9,6 @@ import DateTimeSelection from './appointment/DateTimeSelection'
 import CustomerInfo from './appointment/CustomerInfo'
 import AppointmentConfirmation from './appointment/AppointmentConfirmation'
 import { createAppointment } from '@/lib/actions/appointment'
-import { getServices } from '@/lib/actions/services'
 import { getBarbers } from '@/lib/actions/barbers'
 import { Service, Barber } from '@/types'
 
@@ -50,18 +49,14 @@ export default function AppointmentWizard() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [servicesResult, barbersResult] = await Promise.all([
-          getServices(),
-          getBarbers()
-        ])
-
-        if (servicesResult.success) {
-          setServices(servicesResult.data)
-        }
+        const barbersResult = await getBarbers()
 
         if (barbersResult.success) {
           setBarbers(barbersResult.data)
         }
+        
+        // Services are not used in the new system
+        setServices([])
       } catch (error) {
         console.error('Data loading error:', error)
         setError('Veriler yüklenirken bir hata oluştu')
@@ -103,6 +98,15 @@ export default function AppointmentWizard() {
     }
   }
 
+  const calculateEndTime = (startTime: string, duration: number = 30) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + duration;
+    const endHours = Math.floor(endMinutes / 60);
+    const endMins = endMinutes % 60;
+    return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+  };
+
   const handleConfirm = async () => {
     if (!appointmentData.service || !appointmentData.barber || !appointmentData.date || !appointmentData.timeSlot) {
       setError('Lütfen tüm gerekli bilgileri doldurun')
@@ -113,11 +117,22 @@ export default function AppointmentWizard() {
     setError(null)
 
     try {
+      const localDate = new Date(appointmentData.date);
+      localDate.setHours(0, 0, 0, 0);
+      
+      const year = localDate.getFullYear();
+      const month = String(localDate.getMonth() + 1).padStart(2, '0');
+      const day = String(localDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+
+      console.log('Appointment date being sent:', dateString);
+      console.log('Selected date object:', appointmentData.date);
+
       const result = await createAppointment({
-        serviceId: appointmentData.service.id,
         barberId: appointmentData.barber.id,
-        date: appointmentData.date.toISOString(),
-        timeSlot: appointmentData.timeSlot,
+        date: dateString,
+        startTime: appointmentData.timeSlot,
+        endTime: calculateEndTime(appointmentData.timeSlot),
         customerName: appointmentData.customerName,
         customerPhone: appointmentData.customerPhone,
         customerEmail: appointmentData.customerEmail,
