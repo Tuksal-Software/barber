@@ -1,8 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { NextRequest } from 'next/server'
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const searchParams = request.nextUrl.searchParams
   const dateStr = searchParams.get('date')
 
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const date = new Date(dateStr)
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  const dayOfWeek = dayNames[date.getDay()]
+  const dayOfWeek = date.getDay()
 
   console.log('Checking availability for:', { barberId: id, date: dateStr, dayOfWeek })
 

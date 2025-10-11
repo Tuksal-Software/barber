@@ -1,15 +1,152 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+// ============================================
+// SITE AYARLARI
+// ============================================
+model SiteSettings {
+  id           String   @id @default(cuid())
+  salonName    String   @db.VarChar(255)
+  description  String   @db.Text
+  address      String   @db.Text
+  phone        String   @db.VarChar(50)
+  email        String   @db.VarChar(255)
+  workingHours String   @db.Text
+  socialMedia  String   @db.Text
+  createdAt    DateTime @default(now()) @db.DateTime(0)
+  updatedAt    DateTime @updatedAt @db.DateTime(0)
+
+  @@map("site_settings")
+}
+
+// ============================================
+// BERBER / KULLANICI YÖNETİMİ
+// ============================================
+model Barber {
+  id            String   @id @default(cuid())
+  name          String   @db.VarChar(255)
+  email         String   @unique @db.VarChar(255)
+  password      String   @db.VarChar(255) // Hashed password
+  role          String   @default("barber") @db.VarChar(20) // "admin" veya "barber"
+  experience    Int      @default(0)
+  rating        Decimal  @default(5.0) @db.Decimal(3, 2)
+  specialties   String?  @db.Text
+  image         String?  @db.VarChar(500)
+  slotDuration  Int      @default(30) // Berber özel slot süresi (dakika)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.DateTime(0)
+  updatedAt     DateTime @updatedAt @db.DateTime(0)
+
+  // Relations
+  workingHours    WorkingHour[]
+  appointments    Appointment[]
+  barberSchedules BarberSchedule[]
+
+  @@map("barbers")
+}
+
+// ============================================
+// ÇALIŞMA SAATLERİ (Genel - Haftalık)
+// ============================================
+model WorkingHour {
+  id        String   @id @default(cuid())
+  barberId  String
+  dayOfWeek Int      // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
+  startTime String   @db.VarChar(10) // "09:00"
+  endTime   String   @db.VarChar(10) // "18:00"
+  isWorking Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.DateTime(0)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
+
+  // Relations
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, dayOfWeek])
+  @@map("working_hours")
+}
+
+// ============================================
+// RANDEVU SLOT AYARLARI (Global)
+// ============================================
+model AppointmentSettings {
+  id               String   @id @default(cuid())
+  slotDuration     Int      // 15, 30, 60 (dakika)
+  slotDurationLabel String  @db.VarChar(50) // "15 Dakika", "30 Dakika", "1 Saat"
+  maxAdvanceDays   Int      @default(30)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now()) @db.DateTime(0)
+  updatedAt        DateTime @updatedAt @db.DateTime(0)
+
+  @@map("appointment_settings")
+}
+
+// ============================================
+// BERBER ÖZEL TAKVİM
+// ============================================
+model BarberSchedule {
+  id          String   @id @default(cuid())
+  barberId    String
+  date        DateTime @db.Date
+  startTime   String   @db.VarChar(10)
+  endTime     String   @db.VarChar(10)
+  isAvailable Boolean  @default(true)
+  note        String?  @db.Text
+  createdAt   DateTime @default(now()) @db.DateTime(0)
+  updatedAt   DateTime @updatedAt @db.DateTime(0)
+
+  // Relations
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, date])
+  @@map("barber_schedules")
+}
+
+// ============================================
+// RANDEVU YÖNETİMİ
+// ============================================
+model Appointment {
+  id            String   @id @default(cuid())
+  customerName  String   @db.VarChar(255)
+  customerPhone String   @db.VarChar(20)
+  customerEmail String?  @db.VarChar(255)
+  barberId      String
+  date          DateTime @db.Date
+  startTime     String   @db.VarChar(10)
+  endTime       String   @db.VarChar(10)
+  status        String   @default("pending") @db.VarChar(20) // pending, confirmed, completed, cancelled
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now()) @db.DateTime(0)
+  updatedAt     DateTime @updatedAt @db.DateTime(0)
+
+  // Relations
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Restrict)
+
+  @@index([barberId, date, startTime])
+  @@map("appointments")
+}
+
+// ============================================
+// GALERİ
+// ============================================
+model GalleryImage {
+  id        String   @id @default(cuid())
+  url       String   @db.VarChar(500)
+  alt       String   @db.VarChar(255)
+  category  String   @db.VarChar(100)
+  title     String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @db.DateTime(0)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
+
+  @@map("gallery_images")
 }
