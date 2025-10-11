@@ -8,12 +8,11 @@ export async function getBarbers(): Promise<{ success: boolean; data: Barber[] }
     const barbers = await prisma.barber.findMany({
       include: {
         workingHours: true,
-        barberServices: { include: { service: true } },
       },
       orderBy: { name: 'asc' },
     })
 
-    const data: Barber[] = barbers.map((barber) => {
+    const data: Barber[] = barbers.map((barber: any) => {
       const workingHours: WorkingHours = {
         monday: { start: '09:00', end: '18:00', isWorking: true },
         tuesday: { start: '09:00', end: '18:00', isWorking: true },
@@ -24,7 +23,7 @@ export async function getBarbers(): Promise<{ success: boolean; data: Barber[] }
         sunday: { start: '09:00', end: '16:00', isWorking: false },
       }
 
-      barber.workingHours.forEach((wh) => {
+      barber.workingHours.forEach((wh: any) => {
         const dayKey = wh.dayOfWeek as keyof WorkingHours
         if (workingHours[dayKey]) {
           workingHours[dayKey] = {
@@ -39,11 +38,11 @@ export async function getBarbers(): Promise<{ success: boolean; data: Barber[] }
         id: barber.id,
         name: barber.name,
         experience: barber.experience,
-        rating: barber.rating,
-        specialties: JSON.parse(barber.specialties),
-        image: barber.image,
+        rating: Number(barber.rating),
+        specialties: barber.specialties ? JSON.parse(barber.specialties) : [],
+        image: barber.image || '',
         workingHours,
-        services: barber.barberServices.map((bs) => bs.serviceId),
+        services: barber.barberServices ? barber.barberServices.map((bs: any) => bs.serviceId) : [],
       }
     })
 
@@ -57,15 +56,14 @@ export async function getBarbers(): Promise<{ success: boolean; data: Barber[] }
 export async function getBarbersByService(serviceId: string): Promise<{ success: boolean; data: Barber[] }> {
   try {
     const barbers = await prisma.barber.findMany({
-      where: { barberServices: { some: { serviceId } } },
+      where: { isActive: true },
       include: {
         workingHours: true,
-        barberServices: { include: { service: true } },
       },
       orderBy: { name: 'asc' },
     })
 
-    const data: Barber[] = barbers.map((barber) => {
+    const data: Barber[] = barbers.map((barber: any) => {
       const workingHours: WorkingHours = {
         monday: { start: '09:00', end: '18:00', isWorking: true },
         tuesday: { start: '09:00', end: '18:00', isWorking: true },
@@ -76,7 +74,7 @@ export async function getBarbersByService(serviceId: string): Promise<{ success:
         sunday: { start: '09:00', end: '16:00', isWorking: false },
       }
 
-      barber.workingHours.forEach((wh) => {
+      barber.workingHours.forEach((wh: any) => {
         const dayKey = wh.dayOfWeek as keyof WorkingHours
         if (workingHours[dayKey]) {
           workingHours[dayKey] = {
@@ -91,11 +89,11 @@ export async function getBarbersByService(serviceId: string): Promise<{ success:
         id: barber.id,
         name: barber.name,
         experience: barber.experience,
-        rating: barber.rating,
-        specialties: JSON.parse(barber.specialties),
-        image: barber.image,
+        rating: Number(barber.rating),
+        specialties: barber.specialties ? JSON.parse(barber.specialties) : [],
+        image: barber.image || '',
         workingHours,
-        services: barber.barberServices.map((bs) => bs.serviceId),
+        services: barber.barberServices ? barber.barberServices.map((bs: any) => bs.serviceId) : [],
       }
     })
 
@@ -111,10 +109,13 @@ export async function createBarber(data: Omit<Barber, 'id'>) {
     const barber = await prisma.barber.create({
       data: {
         name: data.name,
+        email: `${data.name.toLowerCase().replace(' ', '.')}@barber.com`,
+        password: 'default123',
         experience: data.experience,
-        rating: data.rating,
+        rating: data.rating ? Number(data.rating) : undefined,
         specialties: JSON.stringify(data.specialties),
-        image: data.image
+        image: data.image,
+        slotDuration: 30
       }
     })
     
@@ -132,7 +133,7 @@ export async function updateBarber(id: string, data: Partial<Barber>) {
       data: {
         name: data.name,
         experience: data.experience,
-        rating: data.rating,
+        rating: data.rating ? Number(data.rating) : undefined,
         specialties: data.specialties ? JSON.stringify(data.specialties) : undefined,
         image: data.image
       }
@@ -155,39 +156,5 @@ export async function deleteBarber(id: string) {
   } catch (error) {
     console.error('Error deleting barber:', error)
     return { success: false, error: 'Berber silinemedi' }
-  }
-}
-
-export async function assignServiceToBarber(barberId: string, serviceId: string) {
-  try {
-    await prisma.barberService.create({
-      data: {
-        barberId,
-        serviceId
-      }
-    })
-    
-    return { success: true }
-  } catch (error) {
-    console.error('Error assigning service to barber:', error)
-    return { success: false, error: 'Hizmet atanamadı' }
-  }
-}
-
-export async function removeServiceFromBarber(barberId: string, serviceId: string) {
-  try {
-    await prisma.barberService.delete({
-      where: {
-        barberId_serviceId: {
-          barberId,
-          serviceId
-        }
-      }
-    })
-    
-    return { success: true }
-  } catch (error) {
-    console.error('Error removing service from barber:', error)
-    return { success: false, error: 'Hizmet kaldırılamadı' }
   }
 }

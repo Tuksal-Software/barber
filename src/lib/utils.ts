@@ -41,3 +41,26 @@ export function formatTime(time: string): string {
   return time.replace(':00', '')
 }
 
+export function getCurrentDate(): Date {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+export function getStartOfWeek(): Date {
+  const today = new Date();
+  const day = today.getDay();
+  const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Pazartesi başlangıcı
+  const monday = new Date(today.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+export function getEndOfWeek(): Date {
+  const startOfWeek = getStartOfWeek();
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+  return endOfWeek;
+}
+

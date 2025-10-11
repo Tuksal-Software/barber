@@ -13,7 +13,7 @@ export interface Barber {
   name: string
   experience: number // yıl cinsinden
   rating: number
-  specialties: string[]
+  specialties: string
   image: string
   workingHours: WorkingHours
   services: string[] // service ID'leri

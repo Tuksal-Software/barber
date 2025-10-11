@@ -54,7 +54,7 @@ export const mockBarbers: Barber[] = [
     name: 'Ahmet Yılmaz',
     experience: 8,
     rating: 4.8,
-    specialties: ['Saç Kesimi', 'Sakal Traşı', 'Saç Boyama'],
+    specialties: 'Saç Kesimi, Sakal Traşı, Saç Boyama',
     image: '/images/barbers/ahmet.jpg',
     workingHours: {
       monday: { start: '09:00', end: '18:00', isWorking: true },
@@ -72,7 +72,7 @@ export const mockBarbers: Barber[] = [
     name: 'Mehmet Demir',
     experience: 5,
     rating: 4.6,
-    specialties: ['Saç Kesimi', 'Sakal Traşı'],
+    specialties: 'Saç Kesimi, Sakal Traşı',
     image: '/images/barbers/mehmet.jpg',
     workingHours: {
       monday: { start: '10:00', end: '19:00', isWorking: true },
@@ -90,7 +90,7 @@ export const mockBarbers: Barber[] = [
     name: 'Ali Kaya',
     experience: 12,
     rating: 4.9,
-    specialties: ['Saç Kesimi', 'Sakal Traşı', 'Çocuk Saç Kesimi'],
+    specialties: 'Saç Kesimi, Sakal Traşı, Çocuk Saç Kesimi',
     image: '/images/barbers/ali.jpg',
     workingHours: {
       monday: { start: '08:00', end: '17:00', isWorking: true },
@@ -141,11 +141,11 @@ export const mockGalleryImages: GalleryImage[] = [
 ]
 
 export const mockSiteSettings: SiteSettings = {
-  salonName: 'Elite Berber Salonu',
-  description: 'Profesyonel berber hizmetleri ile modern ve hijyenik ortamda kaliteli hizmet sunuyoruz.',
+  salonName: 'The Mens Hair',
+  description: 'Profesyonel erkek kuaförlük hizmetleri ile modern ve hijyenik ortamda kaliteli hizmet sunuyoruz.',
   address: 'Atatürk Caddesi No:123, Merkez/İstanbul',
   phone: '+90 (212) 555 0123',
-  email: 'info@eliteberber.com',
+  email: 'info@themenshair.com',
   workingHours: {
     monday: { start: '09:00', end: '19:00', isWorking: true },
     tuesday: { start: '09:00', end: '19:00', isWorking: true },
@@ -156,9 +156,9 @@ export const mockSiteSettings: SiteSettings = {
     sunday: { start: '09:00', end: '17:00', isWorking: false }
   },
   socialMedia: {
-    instagram: 'https://instagram.com/eliteberber',
-    facebook: 'https://facebook.com/eliteberber',
-    twitter: 'https://twitter.com/eliteberber'
+    instagram: 'https://instagram.com/themenshair',
+    facebook: 'https://facebook.com/themenshair',
+    twitter: 'https://twitter.com/themenshair'
   }
 }
 
