@@ -277,9 +277,14 @@ export async function getAvailableSlots(barberId: string, date: Date) {
     const fixedEndHour = 22   // 22:00
     const slotDuration = barber.slotDuration || 30 // 30 dakika default
 
-    // Bugün mü kontrolü
-    const now = new Date()
+    // Bugün mü kontrolü - Türkiye saati (UTC+3)
+    const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Istanbul"}))
     const isToday = date.toDateString() === now.toDateString()
+    
+    console.log('getAvailableSlots - Date:', date.toDateString())
+    console.log('getAvailableSlots - Now (TR):', now.toDateString())
+    console.log('getAvailableSlots - Is Today:', isToday)
+    console.log('getAvailableSlots - Current Time (TR):', now.getHours() + ':' + now.getMinutes().toString().padStart(2, '0'))
 
     let currentHour = fixedStartHour
     let currentMin = 0
@@ -307,7 +312,7 @@ export async function getAvailableSlots(barberId: string, date: Date) {
             const currentMinute = now.getMinutes()
             const currentTime = currentHour * 60 + currentMinute
             
-            // Slot'un saati şu anki saatten küçükse: isAvailable = false
+            // Slot'un saati şu anki saatten küçük veya eşitse: isAvailable = false
             if (slotTime <= currentTime) {
               isAvailable = false
             } else {
