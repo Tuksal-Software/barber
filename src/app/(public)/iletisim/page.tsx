@@ -231,17 +231,19 @@ export default function IletisimPage() {
             </p>
           </div>
 
-          {/* Placeholder Harita */}
-          <Card className="overflow-hidden shadow-lg">
-            <div className="h-96 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
-              <div className="text-center text-slate-600">
-                <MapPin className="w-24 h-24 mx-auto mb-4" />
-                <p className="text-xl font-semibold">Harita buraya gelecek</p>
-                <p className="text-sm">Google Maps entegrasyonu eklenecek</p>
-                <p className="text-sm mt-2">Atatürk Caddesi No:123, Merkez/İstanbul</p>
-              </div>
-            </div>
-          </Card>
+          {/* Google Maps */}
+          <div className="w-full rounded-xl overflow-hidden shadow-lg">
+            <iframe 
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d531.7767352898278!2d28.90153778630071!3d41.064981733094235!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cab1dc19257ddd%3A0xaa0cc11aa4d14bf1!2sThe%20Men&#39;s%20Hair%20Salon!5e0!3m2!1str!2str!4v1760261518974!5m2!1str!2str" 
+              width="100%" 
+              height="450" 
+              style={{ border: 0 }}
+              allowFullScreen={true}
+              loading="lazy" 
+              referrerPolicy="no-referrer-when-downgrade"
+              className="w-full h-[450px]"
+            />
+          </div>
         </div>
       </section>
     </div>
