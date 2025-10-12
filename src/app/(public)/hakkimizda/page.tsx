@@ -1,5 +1,5 @@
-import { mockSiteSettings, mockBarbers } from '@/lib/mock-data'
-import { Award, Users, Clock, Star, MapPin, Phone, Mail } from 'lucide-react'
+import { mockSiteSettings } from '@/lib/mock-data'
+import { Users, Star, MapPin, Phone, Mail } from 'lucide-react'
 import Image from 'next/image'
 
 export default function HakkimizdaPage() {
@@ -87,79 +87,6 @@ export default function HakkimizdaPage() {
                 öncü kuruluş haline gelmek.
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Ekip */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
-              Uzman Ekibimiz
-            </h2>
-            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Deneyimli ve profesyonel berberlerimizle tanışın
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {mockBarbers.map((barber) => (
-              <div
-                key={barber.id}
-                className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border border-slate-100"
-              >
-                <div className="relative h-64 bg-gradient-to-br from-slate-100 to-slate-200 rounded-t-xl flex items-center justify-center">
-                  <div className="w-24 h-24 bg-slate-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-3xl font-bold">
-                      {barber.name.charAt(0)}
-                    </span>
-                  </div>
-                  
-                  <div className="absolute top-4 left-4 bg-slate-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                    {barber.experience} yıl
-                  </div>
-
-                  <div className="absolute top-4 right-4 bg-white text-slate-600 px-3 py-1 rounded-full text-sm font-semibold flex items-center space-x-1">
-                    <Star className="w-4 h-4 fill-current" />
-                    <span>{barber.rating}</span>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">
-                    {barber.name}
-                  </h3>
-                  
-                  <div className="flex items-center space-x-1 mb-3">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-4 h-4 ${
-                          i < Math.floor(barber.rating)
-                            ? 'text-slate-400 fill-current'
-                            : 'text-slate-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
-
-                  <div className="mb-4">
-                    <p className="text-sm text-slate-600 mb-2">Uzmanlık Alanları:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {barber.specialties.split(', ').slice(0, 3).map((specialty, index) => (
-                        <span
-                          key={index}
-                          className="bg-slate-100 text-slate-700 px-2 py-1 rounded-full text-xs font-medium"
-                        >
-                          {specialty}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
