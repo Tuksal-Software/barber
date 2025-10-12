@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
+import { ModernDatePicker } from '@/components/ui/modern-date-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -104,17 +105,8 @@ export function DateTimeSelection({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Sol Panel - Takvim */}
-        <Card className="p-6 animate-in slide-in-from-left-50 duration-500">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-teal-600" />
-              Tarih Seçin
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <Calendar
-              locale={tr}
-              mode="single"
+        <div className="animate-in slide-in-from-left-50 duration-500">
+            <ModernDatePicker
               selected={date}
               onSelect={handleDateSelect}
               disabled={(date) => {
@@ -125,31 +117,18 @@ export function DateTimeSelection({
                 maxDate.setHours(23, 59, 59, 999);
                 return date < today || date > maxDate;
               }}
-              className="rounded-lg border-0 w-full"
-              classNames={{
-                day_selected: "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:bg-gradient-to-r hover:from-teal-600 hover:to-cyan-600",
-                day_today: "bg-teal-50 text-teal-600 font-semibold ring-2 ring-teal-500",
-                day: "hover:bg-teal-50 hover:text-teal-600 transition-colors h-10 w-10 text-base",
-                months: "text-xl font-bold text-gray-800 mb-4",
-                month: "text-xl font-bold text-gray-800 mb-4",
-                weekday: "text-sm font-semibold text-gray-700 pb-2",
-                nav_button: "h-8 w-8 text-gray-600 hover:text-teal-600",
-                head_cell: "text-center pb-3",
-                cell: "text-center",
-                table: "w-full",
-                head_row: "mb-2",
-                row: "mb-1",
-              }}
+              className="w-full"
             />
             
             {date && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <div className="mt-6 p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl border border-teal-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-semibold text-gray-900">
-                      {format(date, 'dd MMMM yyyy', { locale: tr })}
+                    <p className="text-sm text-teal-600 font-medium">Seçili Tarih</p>
+                    <p className="font-semibold text-gray-900 text-lg">
+                      {format(date, 'dd MMMM yyyy, EEEE', { locale: tr })}
                     </p>
-                    <Badge className={getDateInfo(date).color}>
+                    <Badge className={getDateInfo(date).color} variant="secondary">
                       {getDateInfo(date).label}
                     </Badge>
                   </div>
@@ -157,15 +136,14 @@ export function DateTimeSelection({
                     variant="outline"
                     size="sm"
                     onClick={() => setDate(undefined)}
-                    className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-500 hover:text-gray-700 border-teal-200 hover:border-teal-300"
                   >
                     Temizle
                   </Button>
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </div>
 
         {/* Sağ Panel - Saat Seçimi */}
         <Card className="p-6 animate-in slide-in-from-right-50 duration-500">
