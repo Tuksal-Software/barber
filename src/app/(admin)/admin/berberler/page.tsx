@@ -11,7 +11,6 @@ import {
   Plus, 
   Search, 
   Edit, 
-  Trash2, 
   Calendar,
   Star,
   User,
@@ -21,7 +20,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ToggleBarberStatus } from "./components/ToggleBarberStatus";
-import { DeleteBarberDialog } from "./components/DeleteBarberDialog";
 import { BarberDetailModal } from "./components/BarberDetailModal";
 import { BarberEditModal } from "./components/BarberEditModal";
 
@@ -82,7 +80,7 @@ export default function BerberlerPage() {
         <Link href="/admin/berberler/yeni">
           <Button>
             <Plus className="h-4 w-4 mr-2" />
-            Yeni Berber
+            <u>Yeni Berber</u>
           </Button>
         </Link>
       </div>
@@ -110,10 +108,6 @@ export default function BerberlerPage() {
                   </Avatar>
                   <div>
                     <CardTitle className="text-lg">{barber.name}</CardTitle>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="text-sm text-gray-600">{barber.rating.toString()}</span>
-                    </div>
                   </div>
                 </div>
                 <ToggleBarberStatus 
@@ -131,22 +125,10 @@ export default function BerberlerPage() {
                   <span>{barber.email}</span>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-600">
-                  <Briefcase className="h-4 w-4" />
-                  <span>{barber.experience} yıl deneyim</span>
-                </div>
-                <div className="flex items-center space-x-2 text-sm text-gray-600">
                   <Calendar className="h-4 w-4" />
                   <span>{barber.slotDuration} dk slot süresi</span>
                 </div>
               </div>
-
-              {/* Uzmanlık Alanları */}
-              {barber.specialties && (
-                <div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">Uzmanlık Alanları:</p>
-                  <p className="text-sm text-gray-600 line-clamp-2">{barber.specialties}</p>
-                </div>
-              )}
 
               {/* İstatistikler */}
               <div className="flex justify-between items-center pt-2 border-t">
@@ -154,9 +136,6 @@ export default function BerberlerPage() {
                   <p className="text-lg font-semibold">{barber._count.appointments}</p>
                   <p className="text-xs text-gray-500">Toplam Randevu</p>
                 </div>
-                <Badge variant={barber.role === 'admin' ? 'default' : 'secondary'}>
-                  {barber.role === 'admin' ? 'Admin' : 'Berber'}
-                </Badge>
               </div>
 
               {/* Action Buttons */}
@@ -177,7 +156,6 @@ export default function BerberlerPage() {
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                <DeleteBarberDialog barberId={barber.id} barberName={barber.name} />
               </div>
             </CardContent>
           </Card>
