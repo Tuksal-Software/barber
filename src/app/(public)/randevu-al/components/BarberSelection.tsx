@@ -154,40 +154,12 @@ export function BarberSelection({ onSelect, selectedId }: BarberSelectionProps) 
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">
                       {barber.name}
                     </h3>
-                    <div className="flex items-center space-x-2 mb-2">
-                      <div className="flex">
-                        {renderStars(barber.rating)}
-                      </div>
-                      <span className="text-sm text-gray-600">
-                        {barber.rating.toFixed(1)}
-                      </span>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      <Award className="w-3 h-3 mr-1" />
-                      {barber.experience} yıl deneyim
-                    </Badge>
                   </div>
                 </div>
 
-                {barber.specialties && (
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-600 mb-2 flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      Uzmanlık Alanları:
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {barber.specialties.split(',').map((specialty, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {specialty.trim()}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-500">
-                    Slot süresi: {barber.slotDuration} dk
+                    Randevu Saat Aralığı: {barber.slotDuration} dk
                   </div>
                   <Button
                     onClick={() => onSelect(barber.id)}
