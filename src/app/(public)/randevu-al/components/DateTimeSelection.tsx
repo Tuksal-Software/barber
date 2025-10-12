@@ -117,7 +117,14 @@ export function DateTimeSelection({
               mode="single"
               selected={date}
               onSelect={handleDateSelect}
-              disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+              disabled={(date) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const maxDate = new Date();
+                maxDate.setDate(maxDate.getDate() + 30);
+                maxDate.setHours(23, 59, 59, 999);
+                return date < today || date > maxDate;
+              }}
               className="rounded-lg border-0 w-full"
               classNames={{
                 day_selected: "bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:bg-gradient-to-r hover:from-teal-600 hover:to-cyan-600",
