@@ -23,12 +23,12 @@ async function main() {
   })
 
   // Admin Berber
-  const hashedPassword = await bcrypt.hash('123456', 10)
+  const hashedPassword = await bcrypt.hash('sirinburak1712', 10)
 
   const adminBarber = await prisma.barber.create({
     data: {
       name: 'Ahmet Yılmaz',
-      email: 'admin@themenshair.com',
+      email: 'buraksirin@themenshair.com',
       password: hashedPassword,
       role: 'admin',
       experience: 10,
