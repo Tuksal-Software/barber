@@ -7,7 +7,6 @@ import {
   Home,
   Users,
   Calendar,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -28,11 +27,6 @@ const navigation = [
     name: "Randevular",
     href: "/admin/randevular",
     icon: Calendar,
-  },
-  {
-    name: "Ayarlar",
-    href: "/admin/ayarlar",
-    icon: Settings,
   },
 ];
 
@@ -84,15 +78,9 @@ export function AdminSidebarFixed() {
           {/* User Section */}
           <div className="flex-shrink-0 p-4">
             <div className="flex items-center space-x-3 mb-3">
-              <div className="h-10 w-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                AY
-              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
-                  Ahmet Yılmaz
-                </p>
-                <p className="text-xs text-slate-400 truncate">
-                  Admin
+                  Burak Şirin The Mens Hair
                 </p>
               </div>
             </div>
@@ -192,15 +180,9 @@ function MobileSidebar() {
           {/* User Section */}
           <div className="flex-shrink-0 p-4">
             <div className="flex items-center space-x-3 mb-3">
-              <div className="h-10 w-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                AY
-              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">
-                  Ahmet Yılmaz
-                </p>
-                <p className="text-xs text-slate-400 truncate">
-                  Admin
+                  Burak Şirin
                 </p>
               </div>
             </div>

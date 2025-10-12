@@ -8,7 +8,6 @@ import {
   Home,
   Users,
   Calendar,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -32,11 +31,6 @@ const navigation = [
     name: "Randevular",
     href: "/admin/randevular",
     icon: Calendar,
-  },
-  {
-    name: "Ayarlar",
-    href: "/admin/ayarlar",
-    icon: Settings,
   },
 ];
 

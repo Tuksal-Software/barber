@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, Calendar, Settings, LogOut } from "lucide-react";
+import { Home, Users, Calendar, LogOut } from "lucide-react";
 
 const navigation = [
   {
@@ -19,11 +19,6 @@ const navigation = [
     name: "Randevular",
     href: "/admin/randevular",
     icon: Calendar,
-  },
-  {
-    name: "Ayarlar",
-    href: "/admin/ayarlar",
-    icon: Settings,
   },
 ];
 
