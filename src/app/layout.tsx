@@ -5,6 +5,11 @@ import { Toaster } from "sonner";
 export const metadata: Metadata = {
   title: "The Mens Hair - Profesyonel Erkek Kuaförlük Hizmetleri",
   description: "Stilinizi yansıtan profesyonel kuaförlük deneyimi. Modern ve hijyenik ortamda saç kesimi, sakal traşı ve daha fazlası için randevu alın.",
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({

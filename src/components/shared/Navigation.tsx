@@ -39,8 +39,9 @@ export default function Navigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between py-4">
           {/* Logo */}
-          <Link href="/" className="text-2xl font-bold text-slate-900">
-            The Mens Hair
+          <Link href="/" className="flex items-center space-x-3">
+            <img src="/logo.png" alt="The Mens Hair Logo" className="h-10 w-10" />
+            <span className="text-2xl font-bold text-slate-900">The Mens Hair</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -50,9 +51,6 @@ export default function Navigation() {
             </Link>
             <Link href="/hakkimizda" className="text-slate-700 hover:text-slate-900 transition-colors">
               Hakkımızda
-            </Link>
-            <Link href="/hizmetler" className="text-slate-700 hover:text-slate-900 transition-colors">
-              Hizmetler
             </Link>
             <Link href="/iletisim" className="text-slate-700 hover:text-slate-900 transition-colors">
               İletişim
@@ -91,13 +89,6 @@ export default function Navigation() {
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Hakkımızda
-              </Link>
-              <Link 
-                href="/hizmetler" 
-                className="text-slate-700 hover:text-slate-900 transition-colors py-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Hizmetler
               </Link>
               <Link 
                 href="/iletisim" 
