@@ -8,7 +8,7 @@ export default function Footer() {
   return (
     <footer className="bg-slate-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Logo & Tagline */}
           <div className="lg:col-span-1">
             <div className="flex items-center space-x-3 mb-6">
@@ -62,11 +62,6 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/hizmetler" className="text-slate-300 hover:text-white transition-colors">
-                  Hizmetler
-                </Link>
-              </li>
-              <li>
                 <Link href="/iletisim" className="text-slate-300 hover:text-white transition-colors">
                   İletişim
                 </Link>
@@ -74,38 +69,6 @@ export default function Footer() {
               <li>
                 <Link href="/randevu-al" className="text-amber-400 hover:text-amber-300 transition-colors font-medium">
                   Randevu Al
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Hizmetler */}
-          <div>
-            <h3 className="text-lg font-semibold mb-6 text-white">Hizmetlerimiz</h3>
-            <ul className="space-y-3">
-              <li>
-                <Link href="/hizmetler" className="text-slate-300 hover:text-white transition-colors">
-                  Saç Kesimi
-                </Link>
-              </li>
-              <li>
-                <Link href="/hizmetler" className="text-slate-300 hover:text-white transition-colors">
-                  Sakal Traşı
-                </Link>
-              </li>
-              <li>
-                <Link href="/hizmetler" className="text-slate-300 hover:text-white transition-colors">
-                  Saç Boyama
-                </Link>
-              </li>
-              <li>
-                <Link href="/hizmetler" className="text-slate-300 hover:text-white transition-colors">
-                  Çocuk Saç Kesimi
-                </Link>
-              </li>
-              <li>
-                <Link href="/hizmetler" className="text-slate-300 hover:text-white transition-colors">
-                  Kombinasyon Paketleri
                 </Link>
               </li>
             </ul>
