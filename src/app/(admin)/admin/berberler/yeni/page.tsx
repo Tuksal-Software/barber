@@ -7,21 +7,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, User, Mail, Lock, Briefcase, Scissors, Clock } from "lucide-react";
+import { ArrowLeft, User, Mail, Scissors, Clock } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import WorkingHoursEditor, { WorkingHour } from "../components/WorkingHoursEditor";
 
 const defaultWorkingHours: WorkingHour[] = [
-  { dayOfWeek: 0, startTime: "10:00", endTime: "16:00", isWorking: false },
   { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 6, startTime: "09:00", endTime: "16:00", isWorking: true },
+  { dayOfWeek: 0, startTime: "10:00", endTime: "16:00", isWorking: false },
 ];
 
 export default function YeniBerberPage() {
@@ -30,10 +29,6 @@ export default function YeniBerberPage() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    password: "",
-    role: "barber",
-    experience: 0,
-    specialties: "",
     image: "",
     slotDuration: 30,
   });
@@ -46,6 +41,10 @@ export default function YeniBerberPage() {
     try {
       const result = await createBarber({
         ...formData,
+        password: 'default123',
+        role: 'barber',
+        experience: 5,
+        specialties: 'Saç Kesimi, Sakal Tıraşı, Bakım',
         workingHours,
       });
       if (result.success) {
@@ -123,56 +122,7 @@ export default function YeniBerberPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="password">Şifre *</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => handleInputChange("password", e.target.value)}
-                      placeholder="Minimum 6 karakter"
-                      className="pl-10"
-                      minLength={6}
-                      required
-                    />
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="experience">Deneyim (Yıl) *</Label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="experience"
-                      type="number"
-                      value={formData.experience}
-                      onChange={(e) => handleInputChange("experience", parseInt(e.target.value) || 0)}
-                      placeholder="0"
-                      className="pl-10"
-                      min="0"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role">Rol *</Label>
-                  <RadioGroup
-                    value={formData.role}
-                    onValueChange={(value) => handleInputChange("role", value)}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="barber" id="barber" />
-                      <Label htmlFor="barber">Berber</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="admin" id="admin" />
-                      <Label htmlFor="admin">Admin</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -187,17 +137,6 @@ export default function YeniBerberPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="specialties">Uzmanlık Alanları</Label>
-                  <Textarea
-                    id="specialties"
-                    value={formData.specialties}
-                    onChange={(e) => handleInputChange("specialties", e.target.value)}
-                    placeholder="Saç kesimi, sakal şekillendirme, bakım..."
-                    rows={4}
-                  />
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="image">Profil Fotoğrafı URL</Label>
                   <Input

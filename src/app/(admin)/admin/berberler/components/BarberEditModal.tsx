@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { updateBarber, getBarberById } from "@/lib/actions/barber.actions";
@@ -17,7 +16,6 @@ interface BarberEditModalProps {
     id: string;
     name: string;
     email: string;
-    role: string;
     experience: number;
     specialties?: string;
     image?: string;
@@ -30,23 +28,19 @@ interface BarberEditModalProps {
 }
 
 const defaultWorkingHours: WorkingHour[] = [
-  { dayOfWeek: 0, startTime: "10:00", endTime: "16:00", isWorking: false },
   { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isWorking: true },
   { dayOfWeek: 6, startTime: "09:00", endTime: "16:00", isWorking: true },
+  { dayOfWeek: 0, startTime: "10:00", endTime: "16:00", isWorking: false },
 ];
 
 export function BarberEditModal({ barber, isOpen, onClose, onSuccess }: BarberEditModalProps) {
   const [formData, setFormData] = useState({
     name: barber.name,
     email: barber.email,
-    password: "",
-    role: barber.role,
-    experience: barber.experience,
-    specialties: barber.specialties || "",
     image: barber.image || "",
     slotDuration: barber.slotDuration,
     isActive: barber.isActive,
@@ -92,7 +86,6 @@ export function BarberEditModal({ barber, isOpen, onClose, onSuccess }: BarberEd
       const updateData = {
         ...formData,
         workingHours,
-        ...(formData.password ? { password: formData.password } : {}),
       };
 
       const result = await updateBarber(barber.id, updateData);
@@ -154,17 +147,6 @@ export function BarberEditModal({ barber, isOpen, onClose, onSuccess }: BarberEd
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Şifre</Label>
-              <Input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => handleChange("password", e.target.value)}
-                placeholder="Boş bırakırsanız şifre değişmez"
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="image">Profil Fotoğrafı URL</Label>
               <Input
                 id="image"
@@ -176,55 +158,6 @@ export function BarberEditModal({ barber, isOpen, onClose, onSuccess }: BarberEd
             </div>
           </div>
 
-          {/* Rol ve Deneyim */}
-          <div className="space-y-4">
-            <h4 className="font-semibold text-lg">Rol ve Deneyim</h4>
-            
-            <div className="space-y-3">
-              <Label>Rol</Label>
-              <RadioGroup
-                value={formData.role}
-                onValueChange={(value) => handleChange("role", value)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="admin" id="admin" />
-                  <Label htmlFor="admin">Admin</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="barber" id="barber" />
-                  <Label htmlFor="barber">Berber</Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="experience">Deneyim (Yıl)</Label>
-              <Input
-                id="experience"
-                type="number"
-                min="0"
-                max="50"
-                value={formData.experience}
-                onChange={(e) => handleChange("experience", parseInt(e.target.value) || 0)}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Uzmanlık Alanları */}
-          <div className="space-y-4">
-            <h4 className="font-semibold text-lg">Uzmanlık Alanları</h4>
-            <div className="space-y-2">
-              <Label htmlFor="specialties">Uzmanlık Alanları</Label>
-              <Textarea
-                id="specialties"
-                value={formData.specialties}
-                onChange={(e) => handleChange("specialties", e.target.value)}
-                placeholder="Uzmanlık alanlarını açıklayın..."
-                rows={3}
-              />
-            </div>
-          </div>
 
           {/* Randevu Ayarları */}
           <div className="space-y-4">

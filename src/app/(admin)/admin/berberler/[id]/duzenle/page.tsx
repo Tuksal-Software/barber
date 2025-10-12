@@ -25,7 +25,6 @@ export default function BerberDuzenlePage() {
     name: "",
     email: "",
     password: "",
-    role: "barber",
     experience: 0,
     specialties: "",
     image: "",
@@ -47,7 +46,6 @@ export default function BerberDuzenlePage() {
           name: barber.name,
           email: barber.email,
           password: "",
-          role: barber.role,
           experience: barber.experience,
           specialties: barber.specialties || "",
           image: barber.image || "",
@@ -83,7 +81,6 @@ export default function BerberDuzenlePage() {
       const updateData: any = {
         name: formData.name,
         email: formData.email,
-        role: formData.role,
         experience: formData.experience,
         specialties: formData.specialties,
         image: formData.image,
@@ -210,22 +207,6 @@ export default function BerberDuzenlePage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="role">Rol *</Label>
-                  <RadioGroup
-                    value={formData.role}
-                    onValueChange={(value) => handleInputChange("role", value)}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="barber" id="barber" />
-                      <Label htmlFor="barber">Berber</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="admin" id="admin" />
-                      <Label htmlFor="admin">Admin</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
               </CardContent>
             </Card>
           </div>
