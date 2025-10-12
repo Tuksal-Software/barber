@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Calendar, 
   Users, 
@@ -21,6 +22,8 @@ import {
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { EditAppointmentModal } from "./components/EditAppointmentModal";
+import { updateAppointmentStatus } from "@/lib/actions/appointment";
+import { toast } from "sonner";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -60,6 +63,20 @@ export default function AdminDashboard() {
 
   const handleEditSuccess = () => {
     loadDashboardData();
+  };
+
+  const handleStatusChange = async (appointmentId: string, newStatus: string) => {
+    try {
+      const result = await updateAppointmentStatus(appointmentId, newStatus as any);
+      if (result.success) {
+        toast.success("Randevu durumu güncellendi");
+        loadDashboardData();
+      } else {
+        toast.error(result.error || "Güncelleme başarısız");
+      }
+    } catch (error) {
+      toast.error("Bir hata oluştu");
+    }
   };
 
   if (loading) {
@@ -292,17 +309,20 @@ export default function AdminDashboard() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge 
-                        variant={
-                          appointment.status === 'confirmed' ? 'success' :
-                          appointment.status === 'pending' ? 'pending' :
-                          appointment.status === 'completed' ? 'default' : 'destructive'
-                        }
+                      <Select 
+                        value={appointment.status} 
+                        onValueChange={(value) => handleStatusChange(appointment.id, value)}
                       >
-                        {appointment.status === 'confirmed' ? 'Onaylı' :
-                         appointment.status === 'pending' ? 'Bekliyor' :
-                         appointment.status === 'completed' ? 'Tamamlandı' : 'İptal'}
-                      </Badge>
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
+                          <SelectItem value="pending">Beklemede</SelectItem>
+                          <SelectItem value="confirmed">Onaylandı</SelectItem>
+                          <SelectItem value="completed">Tamamlandı</SelectItem>
+                          <SelectItem value="cancelled">İptal Edildi</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
