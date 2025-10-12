@@ -48,10 +48,10 @@ export default function HeroSection() {
             </Link>
             
             <Link
-              href="/hizmetler"
+              href="/hakkimizda"
               className="group border-2 border-white text-white hover:bg-white hover:text-slate-900 px-8 py-4 rounded-lg transition-all duration-300 font-semibold text-lg flex items-center space-x-3 min-h-[56px]"
             >
-              <span>Hizmetlerimizi Keşfedin</span>
+              <span>Hakkımızda</span>
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
