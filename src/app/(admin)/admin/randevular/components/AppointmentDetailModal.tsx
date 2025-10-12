@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,10 +43,10 @@ interface AppointmentDetailModalProps {
 }
 
 const statusOptions = [
-  { value: 'pending', label: 'Bekliyor', color: 'secondary' },
-  { value: 'confirmed', label: 'Onaylı', color: 'success' },
+  { value: 'pending', label: 'Beklemede', color: 'secondary' },
+  { value: 'confirmed', label: 'Onaylandı', color: 'success' },
   { value: 'completed', label: 'Tamamlandı', color: 'default' },
-  { value: 'cancelled', label: 'İptal', color: 'destructive' },
+  { value: 'cancelled', label: 'İptal Edildi', color: 'destructive' },
 ];
 
 export function AppointmentDetailModal({ 
@@ -60,13 +60,21 @@ export function AppointmentDetailModal({
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      setStatus(appointment.status);
+      setNotes(appointment.notes || '');
+    }
+  }, [isOpen, appointment.status, appointment.notes]);
+
   const handleStatusUpdate = async () => {
     setIsLoading(true);
     try {
-      const result = await updateAppointmentStatus(appointment.id, status as any);
+      const result = await updateAppointmentStatus(appointment.id, status as any, notes);
       if (result.success) {
-        toast.success("Randevu durumu güncellendi");
+        toast.success("Randevu güncellendi");
         onSuccess();
+        onClose();
       } else {
         toast.error(result.error || "Güncelleme sırasında hata oluştu");
       }
@@ -185,7 +193,7 @@ export function AppointmentDetailModal({
                     <SelectTrigger className="w-[150px]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white border border-gray-200 shadow-lg z-[100]" position="popper" sideOffset={5}>
                       {statusOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}

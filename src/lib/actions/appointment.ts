@@ -107,14 +107,21 @@ export async function getAppointments(): Promise<Appointment[]> {
   }
 }
 
-export async function updateAppointmentStatus(id: string, status: AppointmentStatus) {
+export async function updateAppointmentStatus(id: string, status: AppointmentStatus, notes?: string) {
   try {
+    const updateData: any = { status: status as any }
+    
+    if (notes !== undefined) {
+      updateData.notes = notes
+    }
+
     await prisma.appointment.update({
       where: { id },
-      data: { status: status as any }
+      data: updateData
     })
 
     revalidatePath('/admin/appointments')
+    revalidatePath('/admin/randevular')
     return { success: true }
   } catch (error) {
     console.error('Error updating appointment status:', error)
