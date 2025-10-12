@@ -301,15 +301,22 @@ export default function RandevularPage() {
                           {dayAppointments.map((appointment) => (
                             <div
                               key={appointment.id}
-                              className={`p-2 rounded text-xs cursor-pointer transition-colors hover:shadow-md ${getBarberColor(appointment.barber.id)}`}
+                              className={`p-2 rounded text-xs cursor-pointer transition-colors hover:shadow-md ${
+                                appointment.status === 'cancelled' 
+                                  ? 'bg-gray-100 border-gray-300 text-gray-500 opacity-60' 
+                                  : getBarberColor(appointment.barber.id)
+                              }`}
                               onClick={() => handleAppointmentClick(appointment.id)}
                             >
-                              <div className="font-medium truncate">
+                              <div className={`font-medium truncate ${appointment.status === 'cancelled' ? 'line-through' : ''}`}>
                                 {appointment.customerName}
                               </div>
                               <div className="text-xs opacity-75 truncate">
                                 [{appointment.barber.name.split(' ').map(n => n[0]).join('')}]
                               </div>
+                              {appointment.status === 'cancelled' && (
+                                <div className="text-[10px] mt-1 font-semibold">İPTAL</div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -344,9 +351,9 @@ export default function RandevularPage() {
                       appointment.status === 'pending' ? 'secondary' :
                       appointment.status === 'completed' ? 'outline' : 'destructive'
                     }>
-                      {appointment.status === 'confirmed' ? 'Onaylı' :
-                       appointment.status === 'pending' ? 'Bekliyor' :
-                       appointment.status === 'completed' ? 'Tamamlandı' : 'İptal'}
+                      {appointment.status === 'confirmed' ? 'Onaylandı' :
+                       appointment.status === 'pending' ? 'Beklemede' :
+                       appointment.status === 'completed' ? 'Tamamlandı' : 'İptal Edildi'}
                     </Badge>
                   </div>
                   
