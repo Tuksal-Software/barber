@@ -6,6 +6,9 @@ import { revalidatePath } from "next/cache";
 export async function getBarbers() {
   try {
     const barbers = await prisma.barber.findMany({
+      where: {
+        role: 'barber',
+      },
       include: {
         _count: {
           select: {
@@ -40,7 +43,10 @@ export async function getBarbers() {
 export async function getActiveBarbers() {
   try {
     const barbers = await prisma.barber.findMany({
-      where: { isActive: true },
+      where: { 
+        isActive: true,
+        role: 'barber',
+      },
       orderBy: { rating: 'desc' },
       select: {
         id: true,
@@ -153,13 +159,13 @@ export async function createBarber(data: {
     });
 
     const workingHoursToCreate = data.workingHours || [
-      { dayOfWeek: 0, startTime: "10:00", endTime: "16:00", isWorking: false },
       { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isWorking: true },
       { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isWorking: true },
       { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isWorking: true },
       { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isWorking: true },
       { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isWorking: true },
       { dayOfWeek: 6, startTime: "09:00", endTime: "16:00", isWorking: true },
+      { dayOfWeek: 0, startTime: "10:00", endTime: "16:00", isWorking: false },
     ];
 
     await prisma.workingHour.createMany({
@@ -255,36 +261,7 @@ export async function updateBarber(id: string, data: {
   }
 }
 
-export async function deleteBarber(id: string) {
-  try {
-    // Berberin randevuları var mı kontrol et
-    const appointmentCount = await prisma.appointment.count({
-      where: { barberId: id },
-    });
-
-    if (appointmentCount > 0) {
-      return {
-        success: false,
-        error: "Bu berberin randevuları bulunuyor. Önce randevuları iptal edin.",
-      };
-    }
-
-    await prisma.barber.delete({
-      where: { id },
-    });
-
-    revalidatePath("/admin/berberler");
-    return {
-      success: true,
-    };
-  } catch (error) {
-    console.error("Delete barber error:", error);
-    return {
-      success: false,
-      error: "Berber silinirken hata oluştu",
-    };
-  }
-}
+// REMOVED: deleteBarber function - Feature disabled for data integrity
 
 export async function toggleBarberStatus(id: string) {
   try {

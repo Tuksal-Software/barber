@@ -100,6 +100,7 @@ export async function getBarberPerformance() {
     const barbers = await prisma.barber.findMany({
       where: {
         isActive: true,
+        role: 'barber',
       },
       include: {
         appointments: {
