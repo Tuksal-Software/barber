@@ -20,13 +20,13 @@ interface WorkingHoursEditorProps {
 }
 
 const dayNames = [
-  { value: 0, label: "Pazar" },
   { value: 1, label: "Pazartesi" },
   { value: 2, label: "Salı" },
   { value: 3, label: "Çarşamba" },
   { value: 4, label: "Perşembe" },
   { value: 5, label: "Cuma" },
   { value: 6, label: "Cumartesi" },
+  { value: 0, label: "Pazar" },
 ];
 
 export default function WorkingHoursEditor({ workingHours, onChange }: WorkingHoursEditorProps) {
