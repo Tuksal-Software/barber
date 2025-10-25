@@ -28,7 +28,7 @@ async function main() {
   const adminBarber = await prisma.barber.create({
     data: {
       name: 'Ahmet Yılmaz',
-      email: 'buraksirin@themenshair.com',
+      email: 'admin@barber.com',
       password: hashedPassword,
       role: 'admin',
       experience: 10,
@@ -66,9 +66,9 @@ async function main() {
   await prisma.appointmentSettings.create({
     data: {
       slotDuration: 30,
-      slotDurationLabel: '30 Dakika',
       maxAdvanceDays: 30,
-      isActive: true
+      isActive: true,
+      serviceBasedDuration: false
     }
   })
 

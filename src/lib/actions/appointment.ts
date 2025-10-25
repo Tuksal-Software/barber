@@ -13,7 +13,8 @@ const appointmentSchema = z.object({
   barberId: z.string().min(1, 'Berber seçiniz'),
   date: z.string().min(1, 'Tarih seçiniz'),
   startTime: z.string().min(1, 'Başlangıç saati seçiniz'),
-  endTime: z.string().min(1, 'Bitiş saati seçiniz'),
+  endTime: z.string().optional(), // hizmet bazlı sistemde hesaplanacak
+  serviceIds: z.array(z.string()).optional(),
 })
 
 export async function createAppointment(data: z.infer<typeof appointmentSchema>) {
@@ -39,38 +40,109 @@ export async function createAppointment(data: z.infer<typeof appointmentSchema>)
     console.log('createAppointment - Dönüştürülen date:', appointmentDate)
     console.log('createAppointment - Date ISO:', appointmentDate.toISOString())
 
-    const existingAppointment = await prisma.appointment.findFirst({
+    // Ayarlar ve hizmet bazlı sistem kontrolü
+    const settings = await prisma.appointmentSettings.findFirst()
+
+    let totalDuration: number | undefined
+    let totalPrice: any | undefined
+    let computedEndTime: string | undefined = validatedData.endTime
+
+    if (settings?.serviceBasedDuration) {
+      if (!validatedData.serviceIds || validatedData.serviceIds.length === 0) {
+        return { success: false, error: 'En az bir hizmet seçilmelidir' }
+      }
+
+      const services = await prisma.service.findMany({
+        where: { id: { in: validatedData.serviceIds }, isActive: true },
+      })
+      if (services.length !== validatedData.serviceIds.length) {
+        return { success: false, error: 'Seçilen hizmetler geçerli değil' }
+      }
+
+      totalDuration = services.reduce((acc, s) => acc + s.duration, 0)
+      totalPrice = services.reduce((acc, s) => acc + Number(s.price), 0)
+
+      // Maksimum toplam süre kuralı (opsiyonel 180dk)
+      if (totalDuration > 180) {
+        return { success: false, error: 'Toplam süre 180 dakikayı aşamaz' }
+      }
+
+      computedEndTime = addMinutesToTime(validatedData.startTime, totalDuration)
+    } else {
+      // Eski sistem: barber.slotDuration veya verilen endTime
+      if (!computedEndTime) {
+        const barber = await prisma.barber.findUnique({ where: { id: validatedData.barberId } })
+        const duration = barber?.slotDuration ?? settings?.slotDuration ?? 30
+        computedEndTime = addMinutesToTime(validatedData.startTime, duration)
+      }
+    }
+
+    // Çakışma kontrolü (aralık örtüşmesi)
+    const overlap = await prisma.appointment.findFirst({
       where: {
         barberId: validatedData.barberId,
         date: appointmentDate,
-        startTime: validatedData.startTime,
-        status: { not: 'cancelled' }
-      }
+        status: { not: 'cancelled' },
+        OR: [
+          {
+            AND: [
+              { startTime: { lte: validatedData.startTime } },
+              { endTime: { gt: validatedData.startTime } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { lt: computedEndTime! } },
+              { endTime: { gte: computedEndTime! } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { gte: validatedData.startTime } },
+              { endTime: { lte: computedEndTime! } },
+            ],
+          },
+        ],
+      },
     })
 
-    if (existingAppointment) {
-      return { success: false, error: 'Bu saatte başka bir randevu var' }
+    if (overlap) {
+      return { success: false, error: 'Seçilen zaman aralığı dolu' }
     }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        customerName: validatedData.customerName,
-        customerPhone: validatedData.customerPhone,
-        customerEmail: validatedData.customerEmail,
-        notes: validatedData.notes,
-        barberId: validatedData.barberId,
-        date: appointmentDate,
-        startTime: validatedData.startTime,
-        endTime: validatedData.endTime,
-        status: 'pending'
+    const result = await prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.create({
+        data: {
+          customerName: validatedData.customerName,
+          customerPhone: validatedData.customerPhone,
+          customerEmail: validatedData.customerEmail,
+          notes: validatedData.notes,
+          barberId: validatedData.barberId,
+          date: appointmentDate,
+          startTime: validatedData.startTime,
+          endTime: computedEndTime!,
+          status: 'pending',
+          totalDuration: totalDuration,
+          totalPrice: totalPrice,
+        },
+      })
+
+      if (settings?.serviceBasedDuration && validatedData.serviceIds?.length) {
+        await Promise.all(
+          validatedData.serviceIds.map((sid) =>
+            tx.appointmentService.create({ data: { appointmentId: appointment.id, serviceId: sid } })
+          )
+        )
       }
+
+      return appointment
     })
 
-    console.log('createAppointment - Kaydedilen randevu:', appointment)
+    console.log('createAppointment - Kaydedilen randevu:', result)
 
     revalidatePath('/admin/appointments')
     revalidatePath('/admin/randevular')
-    return { success: true, appointment }
+    return { success: true, appointment: result }
   } catch (error) {
     console.error('Error creating appointment:', error)
     if (error instanceof z.ZodError) {
@@ -92,10 +164,10 @@ export async function getAppointments(): Promise<Appointment[]> {
       customerName: appointment.customerName,
       customerPhone: appointment.customerPhone,
       customerEmail: appointment.customerEmail ?? undefined,
-      serviceId: appointment.serviceId,
+      serviceId: (appointment as any).serviceId,
       barberId: appointment.barberId,
       date: appointment.date,
-      timeSlot: appointment.timeSlot,
+      timeSlot: `${appointment.startTime}-${appointment.endTime}`,
       status: appointment.status as AppointmentStatus,
       notes: appointment.notes ?? undefined,
       createdAt: appointment.createdAt,
@@ -243,14 +315,17 @@ export async function getAppointmentById(id: string) {
   }
 }
 
-export async function getAvailableSlots(barberId: string, date: Date) {
+export async function getAvailableSlots(barberId: string, date: Date, totalDuration?: number) {
   try {
-    const barber = await prisma.barber.findUnique({
+    const [barber, settings] = await Promise.all([
+      prisma.barber.findUnique({
       where: { id: barberId },
       include: {
         workingHours: true,
       },
-    })
+    }),
+      prisma.appointmentSettings.findFirst(),
+    ])
 
     if (!barber) {
       return { success: false, error: 'Berber bulunamadı' }
@@ -271,11 +346,9 @@ export async function getAvailableSlots(barberId: string, date: Date) {
       },
     })
 
-    // Sabit 10:00-22:00 aralığında slot'lar oluştur
-    const slots = []
-    const fixedStartHour = 10 // 10:00
-    const fixedEndHour = 22   // 22:00
-    const slotDuration = barber.slotDuration || 30 // 30 dakika default
+    // Slot üretimi
+    const slots: { time: string; isAvailable: boolean }[] = []
+    const slotDuration = (settings?.serviceBasedDuration && totalDuration) ? totalDuration : (barber.slotDuration || 30)
 
     // Bugün mü kontrolü - Türkiye saati (UTC+3)
     const now = new Date(new Date().toLocaleString("en-US", {timeZone: "Europe/Istanbul"}))
@@ -286,25 +359,28 @@ export async function getAvailableSlots(barberId: string, date: Date) {
     console.log('getAvailableSlots - Is Today:', isToday)
     console.log('getAvailableSlots - Current Time (TR):', now.getHours() + ':' + now.getMinutes().toString().padStart(2, '0'))
 
-    let currentHour = fixedStartHour
-    let currentMin = 0
+    // Çalışma saatinden başla
+    const [workStartHour, workStartMin] = workingHour ? workingHour.startTime.split(':').map(Number) : [10, 0]
+    const [workEndHour, workEndMin] = workingHour ? workingHour.endTime.split(':').map(Number) : [22, 0]
 
-    while (currentHour < fixedEndHour || (currentHour === fixedEndHour && currentMin === 0)) {
+    let currentHour = workStartHour
+    let currentMin = workStartMin
+
+    while (currentHour * 60 + currentMin <= workEndHour * 60 + workEndMin) {
       const timeString = `${currentHour.toString().padStart(2, '0')}:${currentMin.toString().padStart(2, '0')}`
+      const endTimeForSlot = addMinutesToTime(timeString, slotDuration)
       
-      // Berberin çalışma saatleri dışındaysa disabled
+      // Berberin çalışma saatleri içinde mi ve randevu çakışması var mı
       let isAvailable = false
       if (workingHour && workingHour.isWorking) {
-        const [workStartHour, workStartMin] = workingHour.startTime.split(':').map(Number)
-        const [workEndHour, workEndMin] = workingHour.endTime.split(':').map(Number)
-        
         const slotTime = currentHour * 60 + currentMin
         const workStartTime = workStartHour * 60 + workStartMin
         const workEndTime = workEndHour * 60 + workEndMin
         
-        // Çalışma saatleri içindeyse ve dolu değilse müsait
-        if (slotTime >= workStartTime && slotTime < workEndTime) {
-          const isBooked = existingAppointments.some(apt => apt.startTime === timeString)
+        // Slot, çalışma aralığına tamamen sığıyor mu
+        const slotEndMins = toMinutes(endTimeForSlot)
+        if (slotTime >= workStartTime && slotEndMins <= workEndTime) {
+          const isBooked = existingAppointments.some(apt => rangesOverlap(timeString, endTimeForSlot, apt.startTime, apt.endTime))
           
           // Bugünse geçmiş saatleri kontrol et
           if (isToday) {
@@ -312,7 +388,7 @@ export async function getAvailableSlots(barberId: string, date: Date) {
             const currentMinute = now.getMinutes()
             const currentTime = currentHour * 60 + currentMinute
             
-            // Slot'un saati şu anki saatten küçük veya eşitse: isAvailable = false
+            // Slot başlangıcı şu anki saatten küçük veya eşitse: isAvailable = false
             if (slotTime <= currentTime) {
               isAvailable = false
             } else {
@@ -341,5 +417,105 @@ export async function getAvailableSlots(barberId: string, date: Date) {
   } catch (error) {
     console.error('Error getting available slots:', error)
     return { success: false, error: 'Müsait slotlar alınırken hata oluştu' }
+  }
+}
+
+// Yardımcılar
+function addMinutesToTime(startHHmm: string, minutesToAdd: number): string {
+  const [h, m] = startHHmm.split(':').map(Number)
+  const total = h * 60 + m + minutesToAdd
+  const eh = Math.floor(total / 60)
+  const em = total % 60
+  return `${eh.toString().padStart(2,'0')}:${em.toString().padStart(2,'0')}`
+}
+
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
+}
+
+function rangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  const aS = toMinutes(aStart)
+  const aE = toMinutes(aEnd)
+  const bS = toMinutes(bStart)
+  const bE = toMinutes(bEnd)
+  return aS < bE && bS < aE
+}
+
+export async function getAppointmentWithServices(id: string) {
+  try {
+    const data = await prisma.appointment.findUnique({
+      where: { id },
+      include: {
+        barber: true,
+        services: {
+          include: { service: true }
+        }
+      }
+    })
+    if (!data) return { success: false as const, error: 'Randevu bulunamadı' }
+    return { success: true as const, data }
+  } catch (error) {
+    console.error('Error getAppointmentWithServices:', error)
+    return { success: false as const, error: 'Randevu detayları yüklenemedi' }
+  }
+}
+
+export async function updateAppointment(
+  id: string,
+  data: {
+    barberId?: string
+    date?: string
+    startTime?: string
+    customerName?: string
+    customerPhone?: string
+    customerEmail?: string
+    notes?: string
+    status?: string
+    serviceIds?: string[]
+  }
+) {
+  try {
+    const settings = await prisma.appointmentSettings.findFirst()
+    const serviceBased = !!settings?.serviceBasedDuration
+
+    const updateData: any = { ...data }
+
+    if (data.date) {
+      const d = new Date(data.date)
+      d.setHours(0, 0, 0, 0)
+      updateData.date = d
+    }
+
+    if (serviceBased && data.serviceIds && data.serviceIds.length > 0) {
+      const services = await prisma.service.findMany({ where: { id: { in: data.serviceIds } } })
+      const totalDuration = services.reduce((sum, s) => sum + s.duration, 0)
+      const totalPrice = services.reduce((sum, s) => sum + Number(s.price), 0)
+      updateData.totalDuration = totalDuration
+      updateData.totalPrice = totalPrice
+
+      if (data.startTime) {
+        updateData.endTime = addMinutesToTime(data.startTime, totalDuration)
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.appointment.update({ where: { id }, data: updateData })
+      if (serviceBased && data.serviceIds) {
+        await tx.appointmentService.deleteMany({ where: { appointmentId: id } })
+        if (data.serviceIds.length > 0) {
+          await tx.appointmentService.createMany({
+            data: data.serviceIds.map((sid) => ({ appointmentId: id, serviceId: sid })),
+          })
+        }
+      }
+    })
+
+    revalidatePath('/admin/appointments')
+    revalidatePath('/admin/randevular')
+    return { success: true as const }
+  } catch (error) {
+    console.error('Update appointment error:', error)
+    return { success: false as const, error: 'Randevu güncellenemedi' }
   }
 }

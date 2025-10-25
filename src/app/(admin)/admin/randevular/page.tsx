@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getBarbers } from "@/lib/actions/barber.actions";
 import { getAppointmentsByWeek, getAppointmentById } from "@/lib/actions/appointment";
+import { getAppointmentSettings } from "@/lib/actions/settings";
 import { AppointmentDetailModal } from "./components/AppointmentDetailModal";
 import { CreateAppointmentModal } from "./components/CreateAppointmentModal";
 import { BarberFilter } from "./components/BarberFilter";
@@ -66,6 +67,7 @@ export default function RandevularPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [serviceBased, setServiceBased] = useState(false);
 
   // Haftanın başlangıcını hesapla (Pazartesi)
   const getWeekStart = (date: Date) => {
@@ -88,6 +90,8 @@ export default function RandevularPage() {
   const loadData = async () => {
     setLoading(true);
     try {
+      const settings = await getAppointmentSettings();
+      setServiceBased(!!settings.data?.serviceBasedDuration);
       // Berberleri yükle
       const barbersResult = await getBarbers();
       if (barbersResult.success && barbersResult.data) {
@@ -314,6 +318,11 @@ export default function RandevularPage() {
                               <div className="text-xs opacity-75 truncate">
                                 [{appointment.barber.name.split(' ').map(n => n[0]).join('')}]
                               </div>
+                        {serviceBased && (appointment as any).totalPrice && (
+                          <div className="text-[10px] mt-1 font-semibold">
+                            {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number((appointment as any).totalPrice))}
+                          </div>
+                        )}
                               {appointment.status === 'cancelled' && (
                                 <div className="text-[10px] mt-1 font-semibold">İPTAL</div>
                               )}
@@ -398,7 +407,6 @@ export default function RandevularPage() {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         onSuccess={loadData}
-        barbers={barbers}
       />
     </div>
   );

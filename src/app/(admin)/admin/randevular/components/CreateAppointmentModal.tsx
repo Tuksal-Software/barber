@@ -1,325 +1,513 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { tr } from "date-fns/locale";
-import { CalendarIcon, Clock } from "lucide-react";
-import { createAppointment } from "@/lib/actions/appointment";
-import { getAvailableSlots } from "@/lib/actions/appointment";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
+import {
+  User,
+  Scissors,
+  Calendar,
+  UserCheck,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Loader2,
+  CalendarIcon,
+} from 'lucide-react';
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Card,
+  CardContent,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+// import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+import { ServiceSelection } from '@/components/booking/ServiceSelection';
+import { getActiveBarbers } from '@/lib/actions/barber.actions';
+import { getActiveServices } from '@/lib/actions/services';
+import { getAppointmentSettings } from '@/lib/actions/settings';
+import { getAvailableSlots, createAppointment } from '@/lib/actions/appointment';
 
 interface CreateAppointmentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
-  barbers: Array<{
-    id: string;
-    name: string;
-  }>;
+  onSuccess?: () => void;
 }
 
-export function CreateAppointmentModal({ 
-  isOpen, 
-  onClose, 
-  onSuccess, 
-  barbers 
-}: CreateAppointmentModalProps) {
-  const [formData, setFormData] = useState({
-    customerName: "",
-    customerPhone: "",
-    customerEmail: "",
-    barberId: "",
-    serviceId: "",
-    date: new Date(),
-    timeSlot: "",
-    notes: "",
+export function CreateAppointmentModal({ isOpen, onClose, onSuccess }: CreateAppointmentModalProps) {
+  const router = useRouter();
+  
+  // Step management
+  const [step, setStep] = useState(1);
+  const [serviceBased, setServiceBased] = useState(false);
+  
+  // Form data
+  const [selectedBarber, setSelectedBarber] = useState<string>('');
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [customerData, setCustomerData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    notes: '',
   });
-  const [services, setServices] = useState<any[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingSlots, setLoadingSlots] = useState(false);
-  const [dateOpen, setDateOpen] = useState(false);
 
-  // Form yüklendiğinde servisleri al
+  // Data
+  const [barbers, setBarbers] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  
+  // Loading states
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isSlotsLoading, setIsSlotsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Steps configuration
+  const steps = [
+    { number: 1, title: 'Berber', icon: User },
+    ...(serviceBased ? [{ number: 2, title: 'Hizmetler', icon: Scissors }] : []),
+    { 
+      number: serviceBased ? 3 : 2, 
+      title: 'Tarih & Saat', 
+      icon: Calendar 
+    },
+    { 
+      number: serviceBased ? 4 : 3, 
+      title: 'Müşteri', 
+      icon: UserCheck 
+    },
+  ];
+
+  const maxStep = steps[steps.length - 1].number;
+
+  // Fetch initial data
   useEffect(() => {
-    if (isOpen) {
-      loadServices();
+    const fetchData = async () => {
+      if (!isOpen) return;
+      
+      setIsInitialLoading(true);
+      try {
+        const [barbersData, servicesData, settings] = await Promise.all([
+          getActiveBarbers(),
+          getActiveServices(),
+          getAppointmentSettings(),
+        ]);
+        
+        setBarbers(barbersData?.data || []);
+        setServices(servicesData?.data || []);
+        setServiceBased(settings?.data?.serviceBasedDuration || false);
+      } catch (error) {
+        toast.error('Veriler yüklenirken hata oluştu');
+        console.error(error);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [isOpen]);
+
+  // Fetch available slots when date/barber changes
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!selectedBarber || !selectedDate) return;
+
+      setIsSlotsLoading(true);
+      try {
+        const totalDuration = serviceBased
+          ? services
+              .filter(s => selectedServices.includes(s.id))
+              .reduce((sum, s) => sum + s.duration, 0)
+          : undefined;
+
+        const slots = await getAvailableSlots(
+          selectedBarber,
+          selectedDate,
+          totalDuration
+        );
+
+        setAvailableSlots(slots?.data?.map((slot: any) => slot.time) || []);
+      } catch (error) {
+        toast.error('Slotlar yüklenirken hata oluştu');
+        console.error(error);
+      } finally {
+        setIsSlotsLoading(false);
+      }
+    };
+
+    const currentDateTimeStep = serviceBased ? 3 : 2;
+    if (step === currentDateTimeStep) {
+      fetchSlots();
+    }
+  }, [selectedBarber, selectedDate, selectedServices, serviceBased, step, services]);
+
+  // Reset state on close
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset after animation
+      setTimeout(() => {
+        setStep(1);
+        setSelectedBarber('');
+        setSelectedServices([]);
+        setSelectedDate(null);
+        setSelectedTime('');
+        setCustomerData({ name: '', phone: '', email: '', notes: '' });
+        setAvailableSlots([]);
+      }, 200);
     }
   }, [isOpen]);
 
-  const loadServices = async () => {
-    // Services are not used in the new system
-    setServices([]);
-  };
-
-  const loadAvailableSlots = async (barberId: string, date: Date) => {
-    setLoadingSlots(true);
-    try {
-      const result = await getAvailableSlots(barberId, date);
-      if (result.success && result.data) {
-        setAvailableSlots(result.data);
-      }
-    } catch (error) {
-      console.error("Error loading slots:", error);
-    } finally {
-      setLoadingSlots(false);
+  // Validation functions
+  const canProceedToNextStep = (): boolean => {
+    switch (step) {
+      case 1:
+        return selectedBarber !== '';
+      case 2:
+        return !serviceBased || selectedServices.length > 0;
+      case serviceBased ? 3 : 2:
+        return selectedDate !== null && selectedTime !== '';
+      case serviceBased ? 4 : 3:
+        return (
+          customerData.name.trim() !== '' &&
+          customerData.phone.trim() !== '' &&
+          /^05\d{9}$/.test(customerData.phone.replace(/\s/g, ''))
+        );
+      default:
+        return false;
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  // Submit handler
+  const handleSubmit = async () => {
+    if (!canProceedToNextStep()) {
+      toast.error('Lütfen tüm gerekli alanları doldurun');
+      return;
+    }
 
+    setIsSubmitting(true);
     try {
-      const localDate = new Date(formData.date);
-      localDate.setHours(0, 0, 0, 0);
-      
-      const year = localDate.getFullYear();
-      const month = String(localDate.getMonth() + 1).padStart(2, '0');
-      const day = String(localDate.getDate()).padStart(2, '0');
-      const dateString = `${year}-${month}-${day}`;
-
-      const result = await createAppointment({
-        customerName: formData.customerName,
-        customerPhone: formData.customerPhone,
-        customerEmail: formData.customerEmail,
-        notes: formData.notes,
-        barberId: formData.barberId,
-        date: dateString,
-        startTime: formData.timeSlot,
-        endTime: calculateEndTime(formData.timeSlot),
+      const res = await createAppointment({
+        barberId: selectedBarber,
+        date: format(selectedDate!, 'yyyy-MM-dd'),
+        startTime: selectedTime,
+        customerName: customerData.name.trim(),
+        customerPhone: customerData.phone.trim(),
+        customerEmail: customerData.email.trim() || undefined,
+        notes: customerData.notes.trim() || undefined,
+        serviceIds: serviceBased && selectedServices.length > 0 
+          ? selectedServices 
+          : undefined,
       });
-
-      if (result.success) {
-        toast.success("Randevu başarıyla oluşturuldu");
-        onSuccess();
+      if (res.success) {
+        toast.success('Randevu başarıyla oluşturuldu');
+        onSuccess?.();
         onClose();
-        resetForm();
+        router.refresh();
       } else {
-        toast.error(result.error || "Randevu oluşturulurken hata oluştu");
+        toast.error(res.error || 'Randevu oluşturulamadı');
       }
-    } catch (error) {
-      toast.error("Randevu oluşturulurken hata oluştu");
+    } catch (e: any) {
+      toast.error(e?.message || 'Randevu oluşturulamadı');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const calculateEndTime = (startTime: string, duration: number = 30) => {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const startMinutes = hours * 60 + minutes;
-    const endMinutes = startMinutes + duration;
-    const endHours = Math.floor(endMinutes / 60);
-    const endMins = endMinutes % 60;
-    return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
-  };
-
-  const resetForm = () => {
-    setFormData({
-      customerName: "",
-      customerPhone: "",
-      customerEmail: "",
-      barberId: "",
-      serviceId: "",
-      date: new Date(),
-      timeSlot: "",
-      notes: "",
-    });
-    setAvailableSlots([]);
-  };
-
-  const handleBarberChange = (barberId: string) => {
-    setFormData(prev => ({ ...prev, barberId, timeSlot: "" }));
-    if (barberId && formData.date) {
-      loadAvailableSlots(barberId, formData.date);
-    }
-  };
-
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-      setFormData(prev => ({ ...prev, date, timeSlot: "" }));
-      if (formData.barberId) {
-        loadAvailableSlots(formData.barberId, date);
-      }
-    }
-  };
+  const dateTimeStep = serviceBased ? 3 : 2;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">Yeni Randevu Oluştur</DialogTitle>
+          <DialogTitle>Yeni Randevu Oluştur</DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Müşteri Bilgileri */}
-          <div className="space-y-4">
-            <h4 className="font-semibold text-lg">Müşteri Bilgileri</h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="customerName">Müşteri Adı *</Label>
-                <Input
-                  id="customerName"
-                  value={formData.customerName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="customerPhone">Telefon *</Label>
-                <Input
-                  id="customerPhone"
-                  value={formData.customerPhone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, customerPhone: e.target.value }))}
-                  required
-                />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="customerEmail">Email (Opsiyonel)</Label>
-              <Input
-                id="customerEmail"
-                type="email"
-                value={formData.customerEmail}
-                onChange={(e) => setFormData(prev => ({ ...prev, customerEmail: e.target.value }))}
-              />
-            </div>
+        {/* Progress */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            {steps.map((s, idx) => (
+              <div key={s.number} className="flex items-center flex-1">
+                <div className="flex flex-col items-center gap-1 flex-1">
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center transition-all',
+                      step >= s.number
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    <s.icon className="h-5 w-5" />
+                  </div>
+                  <span
+                    className={cn(
+                      'text-xs font-medium text-center',
+                      step >= s.number ? 'text-foreground' : 'text-muted-foreground'
+                    )}
+                  >
+                    {s.title}
+                  </span>
+                </div>
+                {idx < steps.length - 1 && (
+                  <div
+                    className={cn(
+                      'h-0.5 flex-1 mx-2 transition-all',
+                      step > s.number ? 'bg-primary' : 'bg-muted'
+                    )}
+                  />
+                )}
+              </div>
+            ))}
           </div>
+        </div>
 
-          {/* Randevu Detayları */}
-          <div className="space-y-4">
-            <h4 className="font-semibold text-lg">Randevu Detayları</h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Berber *</Label>
-                <Select value={formData.barberId} onValueChange={handleBarberChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Berber seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {barbers.map((barber) => (
-                      <SelectItem key={barber.id} value={barber.id}>
-                        {barber.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Hizmet *</Label>
-                <Select value={formData.serviceId} onValueChange={(value) => setFormData(prev => ({ ...prev, serviceId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Hizmet seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {services.map((service) => (
-                      <SelectItem key={service.id} value={service.id}>
-                        {service.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+        {/* Step Content */}
+        <div className="min-h-[400px]">
+          {isInitialLoading ? (
+            <div className="space-y-4 py-8">
+              <div className="h-32 w-full bg-muted animate-pulse rounded" />
+              <div className="h-32 w-full bg-muted animate-pulse rounded" />
+              <div className="h-32 w-full bg-muted animate-pulse rounded" />
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tarih *</Label>
-                <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !formData.date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.date ? format(formData.date, "PPP", { locale: tr }) : "Tarih seçin"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={formData.date}
-                      onSelect={handleDateChange}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+          ) : step === 1 ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Berber Seçin</h3>
+                <p className="text-sm text-muted-foreground">Randevu oluşturmak istediğiniz berberi seçin</p>
               </div>
-
-              <div className="space-y-2">
-                <Label>Saat *</Label>
-                <Select 
-                  value={formData.timeSlot} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, timeSlot: value }))}
-                  disabled={loadingSlots || availableSlots.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={
-                      loadingSlots ? "Yükleniyor..." : 
-                      availableSlots.length === 0 ? "Önce berber ve tarih seçin" :
-                      "Saat seçin"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSlots.map((slot) => (
-                      <SelectItem 
-                        key={slot.time} 
-                        value={slot.time}
-                        disabled={!slot.isAvailable}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4" />
-                          <span>{slot.time}</span>
-                          {!slot.isAvailable && (
-                            <span className="text-xs text-red-500">(Dolu)</span>
+              {barbers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Aktif berber bulunamadı</p>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  {barbers.map((barber) => (
+                    <Card
+                      key={barber.id}
+                      className={cn(
+                        'cursor-pointer transition-all hover:shadow-md',
+                        selectedBarber === barber.id && 'ring-2 ring-primary'
+                      )}
+                      onClick={() => setSelectedBarber(barber.id)}
+                    >
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={barber.image} />
+                          <AvatarFallback>{barber.name[0]}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-semibold">{barber.name}</p>
+                          {barber.specialties && (
+                            <p className="text-sm text-muted-foreground line-clamp-1">
+                              {barber.specialties}
+                            </p>
                           )}
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                        {selectedBarber === barber.id && (
+                          <Check className="h-5 w-5 text-primary" />
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : step === 2 && serviceBased ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Hizmet Seçin</h3>
+                <p className="text-sm text-muted-foreground">Sunulacak hizmetleri seçin (En az 1 hizmet)</p>
+              </div>
+              {services.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Scissors className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>Aktif hizmet bulunamadı</p>
+                </div>
+              ) : (
+                <ServiceSelection
+                  services={services as any}
+                  selectedServices={selectedServices}
+                  onSelectionChange={setSelectedServices}
+                />
+              )}
+            </div>
+          ) : step === dateTimeStep ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Tarih ve Saat Seçin</h3>
+                <p className="text-sm text-muted-foreground">Müsait tarih ve saati seçin</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label className="mb-2 block">Tarih</Label>
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate || undefined}
+                    onSelect={(date) => {
+                      setSelectedDate(date || null);
+                      setSelectedTime(''); // Reset time when date changes
+                    }}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                    locale={tr}
+                    className="rounded-md border w-full"
+                  />
+                </div>
+                {selectedDate && (
+                  <div className="space-y-2">
+                    <Label>Uygun Saatler</Label>
+                    {isSlotsLoading ? (
+                      <div className="grid grid-cols-4 gap-2">
+                        {[...Array(8)].map((_, i) => (
+                          <div key={i} className="h-10 bg-muted animate-pulse rounded" />
+                        ))}
+                      </div>
+                    ) : availableSlots.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CalendarIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">
+                          {format(selectedDate, 'd MMMM yyyy', { locale: tr })} için uygun slot bulunamadı
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {availableSlots.map((slot) => (
+                          <Button
+                            key={slot}
+                            type="button"
+                            variant={selectedTime === slot ? 'default' : 'outline'}
+                            onClick={() => setSelectedTime(slot)}
+                            className="h-10 text-sm"
+                          >
+                            {slot}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notlar</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Randevu notları..."
-                rows={3}
-              />
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Müşteri Bilgileri</h3>
+                <p className="text-sm text-muted-foreground">Müşteri iletişim bilgilerini girin</p>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="customer-name">
+                    Ad Soyad <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="customer-name"
+                    value={customerData.name}
+                    onChange={(e) => setCustomerData({ ...customerData, name: e.target.value })}
+                    placeholder="Ahmet Yılmaz"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="customer-phone">
+                    Telefon <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="customer-phone"
+                    value={customerData.phone}
+                    onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
+                    placeholder="05XX XXX XX XX"
+                    className="mt-1"
+                  />
+                  {customerData.phone && !/^05\d{9}$/.test(customerData.phone.replace(/\s/g, '')) && (
+                    <p className="text-xs text-destructive mt-1">
+                      Geçerli bir telefon numarası girin (05XX XXX XX XX)
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="customer-email">E-posta</Label>
+                  <Input
+                    id="customer-email"
+                    type="email"
+                    value={customerData.email}
+                    onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
+                    placeholder="ornek@email.com"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="customer-notes">Notlar</Label>
+                  <Textarea
+                    id="customer-notes"
+                    value={customerData.notes}
+                    onChange={(e) => setCustomerData({ ...customerData, notes: e.target.value })}
+                    placeholder="Özel istekler veya notlar..."
+                    rows={3}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={onClose}>
-              İptal
+        {/* Navigation */}
+        <DialogFooter className="gap-2 sm:gap-0">
+          {step > 1 && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStep(step - 1)}
+              disabled={isSubmitting}
+              className="sm:mr-2"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Geri
             </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Oluşturuluyor..." : "Oluştur"}
+          )}
+
+          {step < maxStep ? (
+            <Button
+              onClick={() => setStep(step + 1)}
+              disabled={!canProceedToNextStep() || isInitialLoading}
+            >
+              İleri
+              <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
-          </div>
-        </form>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              disabled={!canProceedToNextStep() || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Oluşturuluyor...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Randevu Oluştur
+                </>
+              )}
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

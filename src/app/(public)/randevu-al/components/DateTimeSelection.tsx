@@ -22,13 +22,15 @@ interface DateTimeSelectionProps {
   onSelect: (date: Date, timeSlot: string) => void;
   selectedDate?: Date | null;
   selectedTime?: string;
+  totalDuration?: number;
 }
 
 export function DateTimeSelection({ 
   barberId, 
   onSelect, 
   selectedDate, 
-  selectedTime 
+  selectedTime,
+  totalDuration,
 }: DateTimeSelectionProps) {
   const [date, setDate] = useState<Date | undefined>(selectedDate || undefined);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
@@ -40,14 +42,14 @@ export function DateTimeSelection({
     if (date) {
       loadTimeSlots(date);
     }
-  }, [date, barberId]);
+  }, [date, barberId, totalDuration]);
 
   const loadTimeSlots = async (selectedDate: Date) => {
     try {
       setLoading(true);
       setError(null);
       
-      const result = await getAvailableSlots(barberId, selectedDate);
+      const result = await getAvailableSlots(barberId, selectedDate, totalDuration);
       
       if (result.success && result.data) {
         setTimeSlots(result.data);

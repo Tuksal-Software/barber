@@ -17,8 +17,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   console.log('Checking availability for:', { barberId: id, date: dateStr, dayOfWeek })
 
   // Berber o gün çalışıyor mu?
-  const workingHour = await prisma.workingHour.findUnique({
-    where: { barberId_dayOfWeek: { barberId: id, dayOfWeek } }
+  const workingHour = await prisma.workingHour.findFirst({
+    where: { barberId: id, dayOfWeek }
   })
 
   console.log('Working hour found:', workingHour)

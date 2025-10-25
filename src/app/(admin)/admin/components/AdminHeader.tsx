@@ -29,6 +29,8 @@ const breadcrumbMap: Record<string, string> = {
   "/admin/berberler": "Berberler",
   "/admin/berberler/yeni": "Yeni Berber",
   "/admin/randevular": "Randevular",
+  "/admin/services": "Hizmetler",
+  "/admin/settings": "Ayarlar",
   "/admin/ayarlar": "Ayarlar",
   "/admin/ayarlar/randevu-ayarlari": "Randevu Ayarları",
   "/admin/ayarlar/site-ayarlari": "Site Ayarları",
@@ -111,7 +113,7 @@ export function AdminHeader() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/admin/ayarlar" className="cursor-pointer">
+                <Link href="/admin/settings" className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Ayarlar</span>
                 </Link>

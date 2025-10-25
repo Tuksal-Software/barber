@@ -11,6 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { createAppointment } from '@/lib/actions/appointment';
+import { getAppointmentSettings } from '@/lib/actions/settings';
+import { getActiveServices } from '@/lib/actions/services';
+import { ServiceSelection as PublicServiceSelection } from '@/components/booking/ServiceSelection';
 import { getActiveBarbers } from '@/lib/actions/barber.actions';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -43,6 +46,9 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [appointmentId, setAppointmentId] = useState<string>('');
+  const [serviceBasedDuration, setServiceBasedDuration] = useState(false);
+  const [services, setServices] = useState<any[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
   const calculateEndTime = (startTime: string, duration: number = 30) => {
     const [hours, minutes] = startTime.split(':').map(Number);
@@ -64,19 +70,28 @@ export default function BookingPage() {
         setBarber(selectedBarber as any);
       }
     }
-    
-    setStep(2);
+
+    // Ayarları ve hizmetleri yükle
+    const [settingsRes, servicesRes] = await Promise.all([
+      getAppointmentSettings(),
+      getActiveServices(),
+    ]);
+    const isServiceBased = !!settingsRes.data?.serviceBasedDuration;
+    setServiceBasedDuration(isServiceBased);
+    if (servicesRes.success) setServices(servicesRes.data as any);
+
+    setStep(isServiceBased ? 2 : 2);
   };
 
   const handleDateTimeSelect = (selectedDate: Date, selectedTimeSlot: string) => {
     setDate(selectedDate);
     setTimeSlot(selectedTimeSlot);
-    setStep(3);
+    setStep(serviceBasedDuration ? 4 : 3);
   };
 
   const handleCustomerSubmit = (data: CustomerFormData) => {
     setCustomerData(data);
-    setStep(4);
+    setStep(serviceBasedDuration ? 5 : 4);
   };
 
   const handleConfirmAppointment = async () => {
@@ -100,7 +115,8 @@ export default function BookingPage() {
         notes: customerData.notes,
         date: dateString,
         startTime: timeSlot,
-        endTime: calculateEndTime(timeSlot),
+        endTime: serviceBasedDuration ? undefined : calculateEndTime(timeSlot),
+        serviceIds: serviceBasedDuration ? selectedServices : undefined,
       });
 
       if (result.success) {
@@ -126,7 +142,7 @@ export default function BookingPage() {
 
   const ProgressStepper = () => (
     <div className="flex items-center justify-center mb-8">
-      {[1, 2, 3, 4].map((stepNumber) => (
+      {(serviceBasedDuration ? [1,2,3,4,5] : [1,2,3,4]).map((stepNumber) => (
         <div key={stepNumber} className="flex items-center">
           <div className={cn(
             "w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all duration-500 transform",
@@ -141,6 +157,7 @@ export default function BookingPage() {
             )}
           </div>
           {stepNumber < 4 && (
+            // hizmet bazlı modda 5 adım
             <div className={cn(
               "w-16 h-1 mx-2 transition-all duration-500",
               step > stepNumber ? "bg-gradient-to-r from-teal-500 to-cyan-500" : "bg-gray-200"
@@ -212,23 +229,35 @@ export default function BookingPage() {
             />
           )}
 
-          {step === 2 && barberId && (
+          {step === 2 && serviceBasedDuration && (
+            <PublicServiceSelection
+              services={services as any}
+              selectedServices={selectedServices}
+              onSelectionChange={setSelectedServices}
+              onNext={() => setStep(3)}
+              onBack={() => setStep(1)}
+              showNavigation={true}
+            />
+          )}
+
+          {((!serviceBasedDuration && step === 2) || (serviceBasedDuration && step === 3)) && barberId && (
             <DateTimeSelection
               barberId={barberId}
               onSelect={handleDateTimeSelect}
               selectedDate={date}
               selectedTime={timeSlot}
+              totalDuration={serviceBasedDuration ? services.filter((s: any) => selectedServices.includes(s.id)).reduce((acc: number, s: any) => acc + s.duration, 0) : undefined}
             />
           )}
 
-          {step === 3 && (
+          {((!serviceBasedDuration && step === 3) || (serviceBasedDuration && step === 4)) && (
             <CustomerForm
               onSubmit={handleCustomerSubmit}
               initialData={customerData || undefined}
             />
           )}
 
-          {step === 4 && barberId && date && timeSlot && customerData && barber && (
+          {((!serviceBasedDuration && step === 4) || (serviceBasedDuration && step === 5)) && barberId && date && timeSlot && customerData && barber && (
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Randevu Özeti</h2>
@@ -308,11 +337,36 @@ export default function BookingPage() {
                         <p className="font-semibold text-gray-900">
                           {timeSlot} - {calculateEndTime(timeSlot)}
                         </p>
-                        <p className="text-sm text-gray-600">30 dakika</p>
+                        <p className="text-sm text-gray-600">{serviceBasedDuration ? `${services.filter((s: any) => selectedServices.includes(s.id)).reduce((acc: number, s: any) => acc + s.duration, 0)} dakika` : '30 dakika'}</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+                {serviceBasedDuration && selectedServices.length > 0 && (
+                  <Card className="animate-in slide-in-from-bottom-50 duration-500">
+                    <CardHeader>
+                      <CardTitle>Seçilen Hizmetler</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {services.filter((s: any) => selectedServices.includes(s.id)).map((srv: any) => (
+                          <div key={srv.id} className="flex justify-between">
+                            <span>{srv.name} ({srv.duration} dk)</span>
+                            <span className="font-medium">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(srv.price))}</span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between font-semibold text-lg pt-2">
+                          <span>Toplam</span>
+                          <span className="text-teal-600">
+                            {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(
+                              services.filter((s: any) => selectedServices.includes(s.id)).reduce((acc: number, s: any) => acc + Number(s.price), 0)
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Müşteri Bilgileri */}
                 <Card className="animate-in slide-in-from-bottom-50 duration-500">

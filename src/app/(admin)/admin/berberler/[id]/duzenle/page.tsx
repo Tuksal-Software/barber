@@ -23,7 +23,6 @@ export default function BerberDuzenlePage() {
   const [dataLoading, setDataLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
-    email: "",
     password: "",
     experience: 0,
     specialties: "",
@@ -44,12 +43,11 @@ export default function BerberDuzenlePage() {
         const barber = result.data;
         setFormData({
           name: barber.name,
-          email: barber.email,
           password: "",
           experience: barber.experience,
           specialties: barber.specialties || "",
           image: barber.image || "",
-          slotDuration: barber.slotDuration,
+          slotDuration: 30,
         });
 
         if (barber.workingHours && barber.workingHours.length > 0) {
@@ -80,7 +78,6 @@ export default function BerberDuzenlePage() {
     try {
       const updateData: any = {
         name: formData.name,
-        email: formData.email,
         experience: formData.experience,
         specialties: formData.specialties,
         image: formData.image,
@@ -158,21 +155,6 @@ export default function BerberDuzenlePage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email *</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleInputChange("email", e.target.value)}
-                      placeholder="berber@salon.com"
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Yeni Şifre (Opsiyonel)</Label>

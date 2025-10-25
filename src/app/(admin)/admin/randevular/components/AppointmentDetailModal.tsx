@@ -5,6 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+// import { Separator } from "@/components/ui/separator";
+import { getAppointmentSettings } from "@/lib/actions/settings";
+import { getAppointmentWithServices } from "@/lib/actions/appointment";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { 
@@ -59,6 +62,26 @@ export function AppointmentDetailModal({
   const [notes, setNotes] = useState(appointment.notes || '');
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [serviceBased, setServiceBased] = useState(false);
+  const [servicesDetail, setServicesDetail] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const s = await getAppointmentSettings();
+      const sb = !!s.data?.serviceBasedDuration;
+      setServiceBased(sb);
+      if (sb) {
+        const res = await getAppointmentWithServices(appointment.id);
+        if (res.success) {
+          // @ts-ignore
+          setServicesDetail(res.data.services || []);
+        }
+      } else {
+        setServicesDetail(null);
+      }
+    }
+    if (isOpen) load();
+  }, [isOpen, appointment.id]);
 
   useEffect(() => {
     if (isOpen) {
@@ -178,6 +201,38 @@ export function AppointmentDetailModal({
               </div>
             </CardContent>
           </Card>
+
+        {serviceBased && servicesDetail && servicesDetail.length > 0 && (
+          <Card>
+            <CardContent className="pt-6">
+              <h4 className="font-semibold text-lg mb-4">Seçilen Hizmetler</h4>
+              <div className="space-y-2">
+                {servicesDetail.map((it: any) => (
+                  <div key={it.service.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">{it.service.name}</p>
+                      <p className="text-xs text-gray-500">{it.service.duration} dakika</p>
+                    </div>
+                    <span className="font-semibold">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(it.service.price))}</span>
+                  </div>
+                ))}
+              </div>
+
+              <hr className="my-4" />
+
+              <div className="flex justify-between items-center p-3 bg-teal-50 rounded-lg">
+                <div>
+                  <p className="font-semibold">Toplam Süre</p>
+                  <p className="text-sm text-gray-600">{(appointment as any).services?.reduce((sum: number, s: any) => sum + s.service.duration, 0) || 0} dakika</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-600">Toplam Ücret</p>
+                  <p className="text-2xl font-bold text-teal-700">{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number((appointment as any).totalPrice || 0))}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
           {/* Durum ve Notlar */}
           <Card>

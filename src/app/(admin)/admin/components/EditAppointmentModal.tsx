@@ -10,7 +10,11 @@ import { Calendar as CalendarIcon, Clock, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { getAvailableSlots } from "@/lib/actions/appointment";
+import { getAvailableSlots, updateAppointment } from "@/lib/actions/appointment";
+import { getAppointmentSettings } from "@/lib/actions/settings";
+import { getActiveServices } from "@/lib/actions/services";
+import { ServiceSelection } from "@/components/booking/ServiceSelection";
+import { toast } from "sonner";
 
 interface EditAppointmentModalProps {
   appointment: any;
@@ -32,6 +36,9 @@ export function EditAppointmentModal({
   const [availableSlots, setAvailableSlots] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [serviceBased, setServiceBased] = useState(false);
+  const [availableServices, setAvailableServices] = useState<any[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
   useEffect(() => {
     if (appointment?.date) {
@@ -41,17 +48,42 @@ export function EditAppointmentModal({
   }, [appointment]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const init = async () => {
+      try {
+        const settings = await getAppointmentSettings();
+        const isServiceBased = !!settings.data?.serviceBasedDuration;
+        setServiceBased(isServiceBased);
+        if (isServiceBased) {
+          const services = await getActiveServices();
+          if (services.success) setAvailableServices(services.data as any);
+          if ((appointment as any)?.services) {
+            setSelectedServices(((appointment as any).services as any[]).map((s: any) => s.serviceId || s.service?.id).filter(Boolean));
+          }
+        } else {
+          setAvailableServices([]);
+          setSelectedServices([]);
+        }
+      } catch {}
+    };
+    init();
+  }, [isOpen, appointment?.id]);
+
+  useEffect(() => {
     if (selectedDate && appointment?.barberId) {
       loadAvailableSlots();
     }
-  }, [selectedDate]);
+  }, [selectedDate, serviceBased, selectedServices, appointment?.barberId]);
 
   const loadAvailableSlots = async () => {
     if (!selectedDate || !appointment?.barberId) return;
 
     setLoadingSlots(true);
     try {
-      const result = await getAvailableSlots(appointment.barberId, selectedDate);
+      const totalDuration = serviceBased
+        ? availableServices.filter((s: any) => selectedServices.includes(s.id)).reduce((sum: number, s: any) => sum + s.duration, 0)
+        : undefined;
+      const result = await getAvailableSlots(appointment.barberId, selectedDate, totalDuration);
       if (result.success && result.data) {
         setAvailableSlots(result.data);
       }
@@ -73,7 +105,7 @@ export function EditAppointmentModal({
 
   const handleSave = async () => {
     if (!selectedDate || !selectedTime) {
-      alert("Lütfen tarih ve saat seçin");
+      toast.error("Lütfen tarih ve saat seçin");
       return;
     }
 
@@ -84,27 +116,21 @@ export function EditAppointmentModal({
       const day = String(selectedDate.getDate()).padStart(2, "0");
       const dateString = `${year}-${month}-${day}`;
 
-      const response = await fetch(`/api/appointments/${appointment.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          date: dateString,
-          startTime: selectedTime,
-          endTime: calculateEndTime(selectedTime),
-        }),
+      const res = await updateAppointment(appointment.id, {
+        date: dateString,
+        startTime: selectedTime,
+        serviceIds: serviceBased ? selectedServices : undefined,
       });
-
-      if (response.ok) {
+      if (res.success) {
+        toast.success("Randevu güncellendi");
         onSuccess();
         onClose();
       } else {
-        alert("Randevu güncellenemedi");
+        toast.error(res.error || "Randevu güncellenemedi");
       }
     } catch (error) {
       console.error("Error updating appointment:", error);
-      alert("Bir hata oluştu");
+      toast.error("Bir hata oluştu");
     } finally {
       setLoading(false);
     }
@@ -132,6 +158,20 @@ export function EditAppointmentModal({
               </p>
             </div>
           </div>
+
+          {serviceBased && (
+            <div className="space-y-2">
+              <Label>Hizmetler *</Label>
+              <ServiceSelection
+                services={availableServices as any}
+                selectedServices={selectedServices}
+                onSelectionChange={setSelectedServices}
+              />
+              {selectedServices.length === 0 && (
+                <p className="text-sm text-red-600">En az bir hizmet seçmelisiniz</p>
+              )}
+            </div>
+          )}
 
           <div className="space-y-4">
             <div>
@@ -191,6 +231,24 @@ export function EditAppointmentModal({
                 </div>
               )}
             </div>
+
+            {serviceBased && selectedServices.length > 0 && selectedTime && (
+              <div className="mt-2 p-3 rounded-lg border border-teal-200 bg-teal-50 text-teal-800">
+                <div className="text-sm font-medium mb-1">Hesaplanan Bitiş Saati</div>
+                <div className="text-lg font-semibold">
+                  {(() => {
+                    const total = (availableServices as any[])
+                      .filter((s: any) => selectedServices.includes(s.id))
+                      .reduce((sum: number, s: any) => sum + s.duration, 0)
+                    const [h, m] = selectedTime.split(':').map(Number)
+                    const mins = h * 60 + m + total
+                    const eh = String(Math.floor(mins / 60)).padStart(2, '0')
+                    const em = String(mins % 60).padStart(2, '0')
+                    return `${eh}:${em}`
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

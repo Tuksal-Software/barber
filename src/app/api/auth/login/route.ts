@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Berber kontrolü
-    const barber = await prisma.barber.findUnique({
-      where: { email },
+    const barber = await prisma.barber.findFirst({
+      where: { email: email },
     });
 
     if (!barber || !await bcrypt.compare(password, barber.password)) {
@@ -25,20 +25,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!barber.isActive) {
-      return NextResponse.json(
-        { error: "Hesabınız deaktif durumda" },
-        { status: 403 }
-      );
-    }
+    // if (!barber.isActive) {
+    //   return NextResponse.json(
+    //     { error: "Hesabınız deaktif durumda" },
+    //     { status: 403 }
+    //   );
+    // }
 
     // Başarılı giriş
     return NextResponse.json({
       success: true,
       barberId: barber.id,
       name: barber.name,
-      email: barber.email,
-      role: barber.role,
     });
   } catch (error) {
     console.error("Login error:", error);
