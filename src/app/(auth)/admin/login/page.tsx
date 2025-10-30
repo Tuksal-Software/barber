@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Scissors, Mail, Lock } from "lucide-react";
+import { Scissors, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -16,6 +16,7 @@ export default function LoginPage() {
     email: "",
     password: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,22 +69,22 @@ export default function LoginPage() {
 
         {/* Login Form */}
         <Card>
-          <CardHeader>
-            <CardTitle>Giriş Yap</CardTitle>
-          </CardHeader>
+        <CardHeader>
+          <CardTitle>Giriş Yap</CardTitle>
+        </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="admin@themenshair.com"
-                    className="pl-10"
+                  className="pl-10 h-11 rounded-lg border-gray-300 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 focus-visible:border-teal-500"
                     required
                   />
                 </div>
@@ -92,16 +93,28 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="password">Şifre</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="password"
-                    type="password"
+                  type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                     placeholder="••••••••"
-                    className="pl-10"
+                  className="pl-10 pr-10 h-11 rounded-lg border-gray-300 placeholder:text-gray-400 focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-1 focus-visible:border-teal-500"
                     required
                   />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
                 </div>
               </div>
 
