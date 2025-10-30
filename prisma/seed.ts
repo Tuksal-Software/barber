@@ -6,29 +6,15 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Seeding database...')
 
-  // Site Ayarları
-  await prisma.siteSettings.create({
-    data: {
-      salonName: 'The Mens Hair',
-      description: 'Profesyonel Erkek Kuaförlük Hizmetleri',
-      address: 'Örnek Mahalle, Cadde No:123, İstanbul',
-      phone: '0555 123 4567',
-      email: 'info@themenshair.com',
-      workingHours: 'Pazartesi-Cumartesi: 09:00-19:00',
-      socialMedia: JSON.stringify({
-        instagram: 'https://instagram.com/themenshair',
-        facebook: 'https://facebook.com/themenshair'
-      })
-    }
-  })
+  // SiteSettings kaldırıldı
 
   // Admin Berber
-  const hashedPassword = await bcrypt.hash('sirinburak1712', 10)
+  const hashedPassword = await bcrypt.hash('123456', 10)
 
   const adminBarber = await prisma.barber.create({
     data: {
       name: 'Ahmet Yılmaz',
-      email: 'admin@barber.com',
+      email: 'admin@themenshair.com',
       password: hashedPassword,
       role: 'admin',
       experience: 10,
@@ -66,10 +52,20 @@ async function main() {
   await prisma.appointmentSettings.create({
     data: {
       slotDuration: 30,
+      slotDurationLabel: '30 Dakika',
       maxAdvanceDays: 30,
       isActive: true,
-      serviceBasedDuration: false
+      serviceBasedDuration: true,
     }
+  })
+
+  // Hizmetler
+  const services = await prisma.service.createMany({
+    data: [
+      { name: 'Saç Kesimi', description: 'Profesyonel saç kesimi', duration: 30, price: 150, category: 'Saç', sortOrder: 1, isActive: true },
+      { name: 'Sakal Traşı', description: 'Hijyenik sakal traşı', duration: 20, price: 100, category: 'Sakal', sortOrder: 2, isActive: true },
+      { name: 'Saç & Sakal', description: 'Saç ve sakal birlikte', duration: 50, price: 220, category: 'Kombinasyon', sortOrder: 3, isActive: true },
+    ]
   })
 
   console.log('✅ Seed completed!')

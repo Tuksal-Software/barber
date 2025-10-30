@@ -20,7 +20,7 @@ export async function getAppointmentSettings(): Promise<{ success: boolean; data
       data: {
         maxAdvanceDays: s.maxAdvanceDays,
         slotDuration: s.slotDuration,
-        serviceBasedDuration: false,
+        serviceBasedDuration: !!(s as any).serviceBasedDuration,
       },
     }
   } catch (e: any) {
@@ -49,6 +49,7 @@ export async function updateAppointmentSettings(input: Partial<Settings>): Promi
         slotDuration: input.slotDuration ?? existing.slotDuration,
         maxAdvanceDays: input.maxAdvanceDays ?? existing.maxAdvanceDays,
         slotDurationLabel: `${input.slotDuration ?? existing.slotDuration} Dakika`,
+        serviceBasedDuration: input.serviceBasedDuration ?? (existing as any).serviceBasedDuration ?? false,
       },
     })
 
