@@ -1,15 +1,20 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
+import "./globals.css";
+import { validateEnv, validateProductionEnv } from "@/lib/config/validate-env";
+
+validateEnv();
+validateProductionEnv();
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
-  title: "The Mens Hair - Profesyonel Erkek Kuaförlük Hizmetleri",
-  description: "Stilinizi yansıtan profesyonel kuaförlük deneyimi. Modern ve hijyenik ortamda saç kesimi, sakal traşı ve daha fazlası için randevu alın.",
-  icons: {
-    icon: '/logo.png',
-    shortcut: '/logo.png',
-    apple: '/logo.png',
-  },
+  title: "The Mens Hair",
+  description: "Mobile-first barber appointment system",
 };
 
 export default function RootLayout({
@@ -18,11 +23,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr">
-      <body className="antialiased">
-        {children}
-        <Toaster position="top-right" />
+    <html lang="tr" className={inter.variable}>
+      <body>
+        <main>{children}</main>
+        <Toaster />
       </body>
     </html>
   );
 }
+
