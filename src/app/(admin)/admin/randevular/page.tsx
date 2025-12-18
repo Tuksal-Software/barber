@@ -15,12 +15,8 @@ import {
   Phone,
   Mail
 } from "lucide-react";
-import { getBarbers } from "@/lib/actions/barber.actions";
-import { getAppointmentsByWeek, getAppointmentById } from "@/lib/actions/appointment";
-import { getAppointmentSettings } from "@/lib/actions/settings";
-import { AppointmentDetailModal } from "./components/AppointmentDetailModal";
-import { CreateAppointmentModal } from "./components/CreateAppointmentModal";
-import { BarberFilter } from "./components/BarberFilter";
+import { getActiveBarbers } from "@/lib/actions/barber.actions";
+import { getPendingAppointmentRequests } from "@/lib/actions/appointment-query.actions";
 
 interface Barber {
   id: string;
@@ -63,11 +59,7 @@ export default function RandevularPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string>('all');
   const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [serviceBased, setServiceBased] = useState(false);
 
   // Haftanın başlangıcını hesapla (Pazartesi)
   const getWeekStart = (date: Date) => {
@@ -90,31 +82,28 @@ export default function RandevularPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const settings = await getAppointmentSettings();
-      setServiceBased(!!settings.data?.serviceBasedDuration);
-      // Berberleri yükle
-      const barbersResult = await getBarbers();
-      if (barbersResult.success && barbersResult.data) {
-        setBarbers(barbersResult.data as any);
-      }
+      const barbersList = await getActiveBarbers();
+      setBarbers(barbersList.map(b => ({ id: b.id, name: b.name })));
 
-      // Randevuları yükle - Filtreleme kontrolü
-      const appointmentsResult = await getAppointmentsByWeek(
-        weekStart,
-        selectedBarber === 'all' ? undefined : selectedBarber
-      );
+      const requests = await getPendingAppointmentRequests();
+      const filteredRequests = selectedBarber === 'all' 
+        ? requests 
+        : requests.filter(r => r.barberId === selectedBarber);
       
-      console.log('Appointments fetch result:', appointmentsResult);
-      console.log('Selected barber:', selectedBarber);
-      console.log('Week start:', weekStart);
-      
-      if (appointmentsResult.success && appointmentsResult.data) {
-        console.log('Appointments data:', appointmentsResult.data);
-        setAppointments(appointmentsResult.data as any);
-      } else {
-        console.log('No appointments found or error:', appointmentsResult);
-        setAppointments([]);
-      }
+      setAppointments(filteredRequests.map(r => ({
+        id: r.id,
+        customerName: r.customerName,
+        customerPhone: r.customerPhone,
+        customerEmail: r.customerEmail || undefined,
+        date: new Date(r.date),
+        startTime: r.requestedStartTime,
+        endTime: r.requestedEndTime,
+        status: r.status,
+        barber: {
+          id: r.barberId,
+          name: r.barberName,
+        }
+      })) as any);
     } catch (error) {
       console.error("Error loading data:", error);
       setAppointments([]);
@@ -172,15 +161,7 @@ export default function RandevularPage() {
   };
 
   const handleAppointmentClick = async (appointmentId: string) => {
-    try {
-      const result = await getAppointmentById(appointmentId);
-      if (result.success && result.data) {
-        setSelectedAppointment(result.data as any);
-        setDetailModalOpen(true);
-      }
-    } catch (error) {
-      console.error("Error loading appointment:", error);
-    }
+    console.log('Appointment clicked:', appointmentId);
   };
 
   if (loading) {
@@ -199,21 +180,25 @@ export default function RandevularPage() {
           <h1 className="text-3xl font-bold text-gray-900">Randevular</h1>
           <p className="text-gray-600">Randevu yönetimi ve takvim görünümü</p>
         </div>
-        <Button onClick={() => setCreateModalOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Yeni Randevu
-        </Button>
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
-            <BarberFilter
-              barbers={barbers}
-              selectedBarber={selectedBarber}
-              onBarberChange={setSelectedBarber}
-            />
+            <Select value={selectedBarber} onValueChange={setSelectedBarber}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Berber Seç" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm Berberler</SelectItem>
+                {barbers.map((barber) => (
+                  <SelectItem key={barber.id} value={barber.id}>
+                    {barber.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -318,11 +303,6 @@ export default function RandevularPage() {
                               <div className="text-xs opacity-75 truncate">
                                 [{appointment.barber.name.split(' ').map(n => n[0]).join('')}]
                               </div>
-                        {serviceBased && (appointment as any).totalPrice && (
-                          <div className="text-[10px] mt-1 font-semibold">
-                            {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number((appointment as any).totalPrice))}
-                          </div>
-                        )}
                               {appointment.status === 'cancelled' && (
                                 <div className="text-[10px] mt-1 font-semibold">İPTAL</div>
                               )}
@@ -393,21 +373,6 @@ export default function RandevularPage() {
         </Card>
       </div>
 
-      {/* Modals */}
-      {selectedAppointment && (
-        <AppointmentDetailModal
-          appointment={selectedAppointment}
-          isOpen={detailModalOpen}
-          onClose={() => setDetailModalOpen(false)}
-          onSuccess={loadData}
-        />
-      )}
-      
-      <CreateAppointmentModal
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        onSuccess={loadData}
-      />
     </div>
   );
 }

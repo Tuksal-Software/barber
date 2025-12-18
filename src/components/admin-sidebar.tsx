@@ -82,7 +82,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   }))
 
   return (
-    <Sidebar {...props}>
+    <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
