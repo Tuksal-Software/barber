@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
+  console.log('>>> SEED FILE EXECUTED <<<');
+
   const hash = await bcrypt.hash('Admin123!', 10);
 
   await prisma.barber.create({
@@ -52,11 +54,11 @@ async function main() {
     }
   });
 
-  console.log('Seed tamamlandı');
+  console.log('>>> SEED FINISHED <<<');
 }
 
 main()
-    .catch(e => {
+    .catch((e) => {
       console.error(e);
       process.exit(1);
     })
