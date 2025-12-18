@@ -1,349 +1,229 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { getDashboardStats, getBarberPerformance, getRecentAppointments } from "@/lib/actions/dashboard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Calendar, 
-  Users, 
-  Clock, 
-  TrendingUp, 
-  TrendingDown,
-  Eye,
-  Edit,
-  Star
-} from "lucide-react";
-import { formatDate } from "@/lib/utils";
-import Link from "next/link";
-import { EditAppointmentModal } from "./components/EditAppointmentModal";
-import { updateAppointmentStatus } from "@/lib/actions/appointment";
-import { toast } from "sonner";
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Calendar, Users, CheckCircle, Clock, Loader2, ArrowRight } from "lucide-react"
+import { StatCard } from "@/components/app/StatCard"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { getDashboardStats, getWeeklyAppointments, getAppointmentStatusStats } from "@/lib/actions/stats.actions"
+import { getRecentAppointments } from "@/lib/actions/appointment-query.actions"
+import { format, parseISO } from "date-fns"
+import { tr } from "date-fns/locale/tr"
+import { WeeklyAppointmentsChart } from "@/components/app/WeeklyAppointmentsChart"
+import type { DashboardStats, WeeklyAppointmentData, AppointmentStatusStats } from "@/lib/actions/stats.actions"
+import type { AppointmentRequestListItem } from "@/lib/actions/appointment-query.actions"
 
-export default function AdminDashboard() {
-  const [stats, setStats] = useState<any>(null);
-  const [performance, setPerformance] = useState<any[]>([]);
-  const [appointments, setAppointments] = useState<any[]>([]);
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+const statusColors = {
+  pending: "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
+  approved: "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
+  rejected: "bg-red-50 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+  cancelled: "bg-muted text-muted-foreground border-border",
+}
+
+const statusLabels = {
+  pending: "Bekliyor",
+  approved: "Onaylandı",
+  rejected: "Reddedildi",
+  cancelled: "İptal",
+}
+
+export default function AdminDashboardPage() {
+  const router = useRouter()
+  const [stats, setStats] = useState<DashboardStats>({
+    pending: 0,
+    approvedToday: 0,
+    completed: 0,
+    activeBarbers: 0,
+  })
+  const [recentAppointments, setRecentAppointments] = useState<AppointmentRequestListItem[]>([])
+  const [weeklyData, setWeeklyData] = useState<WeeklyAppointmentData[]>([])
+  const [statusStats, setStatusStats] = useState<AppointmentStatusStats>({ approved: 0, cancelled: 0 })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    setLoading(true);
-    try {
-      const [statsResult, performanceResult, appointmentsResult] = await Promise.all([
-        getDashboardStats(),
-        getBarberPerformance(),
-        getRecentAppointments(),
-      ]);
-
-      if (statsResult.success) setStats(statsResult.data);
-      if (performanceResult.success) setPerformance(performanceResult.data || []);
-      if (appointmentsResult.success) setAppointments(appointmentsResult.data || []);
-    } catch (error) {
-      console.error("Error loading dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditClick = (appointment: any) => {
-    setSelectedAppointment(appointment);
-    setEditModalOpen(true);
-  };
-
-  const handleEditSuccess = () => {
-    loadDashboardData();
-  };
-
-  const handleStatusChange = async (appointmentId: string, newStatus: string) => {
-    try {
-      const result = await updateAppointmentStatus(appointmentId, newStatus as any);
-      if (result.success) {
-        toast.success("Randevu durumu güncellendi");
-        loadDashboardData();
-      } else {
-        toast.error(result.error || "Güncelleme başarısız");
+    async function fetchData() {
+      try {
+        setLoading(true)
+        const [statsData, appointmentsData, weeklyData, statusStats] = await Promise.all([
+          getDashboardStats(),
+          getRecentAppointments(5),
+          getWeeklyAppointments(),
+          getAppointmentStatusStats(),
+        ])
+        setStats(statsData)
+        setRecentAppointments(appointmentsData)
+        setWeeklyData(weeklyData)
+        setStatusStats(statusStats)
+      } catch (error) {
+      } finally {
+        setLoading(false)
       }
-    } catch (error) {
-      toast.error("Bir hata oluştu");
     }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Yükleniyor...</div>
-      </div>
-    );
-  }
+    fetchData()
+  }, [])
 
   return (
-    <>
-      <EditAppointmentModal
-        appointment={selectedAppointment}
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        onSuccess={handleEditSuccess}
-      />
-      <div className="space-y-6">
-      {/* Page Header */}
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Salon yönetim paneline hoş geldiniz</p>
+        <h1 className="text-2xl font-bold text-foreground md:text-3xl">Dashboard</h1>
+        <p className="text-sm text-muted-foreground mt-1 md:text-base">Genel bakış</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bugünkü Randevular</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.todayAppointments || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.todayVsYesterday && stats.todayVsYesterday !== 0 ? (
-                <span className={stats.todayVsYesterday > 0 ? "text-green-600" : "text-red-600"}>
-                  {stats.todayVsYesterday > 0 ? (
-                    <>
-                      <TrendingUp className="inline h-3 w-3 mr-1" />
-                      +{stats.todayVsYesterday} dünden
-                    </>
-                  ) : (
-                    <>
-                      <TrendingDown className="inline h-3 w-3 mr-1" />
-                      {stats.todayVsYesterday} dünden
-                    </>
-                  )}
-                </span>
-              ) : (
-                "Değişiklik yok"
-              )}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bu Hafta Toplam</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.weekAppointments || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats?.weekGrowth && stats.weekGrowth !== 0 ? (
-                <span className={stats.weekGrowth > 0 ? "text-green-600" : "text-red-600"}>
-                  {stats.weekGrowth > 0 ? (
-                    <>
-                      <TrendingUp className="inline h-3 w-3 mr-1" />
-                      %{stats.weekGrowth} artış
-                    </>
-                  ) : (
-                    <>
-                      <TrendingDown className="inline h-3 w-3 mr-1" />
-                      %{Math.abs(stats.weekGrowth)} azalış
-                    </>
-                  )}
-                </span>
-              ) : (
-                "Geçen hafta ile aynı"
-              )}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Bekleyen Randevular</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.pendingAppointments || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Onay bekliyor
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Aktif Berberler</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.activeBarbers || 0}</div>
-            <p className="text-xs text-muted-foreground">
-              Çalışır durumda
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Barber Performance Cards */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Berber Performansı</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {performance?.map((barber) => (
-            <Card key={barber.id}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={barber.image || ""} />
-                    <AvatarFallback>
-                      {barber.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className="text-lg">{barber.name}</CardTitle>
-                    <div className="flex items-center space-x-2">
-                      <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                      <span className="text-sm text-gray-600">{barber.rating.toString()}</span>
-                      <span className="text-sm text-gray-600">• {barber.experience} yıl deneyim</span>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Bugün</span>
-                    <span>{barber.todayAppointments}/10 dolu</span>
-                  </div>
-                  <Progress value={(barber.todayAppointments / 10) * 100} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Bu Hafta</span>
-                    <span>{barber.weekAppointments}/40 dolu</span>
-                  </div>
-                  <Progress value={(barber.weekAppointments / 40) * 100} className="h-2" />
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Doluluk Oranı</span>
-                  <Badge 
-                    variant={
-                      barber.occupancyRate >= 80 ? "destructive" :
-                      barber.occupancyRate >= 60 ? "warning" : "success"
-                    }
-                  >
-                    %{barber.occupancyRate}
-                  </Badge>
-                </div>
-
-                {barber.upcomingAppointments.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Yaklaşan Randevular:</p>
-                    <div className="space-y-1">
-                      {barber.upcomingAppointments.map((apt: any, index: number) => (
-                        <div key={index} className="text-xs text-gray-600">
-                          {apt.time} - {apt.customer}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Bugünkü Randevular"
+            value={stats.approvedToday}
+            icon={Calendar}
+          />
+          <StatCard
+            title="Bekleyen Randevular"
+            value={stats.pending}
+            icon={Clock}
+          />
+          <StatCard
+            title="Onaylanan Randevular"
+            value={stats.completed}
+            icon={CheckCircle}
+          />
+          <StatCard
+            title="Aktif Berber Sayısı"
+            value={stats.activeBarbers}
+            icon={Users}
+          />
+        </div>
+      )}
+
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+        <WeeklyAppointmentsChart data={weeklyData} />
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-foreground">Randevu Durumları</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Onaylanan ve İptal Edilen Randevular
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Onaylanan</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{statusStats.approved}</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+                    <CheckCircle className="h-6 w-6 text-primary" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">İptal Edilen</p>
+                    <p className="text-2xl font-bold text-foreground mt-1">{statusStats.cancelled}</p>
+                  </div>
+                  <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center border border-destructive/20">
+                    <Clock className="h-6 w-6 text-destructive" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Recent Appointments Table */}
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">Son Randevular</h2>
-          <Link href="/admin/randevular">
-            <Button variant="outline" size="sm">
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-foreground">Son Randevular</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                En son oluşturulan 5 randevu
+              </CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/admin/randevular")}
+              className="text-muted-foreground hover:text-foreground w-full sm:w-auto"
+            >
               Tümünü Gör
+              <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-          </Link>
-        </div>
-        
-        <Card>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Müşteri</TableHead>
-                  <TableHead>Berber</TableHead>
-                  <TableHead>Tarih & Saat</TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead>İşlemler</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {appointments?.map((appointment) => (
-                  <TableRow key={appointment.id}>
-                    <TableCell className="font-medium">
-                      {appointment.customerName}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage src={appointment.barber.image || ""} />
-                          <AvatarFallback className="text-xs">
-                            {appointment.barber.name.split(' ').map((n: string) => n[0]).join('').toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">{appointment.barber.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        <div>{formatDate(new Date(appointment.date))}</div>
-                        <div className="text-gray-500">
-                          {appointment.startTime} - {appointment.endTime}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Select 
-                        value={appointment.status} 
-                        onValueChange={(value) => handleStatusChange(appointment.id, value)}
-                      >
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
-                          <SelectItem value="pending">Beklemede</SelectItem>
-                          <SelectItem value="confirmed">Onaylandı</SelectItem>
-                          <SelectItem value="completed">Tamamlandı</SelectItem>
-                          <SelectItem value="cancelled">İptal Edildi</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          title="Randevuyu Düzenle"
-                          onClick={() => handleEditClick(appointment)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : recentAppointments.length > 0 ? (
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="text-foreground font-semibold">Müşteri</TableHead>
+                    <TableHead className="text-foreground font-semibold hidden sm:table-cell">Berber</TableHead>
+                    <TableHead className="text-foreground font-semibold">Tarih</TableHead>
+                    <TableHead className="text-foreground font-semibold hidden md:table-cell">Saat</TableHead>
+                    <TableHead className="text-foreground font-semibold">Durum</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-      </div>
-    </>
-  );
+                </TableHeader>
+                <TableBody>
+                  {recentAppointments.map((appointment) => (
+                    <TableRow
+                      key={appointment.id}
+                      className="border-border hover:bg-muted/50 cursor-pointer"
+                      onClick={() => router.push("/admin/randevular")}
+                    >
+                      <TableCell className="font-medium text-foreground">
+                        <div className="flex flex-col">
+                          <span>{appointment.customerName}</span>
+                          <span className="text-xs text-muted-foreground sm:hidden">{appointment.barberName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell">
+                        {appointment.barberName}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        <div className="flex flex-col">
+                          <span>{format(parseISO(appointment.date), "d MMM yyyy", { locale: tr })}</span>
+                          <span className="text-xs md:hidden">{appointment.requestedStartTime} - {appointment.requestedEndTime}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden md:table-cell">
+                        {appointment.requestedStartTime} - {appointment.requestedEndTime}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`font-semibold border-2 ${statusColors[appointment.status] || statusColors.pending}`}
+                        >
+                          {statusLabels[appointment.status] || statusLabels.pending}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">
+              Henüz randevu yok
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
+
