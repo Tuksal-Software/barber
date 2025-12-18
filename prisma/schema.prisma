@@ -1,159 +1,105 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider     = "mysql"
-  url          = env("DATABASE_URL")
-  relationMode = "prisma"
+  provider = "mysql"
+  url      = env("DATABASE_URL")
 }
 
-// ============================================
-// SITE AYARLARI
-// ============================================
-// kaldırıldı: SiteSettings (kullanım yok)
+enum Role {
+  admin
+  barber
+}
 
-// ============================================
-// BERBER / KULLANICI YÖNETİMİ
-// ============================================
+enum AppointmentRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum AppointmentSlotStatus {
+  blocked
+  free
+}
+
 model Barber {
-  id            String   @id @default(cuid())
-  name          String   @db.VarChar(255)
-  email         String   @unique @db.VarChar(255)
-  password      String   @db.VarChar(255) // Hashed password
-  role          String   @default("barber") @db.VarChar(20) // "admin" veya "barber"
-  experience    Int      @default(0)
-  rating        Decimal  @default(5.0) @db.Decimal(3, 2)
-  specialties   String?  @db.Text
-  image         String?  @db.VarChar(500)
-  slotDuration  Int      @default(30) // Berber özel slot süresi (dakika)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now()) @db.DateTime(0)
-  updatedAt     DateTime @updatedAt @db.DateTime(0)
+  id           String   @id @default(cuid())
+  name         String   @db.VarChar(255)
+  email        String   @unique @db.VarChar(255)
+  password     String   @db.VarChar(255)
+  role         Role     @default(barber)
+  experience   Int      @default(0)
+  rating       Decimal  @default(5.00) @db.Decimal(3, 2)
+  specialties  String?  @db.Text
+  image        String?  @db.VarChar(500)
+  slotDuration Int      @default(30)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.DateTime(0)
+  updatedAt    DateTime @updatedAt @db.DateTime(0)
 
-  // Relations
-  workingHours    WorkingHour[]
-  appointments    Appointment[]
-  barberSchedules BarberSchedule[]
+  workingHours        WorkingHour[]
+  appointmentRequests AppointmentRequest[]
+  appointmentSlots    AppointmentSlot[]
 
+  @@index([email])
   @@map("barbers")
 }
 
-// ============================================
-// ÇALIŞMA SAATLERİ (Genel - Haftalık)
-// ============================================
 model WorkingHour {
   id        String   @id @default(cuid())
   barberId  String
-  dayOfWeek Int      // 0=Pazar, 1=Pazartesi, ..., 6=Cumartesi
-  startTime String   @db.VarChar(10) // "09:00"
-  endTime   String   @db.VarChar(10) // "18:00"
+  dayOfWeek Int
+  startTime String   @db.VarChar(10)
+  endTime   String   @db.VarChar(10)
   isWorking Boolean  @default(true)
   createdAt DateTime @default(now()) @db.DateTime(0)
   updatedAt DateTime @updatedAt @db.DateTime(0)
 
-  // Relations
   barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
 
   @@unique([barberId, dayOfWeek])
+  @@index([barberId])
   @@map("working_hours")
 }
 
-// ============================================
-// RANDEVU SLOT AYARLARI (Global)
-// ============================================
-model AppointmentSettings {
-  id               String   @id @default(cuid())
-  slotDuration     Int      // 15, 30, 60 (dakika)
-  slotDurationLabel String  @db.VarChar(50) // "15 Dakika", "30 Dakika", "1 Saat"
-  maxAdvanceDays   Int      @default(30)
-  isActive         Boolean  @default(true)
-  serviceBasedDuration Boolean @default(false)
-  createdAt        DateTime @default(now()) @db.DateTime(0)
-  updatedAt        DateTime @updatedAt @db.DateTime(0)
+model AppointmentRequest {
+  id                 String                   @id @default(cuid())
+  barberId           String
+  customerName       String                   @db.VarChar(255)
+  customerPhone      String                   @db.VarChar(20)
+  customerEmail      String?                  @db.VarChar(255)
+  date               String                   @db.VarChar(191)
+  requestedStartTime String                   @db.VarChar(191)
+  requestedEndTime   String                   @db.VarChar(191)
+  status             AppointmentRequestStatus @default(pending)
+  createdAt          DateTime                 @default(now()) @db.DateTime(0)
 
-  @@map("appointment_settings")
+  barber           Barber            @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  appointmentSlots AppointmentSlot[]
+
+  @@index([barberId, date])
+  @@index([status])
+  @@map("appointment_requests")
 }
 
-// ============================================
-// BERBER ÖZEL TAKVİM
-// ============================================
-model BarberSchedule {
-  id          String   @id @default(cuid())
-  barberId    String
-  date        DateTime @db.Date
-  startTime   String   @db.VarChar(10)
-  endTime     String   @db.VarChar(10)
-  isAvailable Boolean  @default(true)
-  note        String?  @db.Text
-  createdAt   DateTime @default(now()) @db.DateTime(0)
-  updatedAt   DateTime @updatedAt @db.DateTime(0)
+model AppointmentSlot {
+  id                   String                @id @default(cuid())
+  barberId             String
+  appointmentRequestId String?               @db.VarChar(191)
+  date                 String                @db.VarChar(191)
+  startTime            String                @db.VarChar(191)
+  endTime              String                @db.VarChar(191)
+  status               AppointmentSlotStatus @default(blocked)
+  createdAt            DateTime              @default(now()) @db.DateTime(0)
 
-  // Relations
-  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  barber             Barber              @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  appointmentRequest AppointmentRequest? @relation(fields: [appointmentRequestId], references: [id], onDelete: SetNull)
 
-  @@unique([barberId, date])
-  @@map("barber_schedules")
-}
-
-// ============================================
-// RANDEVU YÖNETİMİ
-// ============================================
-model Appointment {
-  id            String   @id @default(cuid())
-  customerName  String   @db.VarChar(255)
-  customerPhone String   @db.VarChar(20)
-  customerEmail String?  @db.VarChar(255)
-  barberId      String
-  date          DateTime @db.Date
-  startTime     String   @db.VarChar(10)
-  endTime       String   @db.VarChar(10)
-  status        String   @default("pending") @db.VarChar(20) // pending, confirmed, completed, cancelled
-  notes         String?  @db.Text
-  totalDuration Int?
-  totalPrice    Decimal? @db.Decimal(10,2)
-  createdAt     DateTime @default(now()) @db.DateTime(0)
-  updatedAt     DateTime @updatedAt @db.DateTime(0)
-
-  // Relations
-  barber Barber @relation(fields: [barberId], references: [id], onDelete: Restrict)
-  services AppointmentService[]
-
-  @@index([barberId, date, startTime])
-  @@map("appointments")
-}
-
-// Hizmetler
-model Service {
-  id        String   @id @default(cuid())
-  name      String   @db.VarChar(255)
-  description String? @db.Text
-  duration  Int
-  price     Decimal  @db.Decimal(10,2)
-  category  String?  @db.VarChar(100)
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now()) @db.DateTime(0)
-  updatedAt DateTime @updatedAt @db.DateTime(0)
-
-  appointments AppointmentService[]
-
-  @@map("services")
-}
-
-// Randevu-Hizmet ilişki tablosu
-model AppointmentService {
-  id            String @id @default(cuid())
-  appointmentId String
-  serviceId     String
-
-  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Restrict)
-
-  @@unique([appointmentId, serviceId])
-  @@map("appointment_services")
+  @@index([barberId, date])
+  @@index([barberId, date, status])
+  @@index([status])
+  @@map("appointment_slots")
 }
