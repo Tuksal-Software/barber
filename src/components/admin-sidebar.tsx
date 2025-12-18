@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   LayoutDashboardIcon,
   CalendarIcon,
+  CalendarDaysIcon,
   UsersIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
@@ -36,6 +37,11 @@ const navItems = [
     title: "Randevular",
     url: "/admin/randevular",
     icon: CalendarIcon,
+  },
+  {
+    title: "Takvim",
+    url: "/admin/randevular/takvim",
+    icon: CalendarDaysIcon,
   },
   {
     title: "Berberler",
@@ -78,7 +84,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
 
   const navItemsWithActive = navItems.map((item) => ({
     ...item,
-    isActive: pathname === item.url,
+    isActive: pathname === item.url || (item.url === "/admin/randevular" && pathname.startsWith("/admin/randevular") && pathname !== "/admin/randevular/takvim"),
   }))
 
   return (

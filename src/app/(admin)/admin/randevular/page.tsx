@@ -5,79 +5,63 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Plus,
   Calendar,
   Clock,
   User,
   Phone,
-  Mail
+  Mail,
+  CheckCircle2,
+  XCircle
 } from "lucide-react";
 import { getActiveBarbers } from "@/lib/actions/barber.actions";
-import { getPendingAppointmentRequests } from "@/lib/actions/appointment-query.actions";
+import { getAllAppointmentRequests } from "@/lib/actions/appointment-query.actions";
+import { approveAppointmentRequest, cancelAppointmentRequest } from "@/lib/actions/appointment.actions";
+import { parseTimeToMinutes, minutesToTime } from "@/lib/time";
+import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Barber {
   id: string;
   name: string;
-  image?: string;
 }
 
 interface Appointment {
   id: string;
   customerName: string;
   customerPhone: string;
-  customerEmail?: string;
-  date: Date;
-  startTime: string;
-  endTime: string;
-  status: string;
-  notes?: string;
-  barber: Barber;
+  customerEmail?: string | null;
+  date: string;
+  requestedStartTime: string;
+  requestedEndTime: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  barberId: string;
+  barberName: string;
 }
 
-const dayNames = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-const monthNames = [
-  'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-  'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
-];
-
-// Berber renkleri
-const barberColors = [
-  'bg-blue-100 border-blue-400 text-blue-900',
-  'bg-green-100 border-green-400 text-green-900',
-  'bg-purple-100 border-purple-400 text-purple-900',
-  'bg-orange-100 border-orange-400 text-orange-900',
-  'bg-pink-100 border-pink-400 text-pink-900',
-  'bg-indigo-100 border-indigo-400 text-indigo-900',
-  'bg-teal-100 border-teal-400 text-teal-900',
-];
+type StatusFilter = 'all' | 'pending' | 'approved' | 'cancelled';
 
 export default function RandevularPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string>('all');
-  const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState<15 | 30 | 45 | 60>(30);
   const [loading, setLoading] = useState(true);
-
-  // Haftanın başlangıcını hesapla (Pazartesi)
-  const getWeekStart = (date: Date) => {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    const weekStartDate = new Date(d);
-    weekStartDate.setDate(diff);
-    weekStartDate.setHours(0, 0, 0, 0);
-    return weekStartDate;
-  };
-
-  const weekStart = getWeekStart(currentWeek);
+  const [actionLoading, setActionLoading] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     loadData();
-  }, [currentWeek, selectedBarber]);
+  }, []);
+
+  useEffect(() => {
+    filterAppointments();
+  }, [appointments, selectedBarber, selectedStatus]);
 
   const loadData = async () => {
     setLoading(true);
@@ -85,104 +69,144 @@ export default function RandevularPage() {
       const barbersList = await getActiveBarbers();
       setBarbers(barbersList.map(b => ({ id: b.id, name: b.name })));
 
-      const requests = await getPendingAppointmentRequests();
-      const filteredRequests = selectedBarber === 'all' 
-        ? requests 
-        : requests.filter(r => r.barberId === selectedBarber);
+      const requests = await getAllAppointmentRequests();
       
-      setAppointments(filteredRequests.map(r => ({
+      setAppointments(requests.map(r => ({
         id: r.id,
         customerName: r.customerName,
         customerPhone: r.customerPhone,
         customerEmail: r.customerEmail || undefined,
-        date: new Date(r.date),
-        startTime: r.requestedStartTime,
-        endTime: r.requestedEndTime,
+        date: r.date,
+        requestedStartTime: r.requestedStartTime,
+        requestedEndTime: r.requestedEndTime,
         status: r.status,
-        barber: {
-          id: r.barberId,
-          name: r.barberName,
-        }
-      })) as any);
+        barberId: r.barberId,
+        barberName: r.barberName,
+      })));
     } catch (error) {
       console.error("Error loading data:", error);
+      toast.error("Randevular yüklenirken hata oluştu");
       setAppointments([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const navigateWeek = (direction: 'prev' | 'next' | 'today') => {
-    const newDate = new Date(currentWeek);
-    if (direction === 'prev') {
-      newDate.setDate(newDate.getDate() - 7);
-    } else if (direction === 'next') {
-      newDate.setDate(newDate.getDate() + 7);
-    } else {
-      newDate.setTime(Date.now());
+  const filterAppointments = () => {
+    let filtered = [...appointments];
+
+    if (selectedBarber !== 'all') {
+      filtered = filtered.filter(apt => apt.barberId === selectedBarber);
     }
-    setCurrentWeek(newDate);
+
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(apt => apt.status === selectedStatus);
+    }
+
+    setFilteredAppointments(filtered);
   };
 
-  const formatDateRange = () => {
-    const endDate = new Date(weekStart);
-    endDate.setDate(weekStart.getDate() + 6);
+  const handleAppointmentClick = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setIsSheetOpen(true);
     
-    const startDay = weekStart.getDate();
-    const endDay = endDate.getDate();
-    const month = monthNames[weekStart.getMonth()];
-    const year = weekStart.getFullYear();
+    const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
+    const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
+    const maxDuration = endMinutes - startMinutes;
     
-    return `${startDay}-${endDay} ${month} ${year}`;
+    if (maxDuration >= 60) {
+      setSelectedDuration(60);
+    } else if (maxDuration >= 45) {
+      setSelectedDuration(45);
+    } else if (maxDuration >= 30) {
+      setSelectedDuration(30);
+    } else {
+      setSelectedDuration(15);
+    }
   };
 
-  const getAppointmentsForDay = (dayIndex: number) => {
-    const targetDate = new Date(weekStart);
-    targetDate.setDate(weekStart.getDate() + dayIndex);
-    
-    console.log('Getting appointments for day:', dayIndex, targetDate);
-    const filtered = appointments.filter(apt => {
-      const aptDate = new Date(apt.date);
-      const match = aptDate.getDate() === targetDate.getDate() &&
-             aptDate.getMonth() === targetDate.getMonth() &&
-             aptDate.getFullYear() === targetDate.getFullYear();
-      if (match) {
-        console.log('Found appointment:', apt.customerName, apt.startTime);
-      }
-      return match;
+  const handleApprove = async () => {
+    if (!selectedAppointment) return;
+
+    setActionLoading(true);
+    try {
+      await approveAppointmentRequest({
+        appointmentRequestId: selectedAppointment.id,
+        approvedDurationMinutes: selectedDuration,
+      });
+
+      toast.success("Randevu onaylandı");
+      setIsSheetOpen(false);
+      setSelectedAppointment(null);
+      await loadData();
+    } catch (error) {
+      console.error("Error approving appointment:", error);
+      toast.error(error instanceof Error ? error.message : "Randevu onaylanırken hata oluştu");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!selectedAppointment) return;
+
+    setActionLoading(true);
+    try {
+      await cancelAppointmentRequest({
+        appointmentRequestId: selectedAppointment.id,
+      });
+
+      toast.success("Randevu iptal edildi");
+      setIsSheetOpen(false);
+      setSelectedAppointment(null);
+      await loadData();
+    } catch (error) {
+      console.error("Error cancelling appointment:", error);
+      toast.error(error instanceof Error ? error.message : "Randevu iptal edilirken hata oluştu");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const getStatusBadge = (status: Appointment['status']) => {
+    switch (status) {
+      case 'approved':
+        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Onaylandı</Badge>;
+      case 'pending':
+        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Bekliyor</Badge>;
+      case 'cancelled':
+        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">İptal</Badge>;
+      case 'rejected':
+        return <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20">Reddedildi</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('tr-TR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
     });
-    console.log('Filtered appointments:', filtered.length);
-    return filtered;
-  };
-
-  const getBarberColor = (barberId: string) => {
-    const index = barbers.findIndex(b => b.id === barberId);
-    return barberColors[index % barberColors.length];
-  };
-
-  const handleAppointmentClick = async (appointmentId: string) => {
-    console.log('Appointment clicked:', appointmentId);
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg">Yükleniyor...</div>
+        <div className="text-lg text-muted-foreground">Yükleniyor...</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Randevular</h1>
-          <p className="text-gray-600">Randevu yönetimi ve takvim görünümü</p>
-        </div>
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold text-foreground">Randevular</h1>
+        <p className="text-muted-foreground">Randevu yönetimi ve onay işlemleri</p>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -199,180 +223,192 @@ export default function RandevularPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as StatusFilter)}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Durum Seç" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm Durumlar</SelectItem>
+                <SelectItem value="pending">Bekleyen</SelectItem>
+                <SelectItem value="approved">Onaylanan</SelectItem>
+                <SelectItem value="cancelled">İptal</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Week Navigation */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <Button variant="outline" onClick={() => navigateWeek('prev')}>
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Önceki
-            </Button>
-            
-            <div className="text-center">
-              <h3 className="text-lg font-semibold">{formatDateRange()}</h3>
-            </div>
-            
-            <div className="flex space-x-2">
-              <Button variant="outline" onClick={() => navigateWeek('today')}>
-                Bugün
-              </Button>
-              <Button variant="outline" onClick={() => navigateWeek('next')}>
-                Sonraki
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Calendar Grid */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Calendar className="h-5 w-5 mr-2" />
-            Haftalık Takvim
-          </CardTitle>
+          <CardTitle>Randevu Listesi</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <div className="min-w-[800px]">
-              {/* Header - Days */}
-              <div className="grid grid-cols-8 gap-2 mb-4">
-                <div className="p-3 text-center font-semibold text-gray-600">
-                  Saat
-                </div>
-                {dayNames.map((day, index) => {
-                  const date = new Date(weekStart);
-                  date.setDate(weekStart.getDate() + index);
-                  const isToday = date.toDateString() === new Date().toDateString();
-                  
-                  return (
-                    <div 
-                      key={index}
-                      className={`p-3 text-center font-semibold ${
-                        isToday ? 'bg-blue-100 text-blue-900 rounded-lg' : 'text-gray-600'
-                      }`}
-                    >
-                      <div>{day}</div>
-                      <div className="text-sm">{date.getDate()}</div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Time Slots - 10:00-22:00 */}
-              {Array.from({ length: 24 }, (_, slotIndex) => {
-                const hour = Math.floor(slotIndex / 2) + 10;
-                const minute = (slotIndex % 2) * 30;
-                const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                
-                return (
-                  <div key={slotIndex} className="grid grid-cols-8 gap-2 mb-2">
-                    {/* Time Column */}
-                    <div className="p-2 text-sm text-gray-600 text-center border-r">
-                      {timeString}
-                    </div>
-                    
-                    {/* Day Columns */}
-                    {Array.from({ length: 7 }, (_, dayIndex) => {
-                      const dayAppointments = getAppointmentsForDay(dayIndex)
-                        .filter(apt => apt.startTime === timeString);
-                      
-                      return (
-                        <div 
-                          key={dayIndex}
-                          className="min-h-[60px] p-1 border border-gray-200 hover:bg-gray-50 cursor-pointer"
-                        >
-                          {dayAppointments.map((appointment) => (
-                            <div
-                              key={appointment.id}
-                              className={`p-2 rounded text-xs cursor-pointer transition-colors hover:shadow-md ${
-                                appointment.status === 'cancelled' 
-                                  ? 'bg-gray-100 border-gray-300 text-gray-500 opacity-60' 
-                                  : getBarberColor(appointment.barber.id)
-                              }`}
-                              onClick={() => handleAppointmentClick(appointment.id)}
-                            >
-                              <div className={`font-medium truncate ${appointment.status === 'cancelled' ? 'line-through' : ''}`}>
-                                {appointment.customerName}
-                              </div>
-                              <div className="text-xs opacity-75 truncate">
-                                [{appointment.barber.name.split(' ').map(n => n[0]).join('')}]
-                              </div>
-                              {appointment.status === 'cancelled' && (
-                                <div className="text-[10px] mt-1 font-semibold">İPTAL</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+          {filteredAppointments.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              Randevu bulunamadı
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Mobile List View */}
-      <div className="md:hidden">
-        <Card>
-          <CardHeader>
-            <CardTitle>Randevu Listesi</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {appointments.map((appointment) => (
+          ) : (
+            <div className="space-y-3">
+              {filteredAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
-                  className="p-4 border rounded-lg cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handleAppointmentClick(appointment.id)}
+                  className="p-4 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-card"
+                  onClick={() => handleAppointmentClick(appointment)}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">{appointment.customerName}</h4>
-                    <Badge variant={
-                      appointment.status === 'confirmed' ? 'default' :
-                      appointment.status === 'pending' ? 'secondary' :
-                      appointment.status === 'completed' ? 'outline' : 'destructive'
-                    }>
-                      {appointment.status === 'confirmed' ? 'Onaylandı' :
-                       appointment.status === 'pending' ? 'Beklemede' :
-                       appointment.status === 'completed' ? 'Tamamlandı' : 'İptal Edildi'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {new Date(appointment.date).toLocaleDateString('tr-TR')} - {appointment.startTime}
-                    </div>
-                    <div className="flex items-center">
-                      <User className="h-4 w-4 mr-2" />
-                      {appointment.barber.name}
-                    </div>
-                    <div className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2" />
-                      {appointment.customerPhone}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-foreground">{appointment.customerName}</h4>
+                        {getStatusBadge(appointment.status)}
+                      </div>
+                      
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>{formatDate(appointment.date)}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span>{appointment.requestedStartTime} - {appointment.requestedEndTime}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span>{appointment.barberName}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4" />
+                          <span>{appointment.customerPhone}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
-              
-              {appointments.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  Bu hafta için randevu bulunmuyor
-                </div>
-              )}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent 
+          side={isMobile ? "bottom" : "right"}
+          className={isMobile ? "h-[90vh] overflow-y-auto" : "sm:max-w-md overflow-y-auto"}
+        >
+          {selectedAppointment && (
+            <>
+              <SheetHeader>
+                <SheetTitle>Randevu Detayı</SheetTitle>
+                <SheetDescription>
+                  Randevu bilgileri ve işlemler
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-6 space-y-6 pb-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Müşteri Bilgileri</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-foreground font-medium">{selectedAppointment.customerName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-foreground">{selectedAppointment.customerPhone}</span>
+                      </div>
+                      {selectedAppointment.customerEmail && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-foreground">{selectedAppointment.customerEmail}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-2">Randevu Bilgileri</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-foreground">{formatDate(selectedAppointment.date)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-foreground">
+                          {selectedAppointment.requestedStartTime} - {selectedAppointment.requestedEndTime}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-foreground">{selectedAppointment.barberName}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-muted-foreground">Durum:</span>
+                        {getStatusBadge(selectedAppointment.status)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedAppointment.status === 'pending' && (
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <div>
+                      <label className="text-sm font-medium text-foreground mb-2 block">
+                        Onaylanacak Süre (dakika)
+                      </label>
+                      <Select 
+                        value={selectedDuration.toString()} 
+                        onValueChange={(value) => setSelectedDuration(parseInt(value) as 15 | 30 | 45 | 60)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(() => {
+                            const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
+                            const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
+                            const maxDuration = endMinutes - startMinutes;
+                            const options = [15, 30, 45, 60];
+                            
+                            return options
+                              .filter(duration => duration <= maxDuration)
+                              .map(duration => (
+                                <SelectItem key={duration} value={duration.toString()}>
+                                  {duration} dakika
+                                </SelectItem>
+                              ));
+                          })()}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <Button
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={handleCancel}
+                        disabled={actionLoading}
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Reddet
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        onClick={handleApprove}
+                        disabled={actionLoading}
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Onayla
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

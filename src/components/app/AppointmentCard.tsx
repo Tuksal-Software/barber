@@ -15,16 +15,16 @@ interface AppointmentCardProps {
 }
 
 const statusColors = {
-  pending: "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800",
-  confirmed: "bg-blue-50 text-blue-700 border-blue-300 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
-  cancelled: "bg-red-50 text-red-700 border-red-300 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+  pending: "bg-amber-950 text-amber-300 border-amber-800",
+  approved: "bg-blue-950 text-blue-300 border-blue-800",
+  rejected: "bg-red-950 text-red-300 border-red-800",
+  cancelled: "bg-muted text-muted-foreground border-border",
 }
 
 const statusLabels = {
-  pending: "Bekliyor",
-  confirmed: "Onaylandı",
-  completed: "Tamamlandı",
+  pending: "Onay Bekliyor",
+  approved: "Onaylandı",
+  rejected: "Reddedildi",
   cancelled: "İptal",
 }
 

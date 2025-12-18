@@ -128,7 +128,7 @@ export default function ServicesPage() {
                 <MoreHorizontal className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-white">
+            <DropdownMenuContent className="bg-background">
               <DropdownMenuLabel>İşlemler</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => { setSelected(s); setEditOpen(true) }}>
@@ -293,7 +293,7 @@ export default function ServicesPage() {
                   <SelectTrigger>
                     <SelectValue placeholder="Süre seçin" />
                   </SelectTrigger>
-                  <SelectContent position="popper" sideOffset={5} className="z-[100] bg-white">
+                  <SelectContent position="popper" sideOffset={5} className="z-[100] bg-background">
                     {[15,30,45,60,90,120].map((d) => (
                       <SelectItem key={d} value={String(d)}>{d} dk</SelectItem>
                     ))}

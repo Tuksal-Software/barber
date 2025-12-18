@@ -101,3 +101,43 @@ export async function getRecentAppointments(limit: number = 5): Promise<Appointm
   }))
 }
 
+export async function getAllAppointmentRequests(): Promise<AppointmentRequestListItem[]> {
+  const session = await requireAuth()
+
+  const where: {
+    barberId?: string
+  } = {}
+
+  if (session.role === 'barber') {
+    where.barberId = session.userId
+  }
+
+  const requests = await prisma.appointmentRequest.findMany({
+    where,
+    include: {
+      barber: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  })
+
+  return requests.map((req) => ({
+    id: req.id,
+    barberId: req.barberId,
+    barberName: req.barber.name,
+    customerName: req.customerName,
+    customerPhone: req.customerPhone,
+    customerEmail: req.customerEmail,
+    date: req.date,
+    requestedStartTime: req.requestedStartTime,
+    requestedEndTime: req.requestedEndTime,
+    status: req.status,
+    createdAt: req.createdAt,
+  }))
+}
+

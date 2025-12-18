@@ -8,7 +8,7 @@ import { requireAuth } from '@/lib/actions/auth.actions'
 export interface DashboardStats {
   pending: number
   approvedToday: number
-  completed: number
+  approvedTotal: number
   activeBarbers: number
 }
 
@@ -20,7 +20,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   const baseWhere = session.role === 'barber' ? { barberId: session.userId } : {}
 
-  const [pending, approvedToday, completed, activeBarbers] = await Promise.all([
+  const todayDateStr = format(today, 'yyyy-MM-dd')
+
+  const [pending, approvedToday, approvedTotal, activeBarbers] = await Promise.all([
     prisma.appointmentRequest.count({
       where: {
         ...baseWhere,
@@ -31,10 +33,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       where: {
         ...baseWhere,
         status: 'approved',
-        createdAt: {
-          gte: todayStart,
-          lte: todayEnd,
-        },
+        date: todayDateStr,
       },
     }),
     prisma.appointmentRequest.count({
@@ -54,7 +53,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   return {
     pending,
     approvedToday,
-    completed,
+    approvedTotal,
     activeBarbers,
   }
 }

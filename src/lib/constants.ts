@@ -18,7 +18,7 @@ export interface Appointment {
   date: Date
   startTime: string
   endTime: string
-  status: "pending" | "confirmed" | "completed" | "cancelled"
+  status: "pending" | "approved" | "rejected" | "cancelled"
   notes?: string
   requestedDuration?: number
   confirmedDuration?: number
@@ -70,7 +70,7 @@ export const MOCK_APPOINTMENTS: Appointment[] = [
     date: new Date(),
     startTime: "10:00",
     endTime: "10:30",
-    status: "confirmed",
+    status: "approved",
     requestedDuration: 30,
     confirmedDuration: 30,
   },
@@ -95,7 +95,7 @@ export const MOCK_APPOINTMENTS: Appointment[] = [
     date: new Date(Date.now() + 86400000),
     startTime: "16:00",
     endTime: "16:30",
-    status: "confirmed",
+    status: "approved",
     requestedDuration: 30,
     confirmedDuration: 30,
   },
