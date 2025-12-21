@@ -12,7 +12,7 @@ export interface AppointmentRequestListItem {
   customerEmail: string | null
   date: string
   requestedStartTime: string
-  requestedEndTime: string
+  requestedEndTime: string | null
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
   createdAt: Date
 }
