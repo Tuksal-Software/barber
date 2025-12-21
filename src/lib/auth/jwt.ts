@@ -1,7 +1,4 @@
 import jwt from 'jsonwebtoken'
-import { env } from '@/lib/config/env'
-
-const JWT_SECRET = env.jwtSecret
 
 export interface JWTPayload {
   userId: string
@@ -10,15 +7,23 @@ export interface JWTPayload {
 
 const JWT_EXPIRES_IN = '7d'
 
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    throw new Error('JWT_SECRET is required at runtime')
+  }
+  return secret
+}
+
 export function signToken(payload: JWTPayload): string {
-  return jwt.sign(payload, JWT_SECRET, {
+  return jwt.sign(payload, getJwtSecret(), {
     expiresIn: JWT_EXPIRES_IN,
   })
 }
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload
+    const decoded = jwt.verify(token, getJwtSecret()) as JWTPayload
     return decoded
   } catch {
     return null

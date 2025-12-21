@@ -15,13 +15,20 @@ export function validateEnv() {
 }
 
 export function validateProductionEnv() {
-  if (env.nodeEnv === 'production' && typeof window === 'undefined') {
-    if (env.jwtSecret.length < 32) {
-      console.warn('⚠️  JWT_SECRET should be at least 32 characters long in production for security')
-    }
-    const weakSecrets = ['your-secret-key', 'change-me', 'secret', 'password', 'example']
-    if (weakSecrets.some(weak => env.jwtSecret.toLowerCase().includes(weak))) {
-      console.warn('⚠️  JWT_SECRET appears to be a default/weak value. Please use a strong, random secret in production')
+  if (typeof window !== 'undefined') {
+    return
+  }
+  
+  if (env.nodeEnv === 'production') {
+    const jwtSecret = process.env.JWT_SECRET
+    if (jwtSecret) {
+      if (jwtSecret.length < 32) {
+        console.warn('⚠️  JWT_SECRET should be at least 32 characters long in production for security')
+      }
+      const weakSecrets = ['your-secret-key', 'change-me', 'secret', 'password', 'example']
+      if (weakSecrets.some(weak => jwtSecret.toLowerCase().includes(weak))) {
+        console.warn('⚠️  JWT_SECRET appears to be a default/weak value. Please use a strong, random secret in production')
+      }
     }
   }
 }
