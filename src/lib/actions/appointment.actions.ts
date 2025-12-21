@@ -12,7 +12,7 @@ export interface CreateAppointmentRequestInput {
   customerEmail?: string
   date: string
   requestedStartTime: string
-  requestedEndTime: string
+  requestedEndTime?: string
 }
 
 export interface ApproveAppointmentRequestInput {
@@ -37,15 +37,8 @@ export async function createAppointmentRequest(
     requestedEndTime,
   } = input
 
-  if (!barberId || !customerName || !customerPhone || !date || !requestedStartTime || !requestedEndTime) {
+  if (!barberId || !customerName || !customerPhone || !date || !requestedStartTime) {
     throw new Error('Tüm zorunlu alanlar doldurulmalıdır')
-  }
-
-  const startMinutes = parseTimeToMinutes(requestedStartTime)
-  const endMinutes = parseTimeToMinutes(requestedEndTime)
-
-  if (endMinutes <= startMinutes) {
-    throw new Error('Bitiş saati başlangıç saatinden sonra olmalıdır')
   }
 
   const barber = await prisma.barber.findUnique({
@@ -110,16 +103,10 @@ export async function approveAppointmentRequest(
       throw new Error('Sadece bekleyen randevu talepleri onaylanabilir')
     }
 
-    const requestedStartMinutes = parseTimeToMinutes(appointmentRequest.requestedStartTime)
-    const requestedEndMinutes = parseTimeToMinutes(appointmentRequest.requestedEndTime)
-    const approvedEndMinutes = requestedStartMinutes + approvedDurationMinutes
-
-    if (approvedEndMinutes > requestedEndMinutes) {
-      throw new Error('Onaylanan süre, talep edilen süreyi aşamaz')
-    }
-
+    const startMinutes = parseTimeToMinutes(appointmentRequest.requestedStartTime)
+    const endMinutes = startMinutes + approvedDurationMinutes
     const approvedStartTime = appointmentRequest.requestedStartTime
-    const approvedEndTime = minutesToTime(approvedEndMinutes)
+    const approvedEndTime = minutesToTime(endMinutes)
 
     const existingBlockedSlots = await tx.appointmentSlot.findMany({
       where: {

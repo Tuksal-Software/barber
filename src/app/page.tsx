@@ -22,11 +22,11 @@ import { Button } from "@/components/ui/button"
 import { TimeRangePicker } from "@/components/app/TimeRangePicker"
 import { EmptyState } from "@/components/app/EmptyState"
 import { getActiveBarbers } from "@/lib/actions/barber.actions"
-import { getAvailableTimeSlots } from "@/lib/actions/availability.actions"
+import { getCustomerTimeButtons } from "@/lib/actions/availability.actions"
 import { createAppointmentRequest } from "@/lib/actions/appointment.actions"
 import { cn } from "@/lib/utils"
 import type { BarberListItem } from "@/lib/actions/barber.actions"
-import type { AvailableTimeSlot } from "@/lib/actions/availability.actions"
+import type { CustomerTimeButton } from "@/lib/actions/availability.actions"
 
 const wizardSteps = [
   { label: "Berber" },
@@ -51,8 +51,7 @@ export default function BookingPage() {
   const [selectedBarber, setSelectedBarber] = useState<BarberListItem | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [selectedStart, setSelectedStart] = useState<string>("")
-  const [selectedEnd, setSelectedEnd] = useState<string>("")
-  const [availableSlots, setAvailableSlots] = useState<AvailableTimeSlot[]>([])
+  const [timeButtons, setTimeButtons] = useState<CustomerTimeButton[]>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [showSuccess, setShowSuccess] = useState(false)
@@ -87,32 +86,30 @@ export default function BookingPage() {
 
   useEffect(() => {
     if (!selectedBarber || !selectedDate) {
-      setAvailableSlots([])
+      setTimeButtons([])
       setSelectedStart("")
-      setSelectedEnd("")
       return
     }
 
-    async function fetchSlots() {
+    async function fetchTimeButtons() {
       try {
         setLoadingSlots(true)
         const dateStr = format(selectedDate!, "yyyy-MM-dd")
-        const slots = await getAvailableTimeSlots({
+        const buttons = await getCustomerTimeButtons({
           barberId: selectedBarber!.id,
           date: dateStr,
         })
-        setAvailableSlots(slots)
+        setTimeButtons(buttons)
         setSelectedStart("")
-        setSelectedEnd("")
       } catch (error) {
         toast.error("Müsait saatler yüklenirken hata oluştu")
-        setAvailableSlots([])
+        setTimeButtons([])
       } finally {
         setLoadingSlots(false)
       }
     }
 
-    fetchSlots()
+    fetchTimeButtons()
   }, [selectedBarber, selectedDate])
 
   const canProceed = () => {
@@ -121,7 +118,7 @@ export default function BookingPage() {
       case 1:
         return selectedBarber !== null && !loadingBarbers
       case 2:
-        return selectedDate !== undefined && selectedStart !== "" && selectedEnd !== "" && !loadingSlots
+        return selectedDate !== undefined && selectedStart !== "" && !loadingSlots
       case 3:
         return (
           formData.customerName &&
@@ -158,7 +155,7 @@ export default function BookingPage() {
   }
 
   const handleConfirm = () => {
-    if (!selectedBarber || !selectedDate || !selectedStart || !selectedEnd) {
+    if (!selectedBarber || !selectedDate || !selectedStart) {
       return
     }
 
@@ -172,7 +169,7 @@ export default function BookingPage() {
           customerEmail: formData.customerEmail || undefined,
           date: dateStr,
           requestedStartTime: selectedStart,
-          requestedEndTime: selectedEnd,
+          requestedEndTime: "",
         })
         setShowSuccess(true)
       } catch (error) {
@@ -187,7 +184,6 @@ export default function BookingPage() {
     setSelectedBarber(null)
     setSelectedDate(new Date())
     setSelectedStart("")
-    setSelectedEnd("")
     reset()
   }
 
@@ -231,7 +227,7 @@ export default function BookingPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Saat</h3>
-                  <p className="font-semibold">{selectedStart} - {selectedEnd}</p>
+                  <p className="font-semibold">{selectedStart}</p>
                 </div>
               </CardContent>
             </Card>
@@ -328,12 +324,12 @@ export default function BookingPage() {
               </div>
 
               <div>
-                <Label className="mb-2 block">Saat Aralığı</Label>
+                <Label className="mb-2 block">Saat</Label>
                 {loadingSlots ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : availableSlots.length === 0 ? (
+                ) : timeButtons.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground text-sm">
                     Bu tarih için müsait saat bulunmamaktadır
                   </div>
@@ -341,15 +337,13 @@ export default function BookingPage() {
                   <>
                     <TimeRangePicker
                       selectedStart={selectedStart}
-                      selectedEnd={selectedEnd}
                       onStartSelect={setSelectedStart}
-                      onEndSelect={setSelectedEnd}
-                      availableSlots={availableSlots}
+                      timeButtons={timeButtons}
                     />
-                    {selectedStart && selectedEnd && (
+                    {selectedStart && (
                       <div className="mt-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
                         <p className="text-sm font-medium text-primary">
-                          Seçilen: {selectedStart} - {selectedEnd}
+                          Seçilen: {selectedStart}
                         </p>
                       </div>
                     )}
@@ -442,7 +436,7 @@ export default function BookingPage() {
                 <div>
                   <h3 className="font-semibold mb-2">Saat</h3>
                   <p>
-                    {selectedStart} - {selectedEnd}
+                    {selectedStart}
                   </p>
                 </div>
                 <div>

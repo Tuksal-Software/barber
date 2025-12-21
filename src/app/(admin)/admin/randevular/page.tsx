@@ -34,7 +34,7 @@ interface Appointment {
   customerEmail?: string | null;
   date: string;
   requestedStartTime: string;
-  requestedEndTime: string;
+  requestedEndTime: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   barberId: string;
   barberName: string;
@@ -109,6 +109,11 @@ export default function RandevularPage() {
   const handleAppointmentClick = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setIsSheetOpen(true);
+    
+    if (!appointment.requestedEndTime) {
+      setSelectedDuration(30);
+      return;
+    }
     
     const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
     const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
@@ -270,7 +275,12 @@ export default function RandevularPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4" />
-                          <span>{appointment.requestedStartTime} - {appointment.requestedEndTime}</span>
+                          <span>
+                            {appointment.requestedStartTime}
+                            {appointment.requestedEndTime
+                              ? ` - ${appointment.requestedEndTime}`
+                              : ' (Onay bekliyor)'}
+                          </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4" />
@@ -336,7 +346,10 @@ export default function RandevularPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">
-                          {selectedAppointment.requestedStartTime} - {selectedAppointment.requestedEndTime}
+                          {selectedAppointment.requestedStartTime}
+                          {selectedAppointment.requestedEndTime
+                            ? ` - ${selectedAppointment.requestedEndTime}`
+                            : ' (Onay bekliyor)'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -366,6 +379,14 @@ export default function RandevularPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {(() => {
+                            if (!selectedAppointment.requestedEndTime) {
+                              return [30, 60].map(duration => (
+                                <SelectItem key={duration} value={duration.toString()}>
+                                  {duration} dakika
+                                </SelectItem>
+                              ));
+                            }
+                            
                             const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
                             const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
                             const maxDuration = endMinutes - startMinutes;

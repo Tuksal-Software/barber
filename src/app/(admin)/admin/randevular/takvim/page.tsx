@@ -36,16 +36,20 @@ interface Appointment {
   customerEmail?: string | null;
   date: string;
   requestedStartTime: string;
-  requestedEndTime: string;
+  requestedEndTime: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   barberId: string;
   barberName: string;
 }
 
-const TIME_SLOTS = Array.from({ length: 13 }, (_, i) => {
-  const hour = 10 + i;
-  return `${hour.toString().padStart(2, '0')}:00`;
-});
+const TIME_SLOTS = (() => {
+  const slots: string[] = [];
+  for (let hour = 10; hour < 22; hour++) {
+    slots.push(`${hour.toString().padStart(2, '0')}:00`);
+    slots.push(`${hour.toString().padStart(2, '0')}:30`);
+  }
+  return slots;
+})();
 
 const DAYS_OF_WEEK = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
@@ -153,6 +157,11 @@ export default function TakvimPage() {
     setSelectedAppointment(appointment);
     setIsSheetOpen(true);
     
+    if (!appointment.requestedEndTime) {
+      setSelectedDuration(30);
+      return;
+    }
+    
     const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
     const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
     const maxDuration = endMinutes - startMinutes;
@@ -216,7 +225,7 @@ export default function TakvimPage() {
       case 'approved':
         return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Onaylandı</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Bekliyor</Badge>;
+        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Onay bekliyor</Badge>;
       case 'cancelled':
         return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">İptal</Badge>;
       case 'rejected':
@@ -236,17 +245,20 @@ export default function TakvimPage() {
   };
 
   const getAppointmentHeight = (appointment: Appointment): number => {
+    if (!appointment.requestedEndTime) {
+      return 40;
+    }
     const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
     const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
-    const duration = endMinutes - startMinutes;
-    return (duration / 60) * 80;
+    const durationMinutes = endMinutes - startMinutes;
+    return (durationMinutes / 30) * 40;
   };
 
   const getAppointmentTop = (appointment: Appointment): number => {
     const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
-    const baseMinutes = parseTimeToMinutes('10:00');
-    const offset = startMinutes - baseMinutes;
-    return (offset / 60) * 80;
+    const dayStartMinutes = parseTimeToMinutes('10:00');
+    const offsetMinutes = startMinutes - dayStartMinutes;
+    return (offsetMinutes / 30) * 40;
   };
 
   const filteredAppointments = useMemo(() => {
@@ -389,7 +401,10 @@ export default function TakvimPage() {
                           <div className="space-y-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-2">
                               <Clock className="h-4 w-4" />
-                              <span>{appointment.requestedStartTime} - {appointment.requestedEndTime}</span>
+                              <span>
+                                {appointment.requestedStartTime}
+                                {appointment.requestedEndTime && ` - ${appointment.requestedEndTime}`}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4" />
@@ -438,20 +453,23 @@ export default function TakvimPage() {
                   })}
                 </div>
 
-                <div className="relative" style={{ height: `${TIME_SLOTS.length * 80}px` }}>
-                  {TIME_SLOTS.map((slotTime, slotIndex) => (
-                    <div key={slotIndex} className="absolute grid grid-cols-8 border-b border-border w-full" style={{ top: `${slotIndex * 80}px`, height: '80px' }}>
-                      <div className="p-2 border-r border-border bg-muted/30 text-sm text-muted-foreground flex items-start justify-end">
-                        {slotTime}
+                <div className="relative" style={{ height: `${TIME_SLOTS.length * 40}px` }}>
+                  {TIME_SLOTS.map((slotTime, slotIndex) => {
+                    const isHourMark = slotTime.endsWith(':00');
+                    return (
+                      <div key={slotIndex} className="absolute grid grid-cols-8 border-b border-border w-full" style={{ top: `${slotIndex * 40}px`, height: '40px' }}>
+                        <div className={`p-2 border-r border-border bg-muted/30 text-sm text-muted-foreground flex items-start justify-end ${!isHourMark ? 'opacity-50' : ''}`}>
+                          {isHourMark ? slotTime : ''}
+                        </div>
+                        {weekDates.map((date, dayIndex) => (
+                          <div
+                            key={dayIndex}
+                            className={`border-r border-border ${dayIndex === 6 ? "border-r-0" : ""}`}
+                          />
+                        ))}
                       </div>
-                      {weekDates.map((date, dayIndex) => (
-                        <div
-                          key={dayIndex}
-                          className={`border-r border-border ${dayIndex === 6 ? "border-r-0" : ""}`}
-                        />
-                      ))}
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   {weekDates.map((date, dayIndex) => {
                     const dateKey = formatDateKey(date);
@@ -477,7 +495,7 @@ export default function TakvimPage() {
                           return (
                             <div
                               key={appointment.id}
-                              className="absolute left-1 right-1 rounded-md p-2 cursor-pointer hover:opacity-80 transition-opacity bg-card border border-border shadow-sm z-10"
+                              className="absolute left-1 right-1 rounded-md p-2 cursor-pointer hover:opacity-80 transition-opacity bg-card border border-border shadow-sm z-10 overflow-hidden"
                               style={{
                                 top: `${top}px`,
                                 height: `${height}px`,
@@ -488,10 +506,11 @@ export default function TakvimPage() {
                               <div className="text-xs font-semibold text-foreground truncate">
                                 {appointment.customerName}
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                {appointment.requestedStartTime} - {appointment.requestedEndTime}
+                              <div className="text-xs text-muted-foreground truncate">
+                                {appointment.requestedStartTime}
+                                {appointment.requestedEndTime && ` - ${appointment.requestedEndTime}`}
                               </div>
-                              <div className="mt-1">
+                              <div className="mt-1 flex-shrink-0">
                                 {getStatusBadge(appointment.status)}
                               </div>
                             </div>
@@ -553,7 +572,8 @@ export default function TakvimPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">
-                          {selectedAppointment.requestedStartTime} - {selectedAppointment.requestedEndTime}
+                          {selectedAppointment.requestedStartTime}
+                          {selectedAppointment.requestedEndTime && ` - ${selectedAppointment.requestedEndTime}`}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -583,6 +603,14 @@ export default function TakvimPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {(() => {
+                            if (!selectedAppointment.requestedEndTime) {
+                              return [30, 60].map(duration => (
+                                <SelectItem key={duration} value={duration.toString()}>
+                                  {duration} dakika
+                                </SelectItem>
+                              ));
+                            }
+                            
                             const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
                             const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
                             const maxDuration = endMinutes - startMinutes;
