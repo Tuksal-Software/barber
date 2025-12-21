@@ -38,10 +38,6 @@ interface Appointment {
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   barberId: string;
   barberName: string;
-  appointmentSlots?: Array<{
-    startTime: string;
-    endTime: string;
-  }>;
 }
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'cancelled';
@@ -86,7 +82,6 @@ export default function RandevularPage() {
         status: r.status,
         barberId: r.barberId,
         barberName: r.barberName,
-        appointmentSlots: r.appointmentSlots,
       })));
     } catch (error) {
       console.error("Error loading data:", error);
@@ -115,8 +110,8 @@ export default function RandevularPage() {
     setSelectedAppointment(appointment);
     setIsSheetOpen(true);
     
-    if (appointment.status === 'pending' || !appointment.requestedEndTime) {
-      setSelectedDuration(60);
+    if (!appointment.requestedEndTime) {
+      setSelectedDuration(30);
       return;
     }
     
@@ -183,7 +178,7 @@ export default function RandevularPage() {
       case 'approved':
         return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Onaylandı</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Onay Bekliyor</Badge>;
+        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Bekliyor</Badge>;
       case 'cancelled':
         return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">İptal</Badge>;
       case 'rejected':
@@ -278,21 +273,15 @@ export default function RandevularPage() {
                           <Calendar className="h-4 w-4" />
                           <span>{formatDate(appointment.date)}</span>
                         </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        <span>
-                          {appointment.status === 'pending' 
-                            ? `Talep Edilen Saat: ${appointment.requestedStartTime}`
-                            : (() => {
-                                const slot = appointment.appointmentSlots?.[0];
-                                if (slot) {
-                                  return `${slot.startTime} - ${slot.endTime}`;
-                                }
-                                return '—';
-                              })()
-                          }
-                        </span>
-                      </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span>
+                            {appointment.requestedStartTime}
+                            {appointment.requestedEndTime
+                              ? ` - ${appointment.requestedEndTime}`
+                              : ' (Onay bekliyor)'}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-2">
                           <User className="h-4 w-4" />
                           <span>{appointment.barberName}</span>
@@ -357,16 +346,10 @@ export default function RandevularPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">
-                          {selectedAppointment.status === 'pending'
-                            ? `Talep Edilen Saat: ${selectedAppointment.requestedStartTime}`
-                            : (() => {
-                                const slot = selectedAppointment.appointmentSlots?.[0];
-                                if (slot) {
-                                  return `${slot.startTime} - ${slot.endTime}`;
-                                }
-                                return '—';
-                              })()
-                          }
+                          {selectedAppointment.requestedStartTime}
+                          {selectedAppointment.requestedEndTime
+                            ? ` - ${selectedAppointment.requestedEndTime}`
+                            : ' (Onay bekliyor)'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -395,11 +378,28 @@ export default function RandevularPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {[15, 30, 45, 60].map(duration => (
-                            <SelectItem key={duration} value={duration.toString()}>
-                              {duration} dakika
-                            </SelectItem>
-                          ))}
+                          {(() => {
+                            if (!selectedAppointment.requestedEndTime) {
+                              return [30, 60].map(duration => (
+                                <SelectItem key={duration} value={duration.toString()}>
+                                  {duration} dakika
+                                </SelectItem>
+                              ));
+                            }
+                            
+                            const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
+                            const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
+                            const maxDuration = endMinutes - startMinutes;
+                            const options = [15, 30, 45, 60];
+                            
+                            return options
+                              .filter(duration => duration <= maxDuration)
+                              .map(duration => (
+                                <SelectItem key={duration} value={duration.toString()}>
+                                  {duration} dakika
+                                </SelectItem>
+                              ));
+                          })()}
                         </SelectContent>
                       </Select>
                     </div>

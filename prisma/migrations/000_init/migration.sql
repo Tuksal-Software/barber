@@ -39,7 +39,7 @@ CREATE TABLE appointment_requests (
   customerEmail VARCHAR(255) NULL,
   date VARCHAR(191) NOT NULL,
   requestedStartTime VARCHAR(191) NOT NULL,
-  requestedEndTime VARCHAR(191) NOT NULL,
+  requestedEndTime VARCHAR(191) NULL,
   status ENUM('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY appointment_requests_barberId_date_idx (barberId, date),

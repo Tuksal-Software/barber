@@ -13,25 +13,6 @@ export interface GetAvailableTimeSlotsParams {
   date: string
 }
 
-export interface BlockedSlot {
-  startTime: string
-  endTime: string
-}
-
-export interface GetBlockedSlotsParams {
-  barberId: string
-  date: string
-}
-
-export interface BookedTimeSlot {
-  startTime: string
-}
-
-export interface GetBookedTimeSlotsParams {
-  barberId: string
-  date: string
-}
-
 export async function getAvailableTimeSlots(
   params: GetAvailableTimeSlotsParams
 ): Promise<AvailableTimeSlot[]> {
@@ -128,54 +109,200 @@ export async function getAvailableTimeSlots(
   return availableSlots
 }
 
-export async function getBlockedSlots(
-  params: GetBlockedSlotsParams
-): Promise<BlockedSlot[]> {
-  const { barberId, date } = params
-
-  if (!barberId || !date) {
-    throw new Error('Berber ID ve tarih gereklidir')
-  }
-
-  const blockedSlots = await prisma.appointmentSlot.findMany({
-    where: {
-      barberId,
-      date,
-      status: 'blocked',
-    },
-    select: {
-      startTime: true,
-      endTime: true,
-    },
-  })
-
-  return blockedSlots
+export interface CustomerTimeButton {
+  time: string
+  disabled: boolean
 }
 
-export async function getBookedTimeSlots(
-  params: GetBookedTimeSlotsParams
-): Promise<BookedTimeSlot[]> {
+export interface GetCustomerTimeButtonsParams {
+  barberId: string
+  date: string
+}
+
+export async function getCustomerTimeButtons(
+  params: GetCustomerTimeButtonsParams
+): Promise<CustomerTimeButton[]> {
   const { barberId, date } = params
 
   if (!barberId || !date) {
     throw new Error('Berber ID ve tarih gereklidir')
   }
 
-  const requests = await prisma.appointmentRequest.findMany({
+  const dateObj = new Date(date)
+  if (isNaN(dateObj.getTime())) {
+    throw new Error('Geçersiz tarih formatı')
+  }
+
+  const dayOfWeek = dateObj.getDay()
+
+  const barber = await prisma.barber.findUnique({
+    where: { id: barberId },
+    select: { isActive: true },
+  })
+
+  if (!barber) {
+    throw new Error('Berber bulunamadı')
+  }
+
+  if (!barber.isActive) {
+    throw new Error('Berber aktif değil')
+  }
+
+  const workingHour = await prisma.workingHour.findUnique({
     where: {
-      barberId,
-      date,
-      status: {
-        in: ['pending', 'approved'],
+      barberId_dayOfWeek: {
+        barberId,
+        dayOfWeek,
       },
     },
-    select: {
-      requestedStartTime: true,
-    },
   })
 
-  return requests.map((req) => ({
-    startTime: req.requestedStartTime,
-  }))
+  if (!workingHour) {
+    return []
+  }
+
+  const workStartMinutes = parseTimeToMinutes(workingHour.startTime)
+  const workEndMinutes = parseTimeToMinutes(workingHour.endTime)
+
+  const [pendingOrApprovedRequests, appointmentSlots] = await Promise.all([
+    prisma.appointmentRequest.findMany({
+      where: {
+        barberId,
+        date,
+        status: {
+          in: ['pending', 'approved'],
+        },
+      },
+      select: {
+        requestedStartTime: true,
+        appointmentSlots: {
+          select: {
+            startTime: true,
+            endTime: true,
+          },
+        },
+      },
+    }),
+    prisma.appointmentSlot.findMany({
+      where: {
+        barberId,
+        date,
+        status: 'blocked',
+      },
+      select: {
+        startTime: true,
+        endTime: true,
+      },
+    }),
+  ])
+
+  const now = new Date()
+  const isToday = date === now.toISOString().split('T')[0]
+  const currentMinutes = isToday ? now.getHours() * 60 + now.getMinutes() : -1
+  const minAllowedMinutes = currentMinutes + 120
+
+  const timeButtons = new Map<string, boolean>()
+
+  for (let hour = Math.floor(workStartMinutes / 60); hour <= Math.floor(workEndMinutes / 60); hour++) {
+    const timeMinutes = hour * 60
+    if (timeMinutes >= workStartMinutes && timeMinutes < workEndMinutes) {
+      const timeStr = minutesToTime(timeMinutes)
+      timeButtons.set(timeStr, false)
+    }
+  }
+
+  const allBlockedRanges: Array<{ start: number; end: number }> = []
+
+  for (const request of pendingOrApprovedRequests) {
+    const requestStartMinutes = parseTimeToMinutes(request.requestedStartTime)
+    
+    if (request.appointmentSlots.length > 0) {
+      for (const slot of request.appointmentSlots) {
+        const slotStart = parseTimeToMinutes(slot.startTime)
+        const slotEnd = parseTimeToMinutes(slot.endTime)
+        allBlockedRanges.push({ start: slotStart, end: slotEnd })
+      }
+    } else {
+      const requestEndMinutes = requestStartMinutes + 30
+      allBlockedRanges.push({ start: requestStartMinutes, end: requestEndMinutes })
+    }
+  }
+
+  for (const slot of appointmentSlots) {
+    const slotStart = parseTimeToMinutes(slot.startTime)
+    const slotEnd = parseTimeToMinutes(slot.endTime)
+    allBlockedRanges.push({ start: slotStart, end: slotEnd })
+  }
+
+  const gapButtons = new Set<string>()
+
+  for (const slot of appointmentSlots) {
+    const slotStart = parseTimeToMinutes(slot.startTime)
+    const slotEnd = parseTimeToMinutes(slot.endTime)
+    const gapStart = slotEnd
+    const gapEnd = gapStart + 30
+    
+    if (gapStart < workEndMinutes) {
+      let hasOverlap = false
+      
+      for (const otherSlot of appointmentSlots) {
+        const otherStart = parseTimeToMinutes(otherSlot.startTime)
+        const otherEnd = parseTimeToMinutes(otherSlot.endTime)
+        
+        if (otherStart < gapEnd && otherEnd > gapStart) {
+          hasOverlap = true
+          break
+        }
+      }
+      
+      if (!hasOverlap) {
+        const gapTimeStr = minutesToTime(gapStart)
+        gapButtons.add(gapTimeStr)
+      }
+    }
+  }
+
+  for (const gapTime of gapButtons) {
+    if (!timeButtons.has(gapTime)) {
+      timeButtons.set(gapTime, false)
+    }
+  }
+
+  const result: CustomerTimeButton[] = []
+
+  for (const [timeStr, _] of timeButtons) {
+    const timeMinutes = parseTimeToMinutes(timeStr)
+    
+    if (isToday && timeMinutes < minAllowedMinutes) {
+      continue
+    }
+
+    const buttonWindowStart = timeMinutes
+    const buttonWindowEnd = timeMinutes + 30
+
+    let isDisabled = false
+
+    for (const range of allBlockedRanges) {
+      if (range.start < buttonWindowEnd && range.end > buttonWindowStart) {
+        isDisabled = true
+        break
+      }
+    }
+
+    result.push({
+      time: timeStr,
+      disabled: isDisabled,
+    })
+  }
+
+  result.sort((a, b) => {
+    const aMinutes = parseTimeToMinutes(a.time)
+    const bMinutes = parseTimeToMinutes(b.time)
+    return aMinutes - bMinutes
+  })
+
+  return result
 }
+
+
 

@@ -238,11 +238,17 @@ export default function AdminDashboardPage() {
                             <TableCell className="text-muted-foreground">
                               <div className="flex flex-col">
                                 <span>{typeof appointment.date === 'string' ? format(new Date(appointment.date + 'T00:00:00'), "d MMM yyyy", { locale: tr }) : format(appointment.date, "d MMM yyyy", { locale: tr })}</span>
-                                <span className="text-xs md:hidden">{appointment.requestedStartTime} - {appointment.requestedEndTime}</span>
+                                <span className="text-xs md:hidden">
+                                  {appointment.requestedEndTime
+                                    ? `${appointment.requestedStartTime} - ${appointment.requestedEndTime}`
+                                    : `${appointment.requestedStartTime} (Onay Bekliyor)`}
+                                </span>
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground hidden md:table-cell">
-                              {appointment.requestedStartTime} - {appointment.requestedEndTime}
+                              {appointment.requestedEndTime
+                                ? `${appointment.requestedStartTime} - ${appointment.requestedEndTime}`
+                                : `${appointment.requestedStartTime} (Onay Bekliyor)`}
                             </TableCell>
                             <TableCell>
                               <Badge
