@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
+import { parseTimeToMinutes, minutesToTime } from '@/lib/time'
 import { sendSms } from '@/lib/sms/sms.service'
 import { requireAdmin } from '@/lib/actions/auth.actions'
 
@@ -12,7 +12,6 @@ export interface CreateAppointmentRequestInput {
   customerEmail?: string
   date: string
   requestedStartTime: string
-  requestedEndTime: string
 }
 
 export interface ApproveAppointmentRequestInput {
@@ -21,6 +20,10 @@ export interface ApproveAppointmentRequestInput {
 }
 
 export interface CancelAppointmentRequestInput {
+  appointmentRequestId: string
+}
+
+export interface RejectAppointmentRequestInput {
   appointmentRequestId: string
 }
 
@@ -34,52 +37,46 @@ export async function createAppointmentRequest(
     customerEmail,
     date,
     requestedStartTime,
-    requestedEndTime,
   } = input
 
-  if (!barberId || !customerName || !customerPhone || !date || !requestedStartTime || !requestedEndTime) {
+  if (!barberId || !customerName || !customerPhone || !date || !requestedStartTime) {
     throw new Error('Tüm zorunlu alanlar doldurulmalıdır')
   }
 
-  const startMinutes = parseTimeToMinutes(requestedStartTime)
-  const endMinutes = parseTimeToMinutes(requestedEndTime)
+  return await prisma.$transaction(async (tx) => {
+    const barber = await tx.barber.findUnique({
+      where: { id: barberId },
+      select: { isActive: true },
+    })
 
-  if (endMinutes <= startMinutes) {
-    throw new Error('Bitiş saati başlangıç saatinden sonra olmalıdır')
-  }
+    if (!barber) {
+      throw new Error('Berber bulunamadı')
+    }
 
-  const barber = await prisma.barber.findUnique({
-    where: { id: barberId },
-    select: { isActive: true },
-  })
+    if (!barber.isActive) {
+      throw new Error('Berber aktif değil')
+    }
 
-  if (!barber) {
-    throw new Error('Berber bulunamadı')
-  }
+    const appointmentRequest = await tx.appointmentRequest.create({
+      data: {
+        barberId,
+        customerName,
+        customerPhone,
+        customerEmail: customerEmail || null,
+        date,
+        requestedStartTime,
+        requestedEndTime: null,
+        status: 'pending',
+      },
+    })
 
-  if (!barber.isActive) {
-    throw new Error('Berber aktif değil')
-  }
-
-  const appointmentRequest = await prisma.appointmentRequest.create({
-    data: {
-      barberId,
-      customerName,
+    await sendSms(
       customerPhone,
-      customerEmail: customerEmail || null,
-      date,
-      requestedStartTime,
-      requestedEndTime,
-      status: 'pending',
-    },
+      `Merhaba ${customerName}, randevu talebiniz alındı. Onay için bekliyoruz.`
+    ).catch(() => {})
+
+    return appointmentRequest.id
   })
-
-  await sendSms(
-    customerPhone,
-    `Merhaba ${customerName}, randevu talebiniz alındı. Onay için bekliyoruz.`
-  ).catch(() => {})
-
-  return appointmentRequest.id
 }
 
 export async function approveAppointmentRequest(
@@ -100,6 +97,9 @@ export async function approveAppointmentRequest(
   await prisma.$transaction(async (tx) => {
     const appointmentRequest = await tx.appointmentRequest.findUnique({
       where: { id: appointmentRequestId },
+      include: {
+        appointmentSlots: true,
+      },
     })
 
     if (!appointmentRequest) {
@@ -111,44 +111,59 @@ export async function approveAppointmentRequest(
     }
 
     const requestedStartMinutes = parseTimeToMinutes(appointmentRequest.requestedStartTime)
-    const requestedEndMinutes = parseTimeToMinutes(appointmentRequest.requestedEndTime)
     const approvedEndMinutes = requestedStartMinutes + approvedDurationMinutes
-
-    if (approvedEndMinutes > requestedEndMinutes) {
-      throw new Error('Onaylanan süre, talep edilen süreyi aşamaz')
-    }
 
     const approvedStartTime = appointmentRequest.requestedStartTime
     const approvedEndTime = minutesToTime(approvedEndMinutes)
 
-    const existingBlockedSlots = await tx.appointmentSlot.findMany({
+    const overlappingSlot = await tx.appointmentSlot.findFirst({
       where: {
         barberId: appointmentRequest.barberId,
         date: appointmentRequest.date,
         status: 'blocked',
-      },
-      select: {
-        startTime: true,
-        endTime: true,
+        NOT: {
+          appointmentRequestId: appointmentRequest.id,
+        },
+        AND: [
+          {
+            startTime: {
+              lt: approvedEndTime,
+            },
+          },
+          {
+            endTime: {
+              gt: approvedStartTime,
+            },
+          },
+        ],
       },
     })
 
-    for (const slot of existingBlockedSlots) {
-      if (overlaps(approvedStartTime, approvedEndTime, slot.startTime, slot.endTime)) {
-        throw new Error('Seçilen zaman aralığı zaten dolu')
-      }
+    if (overlappingSlot) {
+      throw new Error('Seçilen zaman aralığı zaten dolu')
     }
 
-    await tx.appointmentSlot.create({
-      data: {
-        barberId: appointmentRequest.barberId,
-        appointmentRequestId: appointmentRequest.id,
-        date: appointmentRequest.date,
-        startTime: approvedStartTime,
-        endTime: approvedEndTime,
-        status: 'blocked',
-      },
-    })
+    const existingSlot = appointmentRequest.appointmentSlots[0]
+    if (existingSlot) {
+      await tx.appointmentSlot.update({
+        where: { id: existingSlot.id },
+        data: {
+          startTime: approvedStartTime,
+          endTime: approvedEndTime,
+        },
+      })
+    } else {
+      await tx.appointmentSlot.create({
+        data: {
+          barberId: appointmentRequest.barberId,
+          appointmentRequestId: appointmentRequest.id,
+          date: appointmentRequest.date,
+          startTime: approvedStartTime,
+          endTime: approvedEndTime,
+          status: 'blocked',
+        },
+      })
+    }
 
     await tx.appointmentRequest.update({
       where: { id: appointmentRequestId },
@@ -158,6 +173,51 @@ export async function approveAppointmentRequest(
     await sendSms(
       appointmentRequest.customerPhone,
       `Merhaba ${appointmentRequest.customerName}, randevunuz onaylandı. Tarih: ${appointmentRequest.date}, Saat: ${approvedStartTime}-${approvedEndTime}`
+    ).catch(() => {})
+  })
+}
+
+export async function rejectAppointmentRequest(
+  input: RejectAppointmentRequestInput
+): Promise<void> {
+  await requireAdmin()
+
+  const { appointmentRequestId } = input
+
+  if (!appointmentRequestId) {
+    throw new Error('Randevu talebi ID gereklidir')
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const appointmentRequest = await tx.appointmentRequest.findUnique({
+      where: { id: appointmentRequestId },
+      include: {
+        appointmentSlots: true,
+      },
+    })
+
+    if (!appointmentRequest) {
+      throw new Error('Randevu talebi bulunamadı')
+    }
+
+    if (appointmentRequest.status !== 'pending') {
+      throw new Error('Sadece bekleyen randevu talepleri reddedilebilir')
+    }
+
+    await tx.appointmentSlot.deleteMany({
+      where: {
+        appointmentRequestId: appointmentRequest.id,
+      },
+    })
+
+    await tx.appointmentRequest.update({
+      where: { id: appointmentRequestId },
+      data: { status: 'rejected' },
+    })
+
+    await sendSms(
+      appointmentRequest.customerPhone,
+      `Merhaba ${appointmentRequest.customerName}, randevu talebiniz reddedildi. Lütfen başka bir saat seçin.`
     ).catch(() => {})
   })
 }

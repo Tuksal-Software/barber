@@ -73,7 +73,7 @@ model AppointmentRequest {
   customerEmail      String?                  @db.VarChar(255)
   date               String                   @db.VarChar(191)
   requestedStartTime String                   @db.VarChar(191)
-  requestedEndTime   String                   @db.VarChar(191)
+  requestedEndTime   String?                  @db.VarChar(191)
   status             AppointmentRequestStatus @default(pending)
   createdAt          DateTime                 @default(now()) @db.DateTime(0)
 

@@ -36,10 +36,14 @@ interface Appointment {
   customerEmail?: string | null;
   date: string;
   requestedStartTime: string;
-  requestedEndTime: string;
+  requestedEndTime: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   barberId: string;
   barberName: string;
+  appointmentSlots?: Array<{
+    startTime: string;
+    endTime: string;
+  }>;
 }
 
 const TIME_SLOTS = Array.from({ length: 13 }, (_, i) => {
@@ -123,6 +127,7 @@ export default function TakvimPage() {
         status: r.status,
         barberId: r.barberId,
         barberName: r.barberName,
+        appointmentSlots: r.appointmentSlots,
       })));
     } catch (error) {
       console.error("Error loading data:", error);
@@ -152,6 +157,11 @@ export default function TakvimPage() {
   const handleAppointmentClick = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setIsSheetOpen(true);
+    
+    if (appointment.status === 'pending' || !appointment.requestedEndTime) {
+      setSelectedDuration(60);
+      return;
+    }
     
     const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
     const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
@@ -216,7 +226,7 @@ export default function TakvimPage() {
       case 'approved':
         return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Onaylandı</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Bekliyor</Badge>;
+        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Onay Bekliyor</Badge>;
       case 'cancelled':
         return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">İptal</Badge>;
       case 'rejected':
@@ -236,14 +246,28 @@ export default function TakvimPage() {
   };
 
   const getAppointmentHeight = (appointment: Appointment): number => {
-    const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
-    const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
+    if (appointment.status === 'pending') {
+      return 60;
+    }
+    const slot = appointment.appointmentSlots?.[0];
+    if (!slot) {
+      return 60;
+    }
+    const startMinutes = parseTimeToMinutes(slot.startTime);
+    const endMinutes = parseTimeToMinutes(slot.endTime);
     const duration = endMinutes - startMinutes;
     return (duration / 60) * 80;
   };
 
   const getAppointmentTop = (appointment: Appointment): number => {
-    const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
+    let startTime: string;
+    if (appointment.status === 'approved') {
+      const slot = appointment.appointmentSlots?.[0];
+      startTime = slot?.startTime || appointment.requestedStartTime;
+    } else {
+      startTime = appointment.requestedStartTime;
+    }
+    const startMinutes = parseTimeToMinutes(startTime);
     const baseMinutes = parseTimeToMinutes('10:00');
     const offset = startMinutes - baseMinutes;
     return (offset / 60) * 80;
@@ -389,7 +413,18 @@ export default function TakvimPage() {
                           <div className="space-y-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-2">
                               <Clock className="h-4 w-4" />
-                              <span>{appointment.requestedStartTime} - {appointment.requestedEndTime}</span>
+                              <span>
+                                {appointment.status === 'pending'
+                                  ? `Talep Edilen Saat: ${appointment.requestedStartTime}`
+                                  : (() => {
+                                      const slot = appointment.appointmentSlots?.[0];
+                                      if (slot) {
+                                        return `${slot.startTime} - ${slot.endTime}`;
+                                      }
+                                      return '—';
+                                    })()
+                                }
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <User className="h-4 w-4" />
@@ -489,7 +524,16 @@ export default function TakvimPage() {
                                 {appointment.customerName}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {appointment.requestedStartTime} - {appointment.requestedEndTime}
+                                {appointment.status === 'pending'
+                                  ? `Talep: ${appointment.requestedStartTime}`
+                                  : (() => {
+                                      const slot = appointment.appointmentSlots?.[0];
+                                      if (slot) {
+                                        return `${slot.startTime} - ${slot.endTime}`;
+                                      }
+                                      return '—';
+                                    })()
+                                }
                               </div>
                               <div className="mt-1">
                                 {getStatusBadge(appointment.status)}
@@ -553,7 +597,16 @@ export default function TakvimPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">
-                          {selectedAppointment.requestedStartTime} - {selectedAppointment.requestedEndTime}
+                          {selectedAppointment.status === 'pending'
+                            ? `Talep Edilen Saat: ${selectedAppointment.requestedStartTime}`
+                            : (() => {
+                                const slot = selectedAppointment.appointmentSlots?.[0];
+                                if (slot) {
+                                  return `${slot.startTime} - ${slot.endTime}`;
+                                }
+                                return '—';
+                              })()
+                          }
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -582,20 +635,11 @@ export default function TakvimPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {(() => {
-                            const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
-                            const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
-                            const maxDuration = endMinutes - startMinutes;
-                            const options = [15, 30, 45, 60];
-                            
-                            return options
-                              .filter(duration => duration <= maxDuration)
-                              .map(duration => (
-                                <SelectItem key={duration} value={duration.toString()}>
-                                  {duration} dakika
-                                </SelectItem>
-                              ));
-                          })()}
+                          {[15, 30, 45, 60].map(duration => (
+                            <SelectItem key={duration} value={duration.toString()}>
+                              {duration} dakika
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>

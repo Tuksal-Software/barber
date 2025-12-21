@@ -1,4 +1,7 @@
 export function parseTimeToMinutes(time: string): number {
+  if (time == null || time === undefined) {
+    throw new Error('Saat bilgisi yok')
+  }
   const [hours, minutes] = time.split(':').map(Number)
   if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
     throw new Error(`Geçersiz saat formatı: ${time}`)

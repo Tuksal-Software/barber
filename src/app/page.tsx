@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
-import { Star, Scissors, Loader2, Clock, CheckCircle2 } from "lucide-react"
+import { Star, Scissors, Loader2, Clock, CheckCircle2, Info } from "lucide-react"
 import { AppHeader } from "@/components/app/AppHeader"
 import { BottomBar } from "@/components/app/BottomBar"
 import { Stepper } from "@/components/app/Stepper"
@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button"
 import { TimeRangePicker } from "@/components/app/TimeRangePicker"
 import { EmptyState } from "@/components/app/EmptyState"
 import { getActiveBarbers } from "@/lib/actions/barber.actions"
-import { getAvailableTimeSlots } from "@/lib/actions/availability.actions"
+import { getAvailableTimeSlots, getBlockedSlots, getBookedTimeSlots } from "@/lib/actions/availability.actions"
 import { createAppointmentRequest } from "@/lib/actions/appointment.actions"
 import { cn } from "@/lib/utils"
 import type { BarberListItem } from "@/lib/actions/barber.actions"
@@ -50,9 +50,10 @@ export default function BookingPage() {
   const [loadingBarbers, setLoadingBarbers] = useState(true)
   const [selectedBarber, setSelectedBarber] = useState<BarberListItem | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
-  const [selectedStart, setSelectedStart] = useState<string>("")
-  const [selectedEnd, setSelectedEnd] = useState<string>("")
+  const [selectedStartTime, setSelectedStartTime] = useState<string>("")
   const [availableSlots, setAvailableSlots] = useState<AvailableTimeSlot[]>([])
+  const [blockedSlots, setBlockedSlots] = useState<Array<{ startTime: string; endTime: string }>>([])
+  const [bookedRequests, setBookedRequests] = useState<Array<{ startTime: string }>>([])
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [showSuccess, setShowSuccess] = useState(false)
@@ -88,8 +89,7 @@ export default function BookingPage() {
   useEffect(() => {
     if (!selectedBarber || !selectedDate) {
       setAvailableSlots([])
-      setSelectedStart("")
-      setSelectedEnd("")
+      setSelectedStartTime("")
       return
     }
 
@@ -97,16 +97,29 @@ export default function BookingPage() {
       try {
         setLoadingSlots(true)
         const dateStr = format(selectedDate!, "yyyy-MM-dd")
-        const slots = await getAvailableTimeSlots({
-          barberId: selectedBarber!.id,
-          date: dateStr,
-        })
+        const [slots, blocked, booked] = await Promise.all([
+          getAvailableTimeSlots({
+            barberId: selectedBarber!.id,
+            date: dateStr,
+          }),
+          getBlockedSlots({
+            barberId: selectedBarber!.id,
+            date: dateStr,
+          }),
+          getBookedTimeSlots({
+            barberId: selectedBarber!.id,
+            date: dateStr,
+          }),
+        ])
         setAvailableSlots(slots)
-        setSelectedStart("")
-        setSelectedEnd("")
+        setBlockedSlots(blocked)
+        setBookedRequests(booked)
+        setSelectedStartTime("")
       } catch (error) {
         toast.error("Müsait saatler yüklenirken hata oluştu")
         setAvailableSlots([])
+        setBlockedSlots([])
+        setBookedRequests([])
       } finally {
         setLoadingSlots(false)
       }
@@ -121,7 +134,7 @@ export default function BookingPage() {
       case 1:
         return selectedBarber !== null && !loadingBarbers
       case 2:
-        return selectedDate !== undefined && selectedStart !== "" && selectedEnd !== "" && !loadingSlots
+        return selectedDate !== undefined && selectedStartTime !== "" && !loadingSlots
       case 3:
         return (
           formData.customerName &&
@@ -158,7 +171,7 @@ export default function BookingPage() {
   }
 
   const handleConfirm = () => {
-    if (!selectedBarber || !selectedDate || !selectedStart || !selectedEnd) {
+    if (!selectedBarber || !selectedDate || !selectedStartTime) {
       return
     }
 
@@ -171,8 +184,7 @@ export default function BookingPage() {
           customerPhone: formData.customerPhone,
           customerEmail: formData.customerEmail || undefined,
           date: dateStr,
-          requestedStartTime: selectedStart,
-          requestedEndTime: selectedEnd,
+          requestedStartTime: selectedStartTime,
         })
         setShowSuccess(true)
       } catch (error) {
@@ -186,8 +198,7 @@ export default function BookingPage() {
     setStep(1)
     setSelectedBarber(null)
     setSelectedDate(new Date())
-    setSelectedStart("")
-    setSelectedEnd("")
+    setSelectedStartTime("")
     reset()
   }
 
@@ -211,12 +222,29 @@ export default function BookingPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Randevu Talebin Alındı!</h2>
+            <h2 className="text-2xl font-bold">Saat Talebiniz Alındı</h2>
             <p className="text-muted-foreground">
-              Randevunuz onaylandığında size bildirim göndereceğiz.
+              Berber onayı bekleniyor. Onaylandığında SMS ile bilgilendirileceksiniz.
             </p>
           </div>
-          <div className="pt-4">
+          
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3 text-left">
+                <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                <div className="space-y-1 flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    Seçtiğiniz saat henüz kesinleşmedi
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Seçtiğiniz saat berber tarafından onaylandığında kesinleşecektir. Onay sonrası SMS ile bilgilendirileceksiniz.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="pt-2">
             <Card>
               <CardContent className="p-6 space-y-3 text-left">
                 <div>
@@ -230,8 +258,18 @@ export default function BookingPage() {
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Saat</h3>
-                  <p className="font-semibold">{selectedStart} - {selectedEnd}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground">Talep Edilen Saat</h3>
+                  <p className="font-semibold">
+                    {selectedStartTime && (() => {
+                      const [hours, minutes] = selectedStartTime.split(":").map(Number)
+                      const endTime = new Date(selectedDate!)
+                      endTime.setHours(hours, minutes + 60, 0, 0)
+                      return `${selectedStartTime} - ${format(endTime, "HH:mm")}`
+                    })()}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    (Berber onayı bekleniyor)
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -328,7 +366,7 @@ export default function BookingPage() {
               </div>
 
               <div>
-                <Label className="mb-2 block">Saat Aralığı</Label>
+                <Label className="mb-2 block">Saat Seçimi</Label>
                 {loadingSlots ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -340,16 +378,17 @@ export default function BookingPage() {
                 ) : (
                   <>
                     <TimeRangePicker
-                      selectedStart={selectedStart}
-                      selectedEnd={selectedEnd}
-                      onStartSelect={setSelectedStart}
-                      onEndSelect={setSelectedEnd}
+                      selectedTime={selectedStartTime}
+                      onTimeSelect={(time) => setSelectedStartTime(time || "")}
                       availableSlots={availableSlots}
+                      selectedDate={selectedDate}
+                      blockedSlots={blockedSlots}
+                      bookedRequests={bookedRequests}
                     />
-                    {selectedStart && selectedEnd && (
+                    {selectedStartTime && (
                       <div className="mt-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
                         <p className="text-sm font-medium text-primary">
-                          Seçilen: {selectedStart} - {selectedEnd}
+                          Seçilen: {selectedStartTime}
                         </p>
                       </div>
                     )}
@@ -442,7 +481,12 @@ export default function BookingPage() {
                 <div>
                   <h3 className="font-semibold mb-2">Saat</h3>
                   <p>
-                    {selectedStart} - {selectedEnd}
+                    {selectedStartTime && (() => {
+                      const [hours, minutes] = selectedStartTime.split(":").map(Number)
+                      const endTime = new Date(selectedDate!)
+                      endTime.setHours(hours, minutes + 60, 0, 0)
+                      return `${selectedStartTime} - ${format(endTime, "HH:mm")}`
+                    })()}
                   </p>
                 </div>
                 <div>

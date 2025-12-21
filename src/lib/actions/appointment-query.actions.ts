@@ -12,9 +12,13 @@ export interface AppointmentRequestListItem {
   customerEmail: string | null
   date: string
   requestedStartTime: string
-  requestedEndTime: string
+  requestedEndTime: string | null
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
   createdAt: Date
+  appointmentSlots?: Array<{
+    startTime: string
+    endTime: string
+  }>
 }
 
 export async function getPendingAppointmentRequests(): Promise<AppointmentRequestListItem[]> {
@@ -120,6 +124,12 @@ export async function getAllAppointmentRequests(): Promise<AppointmentRequestLis
           name: true,
         },
       },
+      appointmentSlots: {
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      },
     },
     orderBy: {
       createdAt: 'desc',
@@ -138,6 +148,7 @@ export async function getAllAppointmentRequests(): Promise<AppointmentRequestLis
     requestedEndTime: req.requestedEndTime,
     status: req.status,
     createdAt: req.createdAt,
+    appointmentSlots: req.appointmentSlots,
   }))
 }
 

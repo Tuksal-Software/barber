@@ -13,6 +13,25 @@ export interface GetAvailableTimeSlotsParams {
   date: string
 }
 
+export interface BlockedSlot {
+  startTime: string
+  endTime: string
+}
+
+export interface GetBlockedSlotsParams {
+  barberId: string
+  date: string
+}
+
+export interface BookedTimeSlot {
+  startTime: string
+}
+
+export interface GetBookedTimeSlotsParams {
+  barberId: string
+  date: string
+}
+
 export async function getAvailableTimeSlots(
   params: GetAvailableTimeSlotsParams
 ): Promise<AvailableTimeSlot[]> {
@@ -109,4 +128,54 @@ export async function getAvailableTimeSlots(
   return availableSlots
 }
 
+export async function getBlockedSlots(
+  params: GetBlockedSlotsParams
+): Promise<BlockedSlot[]> {
+  const { barberId, date } = params
+
+  if (!barberId || !date) {
+    throw new Error('Berber ID ve tarih gereklidir')
+  }
+
+  const blockedSlots = await prisma.appointmentSlot.findMany({
+    where: {
+      barberId,
+      date,
+      status: 'blocked',
+    },
+    select: {
+      startTime: true,
+      endTime: true,
+    },
+  })
+
+  return blockedSlots
+}
+
+export async function getBookedTimeSlots(
+  params: GetBookedTimeSlotsParams
+): Promise<BookedTimeSlot[]> {
+  const { barberId, date } = params
+
+  if (!barberId || !date) {
+    throw new Error('Berber ID ve tarih gereklidir')
+  }
+
+  const requests = await prisma.appointmentRequest.findMany({
+    where: {
+      barberId,
+      date,
+      status: {
+        in: ['pending', 'approved'],
+      },
+    },
+    select: {
+      requestedStartTime: true,
+    },
+  })
+
+  return requests.map((req) => ({
+    startTime: req.requestedStartTime,
+  }))
+}
 
