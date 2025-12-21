@@ -43,7 +43,7 @@ export const TimeRangePicker = memo(function TimeRangePicker({
               "relative rounded-lg border-2 py-3 px-2 text-sm font-semibold transition-all duration-200 touch-manipulation",
               "min-h-[48px] flex items-center justify-center",
               button.disabled &&
-                "cursor-not-allowed bg-muted/30 text-muted-foreground opacity-40 border-muted",
+                "cursor-not-allowed bg-muted/30 text-muted-foreground opacity-50 border-red-500/60 hover:border-red-500/60 hover:bg-muted/30",
               !button.disabled &&
                 !isSelected &&
                 "border-border bg-background hover:border-primary/50 hover:bg-primary/5 active:scale-95",
@@ -52,6 +52,16 @@ export const TimeRangePicker = memo(function TimeRangePicker({
             )}
           >
             {button.time}
+            {button.disabled && (
+              <span 
+                className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none font-medium"
+                style={{
+                  animation: 'fadeIn 0.3s ease-in-out, scaleIn 0.3s ease-in-out'
+                }}
+              >
+                Dolu
+              </span>
+            )}
           </button>
         )
       })}
