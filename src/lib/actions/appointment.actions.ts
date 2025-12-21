@@ -24,6 +24,26 @@ export interface CancelAppointmentRequestInput {
   appointmentRequestId: string
 }
 
+export async function getCustomerByPhone(phone: string): Promise<{ customerName: string } | null> {
+  if (!phone || !phone.startsWith('+90')) {
+    return null
+  }
+
+  const appointment = await prisma.appointmentRequest.findFirst({
+    where: {
+      customerPhone: phone,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    select: {
+      customerName: true,
+    },
+  })
+
+  return appointment ? { customerName: appointment.customerName } : null
+}
+
 export async function createAppointmentRequest(
   input: CreateAppointmentRequestInput
 ): Promise<string> {
@@ -56,13 +76,17 @@ export async function createAppointmentRequest(
 
   const appointmentRequest = await prisma.appointmentRequest.create({
     data: {
-      barberId,
+      barber: {
+        connect: {
+          id: barberId,
+        },
+      },
       customerName,
       customerPhone,
       customerEmail: customerEmail || null,
       date,
       requestedStartTime,
-      requestedEndTime,
+      requestedEndTime: requestedEndTime ?? null,
       status: 'pending',
     },
   })

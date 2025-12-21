@@ -22,7 +22,7 @@ import { HorizontalDatePicker } from "@/components/app/HorizontalDatePicker"
 import { EmptyState } from "@/components/app/EmptyState"
 import { getActiveBarbers } from "@/lib/actions/barber.actions"
 import { getCustomerTimeButtons } from "@/lib/actions/availability.actions"
-import { createAppointmentRequest } from "@/lib/actions/appointment.actions"
+import { createAppointmentRequest, getCustomerByPhone } from "@/lib/actions/appointment.actions"
 import { cn } from "@/lib/utils"
 import type { BarberListItem } from "@/lib/actions/barber.actions"
 import type { CustomerTimeButton } from "@/lib/actions/availability.actions"
@@ -36,9 +36,7 @@ const wizardSteps = [
 
 const formSchema = z.object({
   customerName: z.string().min(2, "En az 2 karakter olmalı"),
-  customerPhone: z.string().min(10, "En az 10 karakter olmalı"),
-  customerEmail: z.string().email("Geçerli bir e-posta adresi girin").optional().or(z.literal("")),
-  notes: z.string().optional(),
+  customerPhone: z.string().regex(/^\+90[5][0-9]{9}$/, "Geçerli bir telefon numarası girin"),
 })
 
 type FormData = z.infer<typeof formSchema>
@@ -55,6 +53,9 @@ export default function BookingPage() {
   const [isPending, startTransition] = useTransition()
   const [showSuccess, setShowSuccess] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [phoneValue, setPhoneValue] = useState("")
+  const [showNameInput, setShowNameInput] = useState(false)
+  const [loadingCustomer, setLoadingCustomer] = useState(false)
 
   const {
     register,
@@ -62,11 +63,75 @@ export default function BookingPage() {
     formState: { errors },
     watch,
     reset,
+    setValue,
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
   })
 
   const formData = watch()
+
+  const normalizePhone = (value: string): string => {
+    const digits = value.replace(/\D/g, "")
+    
+    if (digits.length === 0) return ""
+    
+    if (digits.startsWith("90") && digits.length >= 12) {
+      return `+${digits.slice(0, 12)}`
+    }
+    
+    if (digits.startsWith("0") && digits.length >= 11) {
+      return `+90${digits.slice(1, 12)}`
+    }
+    
+    if (digits.startsWith("5") && digits.length >= 10) {
+      return `+90${digits.slice(0, 10)}`
+    }
+    
+    if (digits.length > 0) {
+      if (digits.startsWith("90")) {
+        return `+${digits.slice(0, 12)}`
+      }
+      if (digits.startsWith("0")) {
+        return `+90${digits.slice(1, 12)}`
+      }
+      if (digits.startsWith("5")) {
+        return `+90${digits.slice(0, 10)}`
+      }
+      return `+90${digits.slice(0, 10)}`
+    }
+    
+    return ""
+  }
+
+  const handlePhoneChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value
+    const normalized = normalizePhone(rawValue)
+    
+    if (normalized.length <= 13) {
+      setPhoneValue(normalized)
+      setValue("customerPhone", normalized, { shouldValidate: false })
+      
+      if (normalized.match(/^\+90[5][0-9]{9}$/)) {
+        setLoadingCustomer(true)
+        try {
+          const customer = await getCustomerByPhone(normalized)
+          if (customer) {
+            setValue("customerName", customer.customerName)
+          } else {
+            setValue("customerName", "")
+          }
+          setShowNameInput(true)
+        } catch (error) {
+          console.error("Error fetching customer:", error)
+          setShowNameInput(true)
+        } finally {
+          setLoadingCustomer(false)
+        }
+      } else {
+        setShowNameInput(false)
+      }
+    }
+  }
 
   useEffect(() => {
     async function fetchBarbers() {
@@ -123,8 +188,8 @@ export default function BookingPage() {
           formData.customerName &&
           formData.customerName.length >= 2 &&
           formData.customerPhone &&
-          formData.customerPhone.length >= 10 &&
-          (!formData.customerEmail || z.string().email().safeParse(formData.customerEmail).success)
+          /^\+90[5][0-9]{9}$/.test(formData.customerPhone) &&
+          showNameInput
         )
       case 4:
         return true
@@ -165,10 +230,8 @@ export default function BookingPage() {
           barberId: selectedBarber.id,
           customerName: formData.customerName,
           customerPhone: formData.customerPhone,
-          customerEmail: formData.customerEmail || undefined,
           date: dateStr,
           requestedStartTime: selectedStart,
-          requestedEndTime: "",
         })
         setShowSuccess(true)
       } catch (error) {
@@ -183,6 +246,8 @@ export default function BookingPage() {
     setSelectedBarber(null)
     setSelectedDate(new Date())
     setSelectedStart("")
+    setPhoneValue("")
+    setShowNameInput(false)
     reset()
   }
 
@@ -344,27 +409,23 @@ export default function BookingPage() {
             <h2 className="text-xl font-semibold">Bilgiler</h2>
             <form onSubmit={handleStepSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="customerName">Ad Soyad *</Label>
-                <Input
-                  id="customerName"
-                  {...register("customerName")}
-                  className={cn(errors.customerName && "border-destructive")}
-                />
-                {errors.customerName && (
-                  <p className="mt-1 text-sm text-destructive">
-                    {errors.customerName.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
                 <Label htmlFor="customerPhone">Telefon *</Label>
-                <Input
-                  id="customerPhone"
-                  type="tel"
-                  {...register("customerPhone")}
-                  className={cn(errors.customerPhone && "border-destructive")}
-                />
+                <div className="relative">
+                  <Input
+                    id="customerPhone"
+                    type="tel"
+                    value={phoneValue}
+                    onChange={handlePhoneChange}
+                    placeholder="5xxxxxxxxx"
+                    maxLength={13}
+                    className={cn(errors.customerPhone && "border-destructive")}
+                  />
+                  {loadingCustomer && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
                 {errors.customerPhone && (
                   <p className="mt-1 text-sm text-destructive">
                     {errors.customerPhone.message}
@@ -372,28 +433,21 @@ export default function BookingPage() {
                 )}
               </div>
 
-              <div>
-                <Label htmlFor="customerEmail">E-posta (Opsiyonel)</Label>
-                <Input
-                  id="customerEmail"
-                  type="email"
-                  {...register("customerEmail")}
-                  className={cn(errors.customerEmail && "border-destructive")}
-                />
-                {errors.customerEmail && (
-                  <p className="mt-1 text-sm text-destructive">
-                    {errors.customerEmail.message}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="notes">Notlar (Opsiyonel)</Label>
-                <Input
-                  id="notes"
-                  {...register("notes")}
-                />
-              </div>
+              {showNameInput && (
+                <div>
+                  <Label htmlFor="customerName">Ad Soyad *</Label>
+                  <Input
+                    id="customerName"
+                    {...register("customerName")}
+                    className={cn(errors.customerName && "border-destructive")}
+                  />
+                  {errors.customerName && (
+                    <p className="mt-1 text-sm text-destructive">
+                      {errors.customerName.message}
+                    </p>
+                  )}
+                </div>
+              )}
             </form>
           </div>
         )
@@ -427,14 +481,6 @@ export default function BookingPage() {
                   <h3 className="font-semibold mb-2">Müşteri Bilgileri</h3>
                   <p>{formData.customerName}</p>
                   <p>{formData.customerPhone}</p>
-                  {formData.customerEmail && <p>{formData.customerEmail}</p>}
-                  {formData.notes && (
-                    <div className="mt-2">
-                      <p className="text-sm text-muted-foreground">
-                        Notlar: {formData.notes}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
