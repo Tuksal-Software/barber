@@ -16,10 +16,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { TimeRangePicker } from "@/components/app/TimeRangePicker"
+import { HorizontalDatePicker } from "@/components/app/HorizontalDatePicker"
 import { EmptyState } from "@/components/app/EmptyState"
 import { getActiveBarbers } from "@/lib/actions/barber.actions"
 import { getCustomerTimeButtons } from "@/lib/actions/availability.actions"
@@ -302,25 +301,10 @@ export default function BookingPage() {
             <div className="space-y-4">
               <div>
                 <Label className="mb-2 block">Tarih</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      {selectedDate ? (
-                        format(selectedDate, "d MMMM yyyy", { locale: tr })
-                      ) : (
-                        <span>Tarih seçin</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <HorizontalDatePicker
+                  selectedDate={selectedDate}
+                  onDateSelect={setSelectedDate}
+                />
               </div>
 
               <div>
