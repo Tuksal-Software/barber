@@ -74,6 +74,29 @@ export async function createAppointmentRequest(
     throw new Error('Berber aktif değil')
   }
 
+  const activeAppointments = await prisma.appointmentRequest.findMany({
+    where: {
+      customerPhone,
+      status: {
+        in: ['pending', 'approved'],
+      },
+    },
+    select: {
+      date: true,
+      requestedStartTime: true,
+    },
+  })
+
+  const now = new Date()
+  const futureAppointment = activeAppointments.find((appointment) => {
+    const appointmentDateTime = new Date(`${appointment.date}T${appointment.requestedStartTime}:00`)
+    return appointmentDateTime > now
+  })
+
+  if (futureAppointment) {
+    throw new Error('Aktif bir randevunuz bulunduğu için yeni randevu alamazsınız.')
+  }
+
   const appointmentRequest = await prisma.appointmentRequest.create({
     data: {
       barber: {
@@ -123,8 +146,16 @@ export async function approveAppointmentRequest(
       throw new Error('Randevu talebi bulunamadı')
     }
 
-    if (appointmentRequest.status !== 'pending') {
-      throw new Error('Sadece bekleyen randevu talepleri onaylanabilir')
+    if (appointmentRequest.status === 'cancelled') {
+      throw new Error('İptal edilmiş randevu talepleri onaylanamaz')
+    }
+
+    if (appointmentRequest.status === 'approved') {
+      await tx.appointmentSlot.deleteMany({
+        where: {
+          appointmentRequestId: appointmentRequest.id,
+        },
+      })
     }
 
     const startMinutes = parseTimeToMinutes(appointmentRequest.requestedStartTime)
@@ -200,11 +231,13 @@ export async function cancelAppointmentRequest(
       return
     }
 
-    await tx.appointmentSlot.deleteMany({
-      where: {
-        appointmentRequestId: appointmentRequest.id,
-      },
-    })
+    if (appointmentRequest.status === 'approved') {
+      await tx.appointmentSlot.deleteMany({
+        where: {
+          appointmentRequestId: appointmentRequest.id,
+        },
+      })
+    }
 
     await tx.appointmentRequest.update({
       where: { id: appointmentRequestId },

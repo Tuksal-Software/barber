@@ -18,7 +18,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { getActiveBarbers } from "@/lib/actions/barber.actions";
-import { getAllAppointmentRequests } from "@/lib/actions/appointment-query.actions";
+import { getCalendarAppointments, CalendarAppointment } from "@/lib/actions/appointment-query.actions";
 import { approveAppointmentRequest, cancelAppointmentRequest } from "@/lib/actions/appointment.actions";
 import { parseTimeToMinutes, minutesToTime, overlaps } from "@/lib/time";
 import { toast } from "sonner";
@@ -27,19 +27,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 interface Barber {
   id: string;
   name: string;
-}
-
-interface Appointment {
-  id: string;
-  customerName: string;
-  customerPhone: string;
-  customerEmail?: string | null;
-  date: string;
-  requestedStartTime: string;
-  requestedEndTime: string | null;
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
-  barberId: string;
-  barberName: string;
 }
 
 const TIME_SLOTS = (() => {
@@ -73,14 +60,34 @@ function formatDateRange(dates: Date[]): string {
 }
 
 function formatDateKey(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function normalizeTime(time: string): string {
+  const trimmed = time.trim();
+  const first5 = trimmed.slice(0, 5);
+  const colonIndex = first5.indexOf(':');
+  
+  if (colonIndex === -1) {
+    return '00:00';
+  }
+  
+  const h = first5.slice(0, colonIndex);
+  const m = first5.slice(colonIndex + 1);
+  const hours = h.padStart(2, '0');
+  const minutes = m.padStart(2, '0');
+  
+  return `${hours}:${minutes}`;
 }
 
 function getAppointmentsForDate(
-  appointments: Appointment[],
+  appointments: CalendarAppointment[],
   dateKey: string,
   barberId: string | null
-): Appointment[] {
+): CalendarAppointment[] {
   return appointments.filter(apt => {
     if (apt.date !== dateKey) return false;
     if (barberId && barberId !== 'all' && apt.barberId !== barberId) return false;
@@ -88,12 +95,70 @@ function getAppointmentsForDate(
   });
 }
 
+function getSlotIndex(time: string): number {
+  const normalized = normalizeTime(time);
+  const idx = TIME_SLOTS.findIndex((t) => t === normalized);
+  
+  if (idx !== -1) {
+    return idx;
+  }
+  
+  const minutes = parseTimeToMinutes(normalized);
+  const dayStart = parseTimeToMinutes(TIME_SLOTS[0]);
+  const delta = minutes - dayStart;
+  const calculatedIdx = Math.floor(delta / 30);
+  return Math.max(0, Math.min(calculatedIdx, TIME_SLOTS.length - 1));
+}
+
+function getStatusPriority(status: CalendarAppointment['status']): number {
+  switch (status) {
+    case 'approved': return 3;
+    case 'pending': return 2;
+    case 'cancelled': return 1;
+    case 'rejected': return 1;
+    default: return 0;
+  }
+}
+
+function getPrimaryAppointment(appointments: CalendarAppointment[]): CalendarAppointment | null {
+  if (appointments.length === 0) return null;
+  return appointments.reduce((primary, current) => {
+    const primaryPriority = getStatusPriority(primary.status);
+    const currentPriority = getStatusPriority(current.status);
+    return currentPriority > primaryPriority ? current : primary;
+  });
+}
+
+function groupBySlot(apts: CalendarAppointment[]): Map<string, CalendarAppointment[]> {
+  const map = new Map<string, CalendarAppointment[]>();
+  for (const a of apts) {
+    const key = `${a.date}-${a.startTime}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(a);
+  }
+  return map;
+}
+
+function hasCancelledInSlot(appointments: CalendarAppointment[]): boolean {
+  return appointments.some(apt => apt.status === 'cancelled' || apt.status === 'rejected');
+}
+
+function getBorderColor(status: CalendarAppointment['status']): string {
+  switch (status) {
+    case 'approved': return 'border-green-500';
+    case 'pending': return 'border-yellow-500';
+    case 'cancelled': return 'border-red-500';
+    case 'rejected': return 'border-red-500';
+    default: return 'border-border';
+  }
+}
+
 export default function TakvimPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [selectedBarber, setSelectedBarber] = useState<string>('all');
   const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState<15 | 30 | 45 | 60>(30);
   const [loading, setLoading] = useState(true);
@@ -108,26 +173,30 @@ export default function TakvimPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!selectedAppointment) {
+      return;
+    }
+
+    const startMinutes = parseTimeToMinutes(selectedAppointment.startTime);
+    const endMinutes = parseTimeToMinutes(selectedAppointment.endTime);
+    const duration = endMinutes - startMinutes;
+    
+    if (duration === 15 || duration === 30 || duration === 45 || duration === 60) {
+      setSelectedDuration(duration as 15 | 30 | 45 | 60);
+    } else {
+      setSelectedDuration(30);
+    }
+  }, [selectedAppointment]);
+
   const loadData = async () => {
     setLoading(true);
     try {
       const barbersList = await getActiveBarbers();
       setBarbers(barbersList.map(b => ({ id: b.id, name: b.name })));
 
-      const requests = await getAllAppointmentRequests();
-      
-      setAppointments(requests.map(r => ({
-        id: r.id,
-        customerName: r.customerName,
-        customerPhone: r.customerPhone,
-        customerEmail: r.customerEmail || undefined,
-        date: r.date,
-        requestedStartTime: r.requestedStartTime,
-        requestedEndTime: r.requestedEndTime,
-        status: r.status,
-        barberId: r.barberId,
-        barberName: r.barberName,
-      })));
+      const calendarAppointments = await getCalendarAppointments();
+      setAppointments(calendarAppointments);
     } catch (error) {
       console.error("Error loading data:", error);
       toast.error("Randevular yüklenirken hata oluştu");
@@ -153,28 +222,9 @@ export default function TakvimPage() {
     setCurrentWeek(new Date());
   };
 
-  const handleAppointmentClick = (appointment: Appointment) => {
+  const handleAppointmentClick = (appointment: CalendarAppointment) => {
     setSelectedAppointment(appointment);
     setIsSheetOpen(true);
-    
-    if (!appointment.requestedEndTime) {
-      setSelectedDuration(30);
-      return;
-    }
-    
-    const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
-    const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
-    const maxDuration = endMinutes - startMinutes;
-    
-    if (maxDuration >= 60) {
-      setSelectedDuration(60);
-    } else if (maxDuration >= 45) {
-      setSelectedDuration(45);
-    } else if (maxDuration >= 30) {
-      setSelectedDuration(30);
-    } else {
-      setSelectedDuration(15);
-    }
   };
 
   const handleApprove = async () => {
@@ -220,7 +270,7 @@ export default function TakvimPage() {
     }
   };
 
-  const getStatusBadge = (status: Appointment['status']) => {
+  const getStatusBadge = (status: CalendarAppointment['status']) => {
     switch (status) {
       case 'approved':
         return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Onaylandı</Badge>;
@@ -244,21 +294,21 @@ export default function TakvimPage() {
     });
   };
 
-  const getAppointmentHeight = (appointment: Appointment): number => {
-    if (!appointment.requestedEndTime) {
-      return 40;
-    }
-    const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
-    const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
-    const durationMinutes = endMinutes - startMinutes;
-    return (durationMinutes / 30) * 40;
+  const getAppointmentTop = (apt: CalendarAppointment): number => {
+    const SLOT_HEIGHT = 40;
+    const idx = getSlotIndex(apt.startTime);
+    return idx * SLOT_HEIGHT;
   };
 
-  const getAppointmentTop = (appointment: Appointment): number => {
-    const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
-    const dayStartMinutes = parseTimeToMinutes('10:00');
-    const offsetMinutes = startMinutes - dayStartMinutes;
-    return (offsetMinutes / 30) * 40;
+  const getAppointmentHeight = (apt: CalendarAppointment): number => {
+    const startIdx = getSlotIndex(apt.startTime);
+    let endIdx = getSlotIndex(apt.endTime);
+    
+    if (endIdx <= startIdx) {
+      endIdx = startIdx + 1;
+    }
+    
+    return (endIdx - startIdx) * 40;
   };
 
   const filteredAppointments = useMemo(() => {
@@ -269,13 +319,29 @@ export default function TakvimPage() {
   const dayAppointments = useMemo(() => {
     if (isMobile) {
       const dateKey = formatDateKey(weekDates[selectedDay]);
-      return filteredAppointments
-        .filter(apt => apt.date === dateKey)
-        .sort((a, b) => {
-          const aStart = parseTimeToMinutes(a.requestedStartTime);
-          const bStart = parseTimeToMinutes(b.requestedStartTime);
-          return aStart - bStart;
-        });
+      const dayAppts = filteredAppointments.filter(apt => apt.date === dateKey);
+      const groupedByTimeSlot = groupBySlot(dayAppts);
+      const primaryAppointments: Array<{
+        appointment: CalendarAppointment;
+        hasCancelled: boolean;
+      }> = [];
+      
+      groupedByTimeSlot.forEach((appointmentsInSlot) => {
+        const primary = getPrimaryAppointment(appointmentsInSlot);
+        if (primary) {
+          const hasCancelled = hasCancelledInSlot(appointmentsInSlot) && primary.status !== 'cancelled' && primary.status !== 'rejected';
+          primaryAppointments.push({
+            appointment: primary,
+            hasCancelled,
+          });
+        }
+      });
+      
+      return primaryAppointments.sort((a, b) => {
+        const aStart = parseTimeToMinutes(a.appointment.startTime);
+        const bStart = parseTimeToMinutes(b.appointment.startTime);
+        return aStart - bStart;
+      });
     }
     return [];
   }, [isMobile, weekDates, selectedDay, filteredAppointments]);
@@ -385,40 +451,45 @@ export default function TakvimPage() {
                     Bu gün için randevu bulunamadı
                   </div>
                 ) : (
-                  dayAppointments.map((appointment) => (
-                    <div
-                      key={appointment.id}
-                      className="p-4 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-card"
-                      onClick={() => handleAppointmentClick(appointment)}
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-foreground">{appointment.customerName}</h4>
-                            {getStatusBadge(appointment.status)}
-                          </div>
-                          
-                          <div className="space-y-1 text-sm text-muted-foreground">
+                  dayAppointments.map(({ appointment, hasCancelled }) => {
+                    const borderColor = getBorderColor(appointment.status);
+                    return (
+                      <div
+                        key={appointment.id}
+                        className={`p-4 border-2 ${borderColor} rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-card relative`}
+                        onClick={() => handleAppointmentClick(appointment)}
+                      >
+                        {hasCancelled && (
+                          <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+                        )}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-foreground">{appointment.customerName}</h4>
+                              {getStatusBadge(appointment.status)}
+                            </div>
+                            
+                            <div className="space-y-1 text-sm text-muted-foreground">
                             <div className="flex items-center gap-2">
                               <Clock className="h-4 w-4" />
-                              <span>
-                                {appointment.requestedStartTime}
-                                {appointment.requestedEndTime && ` - ${appointment.requestedEndTime}`}
-                              </span>
+                                <span>
+                                  {`${appointment.startTime} - ${appointment.endTime}`}
+                                </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4" />
-                              <span>{appointment.barberName}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Phone className="h-4 w-4" />
-                              <span>{appointment.customerPhone}</span>
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4" />
+                                <span>{appointment.barberName}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4" />
+                                <span>{appointment.customerPhone}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </CardContent>
@@ -479,6 +550,23 @@ export default function TakvimPage() {
                       selectedBarber
                     );
 
+                    const groupedByTimeSlot = groupBySlot(dayAppointments);
+                    const renderedAppointments: Array<{
+                      appointment: CalendarAppointment;
+                      hasCancelled: boolean;
+                    }> = [];
+
+                    groupedByTimeSlot.forEach((appointmentsInSlot) => {
+                      const primary = getPrimaryAppointment(appointmentsInSlot);
+                      if (primary) {
+                        const hasCancelled = hasCancelledInSlot(appointmentsInSlot);
+                        renderedAppointments.push({
+                          appointment: primary,
+                          hasCancelled: hasCancelled && primary.status !== 'cancelled' && primary.status !== 'rejected',
+                        });
+                      }
+                    });
+
                     return (
                       <div
                         key={dayIndex}
@@ -488,14 +576,15 @@ export default function TakvimPage() {
                           width: `${100 / 8}%`,
                         }}
                       >
-                        {dayAppointments.map((appointment) => {
+                        {renderedAppointments.map(({ appointment, hasCancelled }) => {
                           const height = getAppointmentHeight(appointment);
                           const top = getAppointmentTop(appointment);
+                          const borderColor = getBorderColor(appointment.status);
                           
                           return (
                             <div
                               key={appointment.id}
-                              className="absolute left-1 right-1 rounded-md p-2 cursor-pointer hover:opacity-80 transition-opacity bg-card border border-border shadow-sm z-10 overflow-hidden"
+                              className={`absolute left-1 right-1 rounded-md p-2 cursor-pointer hover:opacity-80 transition-opacity bg-card border-2 ${borderColor} shadow-sm z-10 overflow-hidden relative`}
                               style={{
                                 top: `${top}px`,
                                 height: `${height}px`,
@@ -503,12 +592,14 @@ export default function TakvimPage() {
                               }}
                               onClick={() => handleAppointmentClick(appointment)}
                             >
+                              {hasCancelled && (
+                                <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full z-20" />
+                              )}
                               <div className="text-xs font-semibold text-foreground truncate">
                                 {appointment.customerName}
                               </div>
                               <div className="text-xs text-muted-foreground truncate">
-                                {appointment.requestedStartTime}
-                                {appointment.requestedEndTime && ` - ${appointment.requestedEndTime}`}
+                                {`${appointment.startTime} - ${appointment.endTime}`}
                               </div>
                               <div className="mt-1 flex-shrink-0">
                                 {getStatusBadge(appointment.status)}
@@ -572,8 +663,7 @@ export default function TakvimPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">
-                          {selectedAppointment.requestedStartTime}
-                          {selectedAppointment.requestedEndTime && ` - ${selectedAppointment.requestedEndTime}`}
+                          {`${selectedAppointment.startTime} - ${selectedAppointment.endTime}`}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -588,7 +678,7 @@ export default function TakvimPage() {
                   </div>
                 </div>
 
-                {selectedAppointment.status === 'pending' && (
+                {(selectedAppointment.status === 'pending' || selectedAppointment.status === 'approved' || selectedAppointment.status === 'rejected') && (
                   <div className="space-y-4 pt-4 border-t border-border">
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">
@@ -603,16 +693,8 @@ export default function TakvimPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {(() => {
-                            if (!selectedAppointment.requestedEndTime) {
-                              return [30, 60].map(duration => (
-                                <SelectItem key={duration} value={duration.toString()}>
-                                  {duration} dakika
-                                </SelectItem>
-                              ));
-                            }
-                            
-                            const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
-                            const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
+                            const startMinutes = parseTimeToMinutes(selectedAppointment.startTime);
+                            const endMinutes = parseTimeToMinutes(selectedAppointment.endTime);
                             const maxDuration = endMinutes - startMinutes;
                             const options = [15, 30, 45, 60];
                             
@@ -636,7 +718,7 @@ export default function TakvimPage() {
                         disabled={actionLoading}
                       >
                         <XCircle className="h-4 w-4 mr-2" />
-                        Reddet
+                        İptal Et
                       </Button>
                       <Button
                         className="flex-1"
@@ -644,7 +726,7 @@ export default function TakvimPage() {
                         disabled={actionLoading}
                       >
                         <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Onayla
+                        {selectedAppointment.status === 'approved' ? 'Süreyi Güncelle' : 'Onayla'}
                       </Button>
                     </div>
                   </div>

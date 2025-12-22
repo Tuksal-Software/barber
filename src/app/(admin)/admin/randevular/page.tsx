@@ -38,6 +38,10 @@ interface Appointment {
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   barberId: string;
   barberName: string;
+  appointmentSlots?: Array<{
+    startTime: string;
+    endTime: string;
+  }>;
 }
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'cancelled';
@@ -63,6 +67,47 @@ export default function RandevularPage() {
     filterAppointments();
   }, [appointments, selectedBarber, selectedStatus]);
 
+  useEffect(() => {
+    if (!selectedAppointment) {
+      return;
+    }
+
+    if (selectedAppointment.status === 'approved' && selectedAppointment.appointmentSlots && selectedAppointment.appointmentSlots.length > 0) {
+      const slot = selectedAppointment.appointmentSlots[0];
+      const startMinutes = parseTimeToMinutes(slot.startTime);
+      const endMinutes = parseTimeToMinutes(slot.endTime);
+      const duration = endMinutes - startMinutes;
+      
+      if (duration === 15 || duration === 30 || duration === 45 || duration === 60) {
+        setSelectedDuration(duration as 15 | 30 | 45 | 60);
+        return;
+      }
+    }
+
+    if (selectedAppointment.status === 'pending' || selectedAppointment.status === 'rejected') {
+      if (!selectedAppointment.requestedEndTime) {
+        setSelectedDuration(30);
+        return;
+      }
+      
+      const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
+      const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
+      const maxDuration = endMinutes - startMinutes;
+      
+      if (maxDuration >= 60) {
+        setSelectedDuration(60);
+      } else if (maxDuration >= 45) {
+        setSelectedDuration(45);
+      } else if (maxDuration >= 30) {
+        setSelectedDuration(30);
+      } else {
+        setSelectedDuration(15);
+      }
+    } else {
+      setSelectedDuration(30);
+    }
+  }, [selectedAppointment]);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -82,6 +127,7 @@ export default function RandevularPage() {
         status: r.status,
         barberId: r.barberId,
         barberName: r.barberName,
+        appointmentSlots: r.appointmentSlots,
       })));
     } catch (error) {
       console.error("Error loading data:", error);
@@ -109,25 +155,6 @@ export default function RandevularPage() {
   const handleAppointmentClick = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setIsSheetOpen(true);
-    
-    if (!appointment.requestedEndTime) {
-      setSelectedDuration(30);
-      return;
-    }
-    
-    const startMinutes = parseTimeToMinutes(appointment.requestedStartTime);
-    const endMinutes = parseTimeToMinutes(appointment.requestedEndTime);
-    const maxDuration = endMinutes - startMinutes;
-    
-    if (maxDuration >= 60) {
-      setSelectedDuration(60);
-    } else if (maxDuration >= 45) {
-      setSelectedDuration(45);
-    } else if (maxDuration >= 30) {
-      setSelectedDuration(30);
-    } else {
-      setSelectedDuration(15);
-    }
   };
 
   const handleApprove = async () => {
@@ -364,7 +391,7 @@ export default function RandevularPage() {
                   </div>
                 </div>
 
-                {selectedAppointment.status === 'pending' && (
+                {(selectedAppointment.status === 'pending' || selectedAppointment.status === 'approved' || selectedAppointment.status === 'rejected') && (
                   <div className="space-y-4 pt-4 border-t border-border">
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">
@@ -412,7 +439,7 @@ export default function RandevularPage() {
                         disabled={actionLoading}
                       >
                         <XCircle className="h-4 w-4 mr-2" />
-                        Reddet
+                        İptal Et
                       </Button>
                       <Button
                         className="flex-1"
@@ -420,7 +447,7 @@ export default function RandevularPage() {
                         disabled={actionLoading}
                       >
                         <CheckCircle2 className="h-4 w-4 mr-2" />
-                        Onayla
+                        {selectedAppointment.status === 'approved' ? 'Süreyi Güncelle' : 'Onayla'}
                       </Button>
                     </div>
                   </div>

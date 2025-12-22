@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/actions/auth.actions'
+import { parseTimeToMinutes, minutesToTime } from '@/lib/time'
 
 export interface AppointmentRequestListItem {
   id: string
@@ -150,5 +151,69 @@ export async function getAllAppointmentRequests(): Promise<AppointmentRequestLis
     createdAt: req.createdAt,
     appointmentSlots: req.appointmentSlots,
   }))
+}
+
+export interface CalendarAppointment {
+  id: string
+  barberId: string
+  barberName: string
+  customerName: string
+  customerPhone: string
+  customerEmail: string | null
+  date: string
+  startTime: string
+  endTime: string
+  status: 'approved' | 'pending' | 'rejected' | 'cancelled'
+}
+
+export async function getCalendarAppointments(): Promise<CalendarAppointment[]> {
+  const session = await requireAuth()
+
+  const where: { barberId?: string } = {}
+  if (session.role === 'barber') {
+    where.barberId = session.userId
+  }
+
+  const requests = await prisma.appointmentRequest.findMany({
+    where,
+    include: {
+      barber: { select: { name: true } },
+      appointmentSlots: true,
+    },
+  })
+
+  return requests.map((req) => {
+    if (req.status === 'approved' && req.appointmentSlots.length > 0) {
+      const slot = req.appointmentSlots[0]
+      return {
+        id: req.id,
+        barberId: req.barberId,
+        barberName: req.barber.name,
+        customerName: req.customerName,
+        customerPhone: req.customerPhone,
+        customerEmail: req.customerEmail,
+        date: req.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        status: req.status,
+      }
+    }
+
+    const start = req.requestedStartTime
+    const end = minutesToTime(parseTimeToMinutes(start) + 30)
+
+    return {
+      id: req.id,
+      barberId: req.barberId,
+      barberName: req.barber.name,
+      customerName: req.customerName,
+      customerPhone: req.customerPhone,
+      customerEmail: req.customerEmail,
+      date: req.date,
+      startTime: start,
+      endTime: end,
+      status: req.status,
+    }
+  })
 }
 
