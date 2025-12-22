@@ -182,6 +182,8 @@ export async function getCalendarAppointments(): Promise<CalendarAppointment[]> 
     },
   })
 
+  const norm = (t: string) => t.trim().slice(0, 5)
+
   return requests.map((req) => {
     if (req.status === 'approved' && req.appointmentSlots.length > 0) {
       const slot = req.appointmentSlots[0]
@@ -193,14 +195,14 @@ export async function getCalendarAppointments(): Promise<CalendarAppointment[]> 
         customerPhone: req.customerPhone,
         customerEmail: req.customerEmail,
         date: req.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
+        startTime: norm(slot.startTime),
+        endTime: norm(slot.endTime),
         status: req.status,
       }
     }
 
-    const start = req.requestedStartTime
-    const end = minutesToTime(parseTimeToMinutes(start) + 30)
+    const start = norm(req.requestedStartTime)
+    const end = req.requestedEndTime ? norm(req.requestedEndTime) : minutesToTime(parseTimeToMinutes(start) + 30)
 
     return {
       id: req.id,

@@ -95,20 +95,6 @@ function getAppointmentsForDate(
   });
 }
 
-function getSlotIndex(time: string): number {
-  const normalized = normalizeTime(time);
-  const idx = TIME_SLOTS.findIndex((t) => t === normalized);
-  
-  if (idx !== -1) {
-    return idx;
-  }
-  
-  const minutes = parseTimeToMinutes(normalized);
-  const dayStart = parseTimeToMinutes(TIME_SLOTS[0]);
-  const delta = minutes - dayStart;
-  const calculatedIdx = Math.floor(delta / 30);
-  return Math.max(0, Math.min(calculatedIdx, TIME_SLOTS.length - 1));
-}
 
 function getStatusPriority(status: CalendarAppointment['status']): number {
   switch (status) {
@@ -129,19 +115,46 @@ function getPrimaryAppointment(appointments: CalendarAppointment[]): CalendarApp
   });
 }
 
+const SLOT_HEIGHT = 40;
+const DAY_START = "10:00";
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function getSlotIndexSafe(time: string): number {
+  const t = normalizeTime(time);
+  const idx = TIME_SLOTS.findIndex(s => s === t);
+  if (idx !== -1) return idx;
+
+  const minutes = parseTimeToMinutes(t);
+  const dayStartMin = parseTimeToMinutes(DAY_START);
+  const delta = minutes - dayStartMin;
+  return clamp(Math.floor(delta / 30), 0, TIME_SLOTS.length - 1);
+}
+
+function getSlotSpan(startTime: string, endTime: string): { rowStart: number; rowEnd: number } {
+  const startIdx = getSlotIndexSafe(startTime);
+  const startMin = parseTimeToMinutes(normalizeTime(startTime));
+  const endMin = parseTimeToMinutes(normalizeTime(endTime));
+  const duration = Math.max(30, endMin - startMin);
+  const span = Math.max(1, Math.ceil(duration / 30));
+
+  const rowStart = startIdx + 1;
+  const rowEnd = rowStart + span;
+  return { rowStart, rowEnd };
+}
+
 function groupBySlot(apts: CalendarAppointment[]): Map<string, CalendarAppointment[]> {
   const map = new Map<string, CalendarAppointment[]>();
   for (const a of apts) {
-    const key = `${a.date}-${a.startTime}`;
+    const key = `${a.date}-${normalizeTime(a.startTime)}`;
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(a);
   }
   return map;
 }
 
-function hasCancelledInSlot(appointments: CalendarAppointment[]): boolean {
-  return appointments.some(apt => apt.status === 'cancelled' || apt.status === 'rejected');
-}
 
 function getBorderColor(status: CalendarAppointment['status']): string {
   switch (status) {
@@ -160,7 +173,7 @@ export default function TakvimPage() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [selectedDuration, setSelectedDuration] = useState<15 | 30 | 45 | 60>(30);
+  const [selectedDuration, setSelectedDuration] = useState<30 | 60>(30);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
@@ -174,19 +187,11 @@ export default function TakvimPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedAppointment) {
-      return;
-    }
-
-    const startMinutes = parseTimeToMinutes(selectedAppointment.startTime);
-    const endMinutes = parseTimeToMinutes(selectedAppointment.endTime);
-    const duration = endMinutes - startMinutes;
-    
-    if (duration === 15 || duration === 30 || duration === 45 || duration === 60) {
-      setSelectedDuration(duration as 15 | 30 | 45 | 60);
-    } else {
-      setSelectedDuration(30);
-    }
+    if (!selectedAppointment) return;
+    const start = parseTimeToMinutes(normalizeTime(selectedAppointment.startTime));
+    const end = parseTimeToMinutes(normalizeTime(selectedAppointment.endTime));
+    const duration = end - start;
+    setSelectedDuration(duration >= 60 ? 60 : 30);
   }, [selectedAppointment]);
 
   const loadData = async () => {
@@ -294,21 +299,17 @@ export default function TakvimPage() {
     });
   };
 
-  const getAppointmentTop = (apt: CalendarAppointment): number => {
-    const SLOT_HEIGHT = 40;
-    const idx = getSlotIndex(apt.startTime);
-    return idx * SLOT_HEIGHT;
-  };
-
-  const getAppointmentHeight = (apt: CalendarAppointment): number => {
-    const startIdx = getSlotIndex(apt.startTime);
-    let endIdx = getSlotIndex(apt.endTime);
-    
-    if (endIdx <= startIdx) {
-      endIdx = startIdx + 1;
-    }
-    
-    return (endIdx - startIdx) * 40;
+  const getCancelledCount = (
+    appointment: CalendarAppointment,
+    allAppointments: CalendarAppointment[]
+  ): number => {
+    const normalizedStartTime = normalizeTime(appointment.startTime);
+    return allAppointments.filter(
+      apt =>
+        apt.date === appointment.date &&
+        normalizeTime(apt.startTime) === normalizedStartTime &&
+        (apt.status === 'cancelled' || apt.status === 'rejected')
+    ).length;
   };
 
   const filteredAppointments = useMemo(() => {
@@ -323,23 +324,23 @@ export default function TakvimPage() {
       const groupedByTimeSlot = groupBySlot(dayAppts);
       const primaryAppointments: Array<{
         appointment: CalendarAppointment;
-        hasCancelled: boolean;
+        cancelledCount: number;
       }> = [];
       
       groupedByTimeSlot.forEach((appointmentsInSlot) => {
         const primary = getPrimaryAppointment(appointmentsInSlot);
         if (primary) {
-          const hasCancelled = hasCancelledInSlot(appointmentsInSlot) && primary.status !== 'cancelled' && primary.status !== 'rejected';
+          const cancelledCount = appointmentsInSlot.filter(a => a.status === 'cancelled' || a.status === 'rejected').length;
           primaryAppointments.push({
             appointment: primary,
-            hasCancelled,
+            cancelledCount,
           });
         }
       });
       
       return primaryAppointments.sort((a, b) => {
-        const aStart = parseTimeToMinutes(a.appointment.startTime);
-        const bStart = parseTimeToMinutes(b.appointment.startTime);
+        const aStart = parseTimeToMinutes(normalizeTime(a.appointment.startTime));
+        const bStart = parseTimeToMinutes(normalizeTime(b.appointment.startTime));
         return aStart - bStart;
       });
     }
@@ -451,7 +452,7 @@ export default function TakvimPage() {
                     Bu gün için randevu bulunamadı
                   </div>
                 ) : (
-                  dayAppointments.map(({ appointment, hasCancelled }) => {
+                  dayAppointments.map(({ appointment, cancelledCount }) => {
                     const borderColor = getBorderColor(appointment.status);
                     return (
                       <div
@@ -459,8 +460,15 @@ export default function TakvimPage() {
                         className={`p-4 border-2 ${borderColor} rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-card relative`}
                         onClick={() => handleAppointmentClick(appointment)}
                       >
-                        {hasCancelled && (
-                          <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+                        {appointment.status !== 'cancelled' && appointment.status !== 'rejected' && cancelledCount > 0 && (
+                          <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
+                            {Array.from({ length: Math.min(3, cancelledCount) }).map((_, i) => (
+                              <span key={i} className="w-2 h-2 bg-red-500 rounded-full" />
+                            ))}
+                            {cancelledCount > 3 && (
+                              <span className="text-[10px] text-red-400 font-semibold">+{cancelledCount - 3}</span>
+                            )}
+                          </div>
                         )}
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 space-y-2">
@@ -473,7 +481,7 @@ export default function TakvimPage() {
                             <div className="flex items-center gap-2">
                               <Clock className="h-4 w-4" />
                                 <span>
-                                  {`${appointment.startTime} - ${appointment.endTime}`}
+                                  {`${normalizeTime(appointment.startTime)} - ${normalizeTime(appointment.endTime)}`}
                                 </span>
                             </div>
                               <div className="flex items-center gap-2">
@@ -553,16 +561,35 @@ export default function TakvimPage() {
                     const groupedByTimeSlot = groupBySlot(dayAppointments);
                     const renderedAppointments: Array<{
                       appointment: CalendarAppointment;
-                      hasCancelled: boolean;
+                      cancelledCount: number;
                     }> = [];
 
                     groupedByTimeSlot.forEach((appointmentsInSlot) => {
-                      const primary = getPrimaryAppointment(appointmentsInSlot);
+                      const cancelledCount = appointmentsInSlot.filter(
+                        a => a.status === 'cancelled' || a.status === 'rejected'
+                      ).length;
+                      
+                      const visible = appointmentsInSlot.filter(
+                        a => a.status === 'approved' || a.status === 'pending'
+                      );
+                      
+                      if (visible.length === 0) return;
+                      
+                      let primary: CalendarAppointment | null = null;
+                      const approved = visible.find(a => a.status === 'approved');
+                      if (approved) {
+                        primary = approved;
+                      } else {
+                        const pending = visible.find(a => a.status === 'pending');
+                        if (pending) {
+                          primary = pending;
+                        }
+                      }
+                      
                       if (primary) {
-                        const hasCancelled = hasCancelledInSlot(appointmentsInSlot);
                         renderedAppointments.push({
                           appointment: primary,
-                          hasCancelled: hasCancelled && primary.status !== 'cancelled' && primary.status !== 'rejected',
+                          cancelledCount,
                         });
                       }
                     });
@@ -570,43 +597,58 @@ export default function TakvimPage() {
                     return (
                       <div
                         key={dayIndex}
-                        className="absolute top-0 bottom-0"
+                        className="absolute top-0"
                         style={{
                           left: `${(dayIndex + 1) * (100 / 8)}%`,
                           width: `${100 / 8}%`,
+                          height: `${TIME_SLOTS.length * SLOT_HEIGHT}px`,
                         }}
                       >
-                        {renderedAppointments.map(({ appointment, hasCancelled }) => {
-                          const height = getAppointmentHeight(appointment);
-                          const top = getAppointmentTop(appointment);
-                          const borderColor = getBorderColor(appointment.status);
-                          
-                          return (
-                            <div
-                              key={appointment.id}
-                              className={`absolute left-1 right-1 rounded-md p-2 cursor-pointer hover:opacity-80 transition-opacity bg-card border-2 ${borderColor} shadow-sm z-10 overflow-hidden relative`}
-                              style={{
-                                top: `${top}px`,
-                                height: `${height}px`,
-                                minHeight: '40px',
-                              }}
-                              onClick={() => handleAppointmentClick(appointment)}
-                            >
-                              {hasCancelled && (
-                                <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full z-20" />
-                              )}
-                              <div className="text-xs font-semibold text-foreground truncate">
-                                {appointment.customerName}
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateRows: `repeat(${TIME_SLOTS.length}, ${SLOT_HEIGHT}px)`,
+                            height: `${TIME_SLOTS.length * SLOT_HEIGHT}px`,
+                          }}
+                        >
+                          {renderedAppointments.map(({ appointment, cancelledCount }) => {
+                            const { rowStart, rowEnd } = getSlotSpan(appointment.startTime, appointment.endTime);
+                            const borderColor = getBorderColor(appointment.status);
+                            
+                            return (
+                              <div
+                                key={appointment.id}
+                                className={`mx-1 my-[2px] rounded-md p-2 cursor-pointer hover:opacity-80 transition-opacity bg-card border-2 ${borderColor} shadow-sm z-10 overflow-hidden relative`}
+                                style={{
+                                  gridRowStart: rowStart,
+                                  gridRowEnd: rowEnd,
+                                  minHeight: `${SLOT_HEIGHT}px`,
+                                }}
+                                onClick={() => handleAppointmentClick(appointment)}
+                              >
+                                {cancelledCount > 0 && (
+                                  <div className="absolute top-1 right-1 flex items-center gap-1 z-20">
+                                    {Array.from({ length: Math.min(3, cancelledCount) }).map((_, i) => (
+                                      <span key={i} className="w-2 h-2 bg-red-500 rounded-full" />
+                                    ))}
+                                    {cancelledCount > 3 && (
+                                      <span className="text-[10px] text-red-400 font-semibold">+{cancelledCount - 3}</span>
+                                    )}
+                                  </div>
+                                )}
+                                <div className="text-xs font-semibold text-foreground truncate">
+                                  {appointment.customerName}
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {`${normalizeTime(appointment.startTime)} - ${normalizeTime(appointment.endTime)}`}
+                                </div>
+                                <div className="mt-1 flex-shrink-0">
+                                  {getStatusBadge(appointment.status)}
+                                </div>
                               </div>
-                              <div className="text-xs text-muted-foreground truncate">
-                                {`${appointment.startTime} - ${appointment.endTime}`}
-                              </div>
-                              <div className="mt-1 flex-shrink-0">
-                                {getStatusBadge(appointment.status)}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })}
@@ -663,7 +705,7 @@ export default function TakvimPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">
-                          {`${selectedAppointment.startTime} - ${selectedAppointment.endTime}`}
+                          {`${normalizeTime(selectedAppointment.startTime)} - ${normalizeTime(selectedAppointment.endTime)}`}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -686,26 +728,17 @@ export default function TakvimPage() {
                       </label>
                       <Select 
                         value={selectedDuration.toString()} 
-                        onValueChange={(value) => setSelectedDuration(parseInt(value) as 15 | 30 | 45 | 60)}
+                        onValueChange={(value) => setSelectedDuration(parseInt(value) as 30 | 60)}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {(() => {
-                            const startMinutes = parseTimeToMinutes(selectedAppointment.startTime);
-                            const endMinutes = parseTimeToMinutes(selectedAppointment.endTime);
-                            const maxDuration = endMinutes - startMinutes;
-                            const options = [15, 30, 45, 60];
-                            
-                            return options
-                              .filter(duration => duration <= maxDuration)
-                              .map(duration => (
-                                <SelectItem key={duration} value={duration.toString()}>
-                                  {duration} dakika
-                                </SelectItem>
-                              ));
-                          })()}
+                          {[30, 60].map(duration => (
+                            <SelectItem key={duration} value={duration.toString()}>
+                              {duration} dakika
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
