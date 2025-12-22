@@ -8,6 +8,7 @@ import * as z from "zod"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
 import { Star, Scissors, Loader2, Clock, CheckCircle2 } from "lucide-react"
+import Image from "next/image"
 import { AppHeader } from "@/components/app/AppHeader"
 import { BottomBar } from "@/components/app/BottomBar"
 import { Stepper } from "@/components/app/Stepper"
@@ -271,27 +272,27 @@ export default function BookingPage() {
             </div>
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold">Randevu Talebin Alındı!</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-2xl font-bold text-foreground drop-shadow-md">Randevu Talebin Alındı!</h2>
+            <p className="text-muted-foreground drop-shadow-sm">
               Randevunuz onaylandığında size bildirim göndereceğiz.
             </p>
           </div>
           <div className="pt-4">
-            <Card>
+            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
               <CardContent className="p-6 space-y-3 text-left">
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Berber</h3>
-                  <p className="font-semibold">{selectedBarber?.name}</p>
+                  <p className="font-semibold text-foreground">{selectedBarber?.name}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Tarih</h3>
-                  <p className="font-semibold">
+                  <p className="font-semibold text-foreground">
                     {selectedDate && format(selectedDate, "d MMMM yyyy", { locale: tr })}
                   </p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Saat</h3>
-                  <p className="font-semibold">{selectedStart}</p>
+                  <p className="font-semibold text-foreground">{selectedStart}</p>
                 </div>
               </CardContent>
             </Card>
@@ -307,7 +308,7 @@ export default function BookingPage() {
       case 1:
         return (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Berber Seçimi</h2>
+            <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Berber Seçimi</h2>
             {loadingBarbers ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -324,9 +325,9 @@ export default function BookingPage() {
                   <Card
                     key={barber.id}
                     className={cn(
-                      "cursor-pointer transition-all hover:shadow-md active:scale-[0.98]",
+                      "cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl",
                       selectedBarber?.id === barber.id &&
-                        "ring-2 ring-primary shadow-md"
+                        "ring-2 ring-primary shadow-xl"
                     )}
                     onClick={() => !isPending && setSelectedBarber(barber)}
                   >
@@ -342,7 +343,7 @@ export default function BookingPage() {
                         </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
-                            <h3 className="font-semibold">{barber.name}</h3>
+                            <h3 className="font-semibold text-foreground">{barber.name}</h3>
                           </div>
                           <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                             <Scissors className="h-4 w-4" />
@@ -361,110 +362,121 @@ export default function BookingPage() {
       case 2:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Tarih ve Saat Aralığı Seç</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <Label className="mb-2 block">Tarih</Label>
-                <HorizontalDatePicker
-                  selectedDate={selectedDate}
-                  onDateSelect={setSelectedDate}
-                />
-              </div>
+            <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Tarih ve Saat Aralığı Seç</h2>
+            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
+              <CardContent className="p-6 space-y-4">
+                <div>
+                  <Label className="mb-2 block">Tarih</Label>
+                  <HorizontalDatePicker
+                    selectedDate={selectedDate}
+                    onDateSelect={setSelectedDate}
+                  />
+                </div>
 
-              <div>
-                <Label className="mb-2 block">Saat</Label>
-                {loadingSlots ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                ) : timeButtons.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    Bu tarih için müsait saat bulunmamaktadır
-                  </div>
-                ) : (
-                  <>
-                    <TimeRangePicker
-                      selectedStart={selectedStart}
-                      onStartSelect={setSelectedStart}
-                      timeButtons={timeButtons}
-                    />
-                    {selectedStart && (
-                      <div className="mt-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
-                        <p className="text-sm font-medium text-primary">
-                          Seçilen: {selectedStart}
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
+                <div>
+                  <Label className="mb-2 block">Saat</Label>
+                  {loadingSlots ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : timeButtons.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      Bu tarih için müsait saat bulunmamaktadır
+                    </div>
+                  ) : (
+                    <>
+                      <TimeRangePicker
+                        selectedStart={selectedStart}
+                        onStartSelect={setSelectedStart}
+                        timeButtons={timeButtons}
+                      />
+                      {selectedStart && (
+                        <div className="mt-3 rounded-lg bg-primary/20 border border-primary/40 p-3">
+                          <p className="text-sm font-medium text-primary">
+                            Seçilen: {selectedStart}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )
 
       case 3:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Bilgiler</h2>
-            <form onSubmit={handleStepSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="customerPhone">Telefon *</Label>
-                <div className="relative">
-                  <Input
-                    id="customerPhone"
-                    type="tel"
-                    value={phoneValue}
-                    onChange={handlePhoneChange}
-                    placeholder="5xxxxxxxxx"
-                    maxLength={13}
-                    className={cn(errors.customerPhone && "border-destructive")}
-                  />
-                  {loadingCustomer && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Bilgiler</h2>
+            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
+              <CardContent className="p-6">
+                <form onSubmit={handleStepSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="customerPhone">Telefon *</Label>
+                    <div className="relative">
+                      <Input
+                        id="customerPhone"
+                        type="tel"
+                        value={phoneValue}
+                        onChange={handlePhoneChange}
+                        placeholder="5xxxxxxxxx"
+                        maxLength={13}
+                        className={cn(
+                          "bg-muted/40 border-border/40 text-foreground placeholder:text-muted-foreground/60",
+                          errors.customerPhone && "border-destructive"
+                        )}
+                      />
+                      {loadingCustomer && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    {errors.customerPhone && (
+                      <p className="mt-1 text-sm text-destructive">
+                        {errors.customerPhone.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {showNameInput && (
+                    <div>
+                      <Label htmlFor="customerName">Ad Soyad *</Label>
+                      <Input
+                        id="customerName"
+                        {...register("customerName")}
+                        className={cn(
+                          "bg-muted/40 border-border/40 text-foreground placeholder:text-muted-foreground/60",
+                          errors.customerName && "border-destructive"
+                        )}
+                      />
+                      {errors.customerName && (
+                        <p className="mt-1 text-sm text-destructive">
+                          {errors.customerName.message}
+                        </p>
+                      )}
                     </div>
                   )}
-                </div>
-                {errors.customerPhone && (
-                  <p className="mt-1 text-sm text-destructive">
-                    {errors.customerPhone.message}
-                  </p>
-                )}
-              </div>
-
-              {showNameInput && (
-                <div>
-                  <Label htmlFor="customerName">Ad Soyad *</Label>
-                  <Input
-                    id="customerName"
-                    {...register("customerName")}
-                    className={cn(errors.customerName && "border-destructive")}
-                  />
-                  {errors.customerName && (
-                    <p className="mt-1 text-sm text-destructive">
-                      {errors.customerName.message}
-                    </p>
-                  )}
-                </div>
-              )}
-            </form>
+                </form>
+              </CardContent>
+            </Card>
           </div>
         )
 
       case 4:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Onay</h2>
-            <Card>
+            <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Onay</h2>
+            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
               <CardContent className="p-6 space-y-4">
                 <div>
-                  <h3 className="font-semibold mb-2">Berber</h3>
-                  <p>{selectedBarber?.name}</p>
+                  <h3 className="font-semibold mb-2 text-muted-foreground">Berber</h3>
+                  <p className="text-foreground">{selectedBarber?.name}</p>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">Tarih</h3>
-                  <p>
+                  <h3 className="font-semibold mb-2 text-muted-foreground">Tarih</h3>
+                  <p className="text-foreground">
                     {selectedDate &&
                       format(selectedDate, "d MMMM yyyy", {
                         locale: tr,
@@ -472,15 +484,15 @@ export default function BookingPage() {
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">Saat</h3>
-                  <p>
+                  <h3 className="font-semibold mb-2 text-muted-foreground">Saat</h3>
+                  <p className="text-foreground">
                     {selectedStart}
                   </p>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">Müşteri Bilgileri</h3>
-                  <p>{formData.customerName}</p>
-                  <p>{formData.customerPhone}</p>
+                  <h3 className="font-semibold mb-2 text-muted-foreground">Müşteri Bilgileri</h3>
+                  <p className="text-foreground">{formData.customerName}</p>
+                  <p className="text-foreground">{formData.customerPhone}</p>
                 </div>
               </CardContent>
             </Card>
@@ -493,45 +505,59 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-b from-background to-muted/20">
-      <AppHeader title="Randevu Oluştur" />
-      <div className="flex-1 pb-32 pt-4">
-        <div className="mx-auto max-w-2xl px-4">
-          {!showSuccess && <Stepper steps={wizardSteps} currentStep={step} />}
-          <div
-            className={cn(
-              "mt-6 transition-opacity duration-200",
-              isTransitioning && "opacity-50 pointer-events-none",
-              showSuccess && "mt-0"
-            )}
-          >
-            {renderStep()}
+    <div className="relative flex min-h-screen flex-col">
+      <div className="fixed inset-0 -z-10 bg-[url('/hero.jpg')] bg-cover bg-center bg-no-repeat bg-fixed" />
+      <div className="fixed inset-0 -z-10 bg-black/50 backdrop-blur-md" />
+      <div className="relative z-10 flex min-h-screen flex-col">
+        <div className="flex justify-center pt-6 pb-2">
+          <Image
+            src="/logo.png"
+            alt="Logo"
+            width={180}
+            height={60}
+            className="h-auto max-w-[160px] opacity-95"
+            priority
+          />
+        </div>
+        <AppHeader title="Randevu Oluştur" />
+        <div className="flex-1 pb-32 pt-4">
+          <div className="mx-auto max-w-2xl px-4">
+            {!showSuccess && <Stepper steps={wizardSteps} currentStep={step} />}
+            <div
+              className={cn(
+                "mt-6 transition-opacity duration-200",
+                isTransitioning && "opacity-50 pointer-events-none",
+                showSuccess && "mt-0"
+              )}
+            >
+              {renderStep()}
+            </div>
           </div>
         </div>
+        {!showSuccess && (
+          <BottomBar
+            primaryLabel={
+              isPending
+                ? "Yükleniyor..."
+                : step === 4
+                ? "Onayla"
+                : step === 3
+                ? "Devam Et"
+                : "Devam Et"
+            }
+            primaryAction={
+              step === 3
+                ? handleStepSubmit
+                : step === 4
+                ? handleConfirm
+                : handleNext
+            }
+            primaryDisabled={!canProceed() || isPending || isTransitioning}
+            secondaryLabel={step > 1 ? "Geri" : undefined}
+            secondaryAction={step > 1 && !isPending && !isTransitioning ? handleBack : undefined}
+          />
+        )}
       </div>
-      {!showSuccess && (
-        <BottomBar
-          primaryLabel={
-            isPending
-              ? "Yükleniyor..."
-              : step === 4
-              ? "Onayla"
-              : step === 3
-              ? "Devam Et"
-              : "Devam Et"
-          }
-          primaryAction={
-            step === 3
-              ? handleStepSubmit
-              : step === 4
-              ? handleConfirm
-              : handleNext
-          }
-          primaryDisabled={!canProceed() || isPending || isTransitioning}
-          secondaryLabel={step > 1 ? "Geri" : undefined}
-          secondaryAction={step > 1 && !isPending && !isTransitioning ? handleBack : undefined}
-        />
-      )}
     </div>
   )
 }

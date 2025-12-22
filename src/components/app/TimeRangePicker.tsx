@@ -43,12 +43,12 @@ export const TimeRangePicker = memo(function TimeRangePicker({
               "relative rounded-lg border-2 py-3 px-2 text-sm font-semibold transition-all duration-200 touch-manipulation",
               "min-h-[48px] flex items-center justify-center",
               button.disabled &&
-                "cursor-not-allowed bg-muted/30 text-muted-foreground opacity-50 border-red-500/60 hover:border-red-500/60 hover:bg-muted/30",
+                "cursor-not-allowed bg-muted/30 text-muted-foreground opacity-50 border-border/40 hover:border-border/40 hover:bg-muted/30",
               !button.disabled &&
                 !isSelected &&
-                "border-border bg-background hover:border-primary/50 hover:bg-primary/5 active:scale-95",
+                "border-border/40 bg-muted/40 hover:border-primary/50 hover:bg-primary/30 active:scale-95",
               isSelected &&
-                "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 ring-2 ring-primary/20"
+                "border-primary bg-primary/20 text-primary-foreground shadow-md shadow-primary/20 ring-2 ring-primary/20"
             )}
           >
             {button.time}
