@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { AuditAction } from '@prisma/client'
 import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
 import { sendSms } from '@/lib/sms/sms.service'
 import { requireAdmin, getSession } from '@/lib/actions/auth.actions'
@@ -121,7 +122,7 @@ export async function createAppointmentRequest(
   try {
     await auditLog({
       actorType: 'customer',
-      action: 'APPOINTMENT_CREATED',
+      action: AuditAction.APPOINTMENT_CREATED,
       entityType: 'appointment',
       entityId: appointmentRequest.id,
       summary: 'Appointment request created',
@@ -248,7 +249,7 @@ export async function approveAppointmentRequest(
     await auditLog({
       actorType: 'admin',
       actorId: session.userId,
-      action: 'APPOINTMENT_APPROVED',
+      action: AuditAction.APPOINTMENT_APPROVED,
       entityType: 'appointment',
       entityId: appointmentRequestId,
       summary: 'Appointment approved',
@@ -297,22 +298,12 @@ export async function cancelAppointmentRequest(
     }
 
     const now = new Date()
-    const today = now.toISOString().split('T')[0]
-    const appointmentDate = appointmentRequest.date
-    const isPastDate = appointmentDate < today
-    const isToday = appointmentDate === today
+    const appointmentStartTime = appointmentRequest.status === 'approved' && appointmentRequest.appointmentSlots.length > 0
+      ? appointmentRequest.appointmentSlots[0].startTime
+      : appointmentRequest.requestedStartTime
+    const appointmentDateTime = new Date(`${appointmentRequest.date}T${appointmentStartTime}:00`)
 
-    let isPastTime = false
-    if (isToday) {
-      const currentMinutes = now.getHours() * 60 + now.getMinutes()
-      const appointmentStartTime = appointmentRequest.status === 'approved' && appointmentRequest.appointmentSlots.length > 0
-        ? appointmentRequest.appointmentSlots[0].startTime
-        : appointmentRequest.requestedStartTime
-      const appointmentStartMinutes = parseTimeToMinutes(appointmentStartTime)
-      isPastTime = appointmentStartMinutes < currentMinutes
-    }
-
-    if (isPastDate || isPastTime) {
+    if (appointmentDateTime <= now) {
       throw new Error('Geçmiş randevular iptal edilemez')
     }
 
@@ -353,7 +344,7 @@ export async function cancelAppointmentRequest(
     await auditLog({
       actorType: 'admin',
       actorId: session.userId,
-      action: 'APPOINTMENT_CANCELLED',
+      action: AuditAction.APPOINTMENT_CANCELLED,
       entityType: 'appointment',
       entityId: appointmentRequestId,
       summary: 'Appointment cancelled',

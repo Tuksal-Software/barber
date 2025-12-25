@@ -17,3 +17,4 @@ ALTER TABLE `ledger_entries` ADD CONSTRAINT `ledger_entries_barberId_fkey` FOREI
 ALTER TABLE `ledger_entries` ADD CONSTRAINT `ledger_entries_appointmentRequestId_fkey` FOREIGN KEY (`appointmentRequestId`) REFERENCES `appointment_requests`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 
+

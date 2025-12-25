@@ -25,3 +25,4 @@ ALTER TABLE ledger_entries
   MODIFY date VARCHAR(191) COLLATE utf8mb4_unicode_ci;
 
 
+

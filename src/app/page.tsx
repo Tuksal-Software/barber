@@ -7,9 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale"
-import { Star, Scissors, Loader2, Clock, CheckCircle2 } from "lucide-react"
+import { Star, Scissors, Loader2, Clock, CheckCircle2, X, CalendarOff } from "lucide-react"
 import Image from "next/image"
-import { AppHeader } from "@/components/app/AppHeader"
 import { BottomBar } from "@/components/app/BottomBar"
 import { Stepper } from "@/components/app/Stepper"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,12 +17,14 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { TimeRangePicker } from "@/components/app/TimeRangePicker"
 import { HorizontalDatePicker } from "@/components/app/HorizontalDatePicker"
 import { EmptyState } from "@/components/app/EmptyState"
 import { getActiveBarbers } from "@/lib/actions/barber.actions"
 import { getCustomerTimeButtons } from "@/lib/actions/availability.actions"
 import { createAppointmentRequest, getCustomerByPhone } from "@/lib/actions/appointment.actions"
+import { requestCancelOtp, confirmCancelOtp } from "@/lib/actions/customer-cancel.actions"
 import { cn } from "@/lib/utils"
 import type { BarberListItem } from "@/lib/actions/barber.actions"
 import type { CustomerTimeButton } from "@/lib/actions/availability.actions"
@@ -57,6 +58,11 @@ export default function BookingPage() {
   const [phoneValue, setPhoneValue] = useState("")
   const [showNameInput, setShowNameInput] = useState(false)
   const [loadingCustomer, setLoadingCustomer] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelStep, setCancelStep] = useState(1)
+  const [cancelPhone, setCancelPhone] = useState("")
+  const [cancelOtp, setCancelOtp] = useState("")
+  const [loadingCancel, setLoadingCancel] = useState(false)
 
   const {
     register,
@@ -250,6 +256,97 @@ export default function BookingPage() {
     setPhoneValue("")
     setShowNameInput(false)
     reset()
+  }
+
+  const handleCancelModalOpen = () => {
+    setShowCancelModal(true)
+    setCancelStep(1)
+    setCancelPhone("")
+    setCancelOtp("")
+  }
+
+  const handleCancelModalClose = () => {
+    setShowCancelModal(false)
+    setCancelStep(1)
+    setCancelPhone("")
+    setCancelOtp("")
+  }
+
+  const handleCancelPhoneSubmit = async () => {
+    if (!cancelPhone.match(/^\+90[5][0-9]{9}$/)) {
+      toast.error("Geçerli bir telefon numarası girin")
+      return
+    }
+
+    setLoadingCancel(true)
+    try {
+      const result = await requestCancelOtp(cancelPhone)
+      if (result.success) {
+        setCancelStep(2)
+        toast.success("OTP kodunuz SMS ile gönderildi")
+      } else {
+        toast.error(result.error || "Bir hata oluştu")
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bir hata oluştu")
+    } finally {
+      setLoadingCancel(false)
+    }
+  }
+
+  const handleCancelOtpSubmit = async () => {
+    if (cancelOtp.length !== 6) {
+      toast.error("OTP kodu 6 haneli olmalıdır")
+      return
+    }
+
+    setLoadingCancel(true)
+    try {
+      const result = await confirmCancelOtp(cancelPhone, cancelOtp)
+      if (result.success) {
+        toast.success("Randevunuz başarıyla iptal edildi")
+        handleCancelModalClose()
+      } else {
+        toast.error(result.error || "Bir hata oluştu")
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bir hata oluştu")
+    } finally {
+      setLoadingCancel(false)
+    }
+  }
+
+  const normalizeCancelPhone = (value: string): string => {
+    const digits = value.replace(/\D/g, "")
+    
+    if (digits.length === 0) return ""
+    
+    if (digits.startsWith("90") && digits.length >= 12) {
+      return `+${digits.slice(0, 12)}`
+    }
+    
+    if (digits.startsWith("0") && digits.length >= 11) {
+      return `+90${digits.slice(1, 12)}`
+    }
+    
+    if (digits.startsWith("5") && digits.length >= 10) {
+      return `+90${digits.slice(0, 10)}`
+    }
+    
+    if (digits.length > 0) {
+      if (digits.startsWith("90")) {
+        return `+${digits.slice(0, 12)}`
+      }
+      if (digits.startsWith("0")) {
+        return `+90${digits.slice(1, 12)}`
+      }
+      if (digits.startsWith("5")) {
+        return `+90${digits.slice(0, 10)}`
+      }
+      return `+90${digits.slice(0, 10)}`
+    }
+    
+    return ""
   }
 
   const handleStepSubmit = handleSubmit((data) => {
@@ -519,9 +616,18 @@ export default function BookingPage() {
             priority
           />
         </div>
-        <AppHeader title="Randevu Oluştur" />
         <div className="flex-1 pb-32 pt-4">
           <div className="mx-auto max-w-2xl px-4">
+            <div className="mb-4">
+              <Button
+                variant="secondary"
+                onClick={handleCancelModalOpen}
+                className="w-full rounded-md"
+              >
+                <CalendarOff className="mr-2 h-4 w-4" />
+                Mevcut Randevumu İptal Et
+              </Button>
+            </div>
             {!showSuccess && <Stepper steps={wizardSteps} currentStep={step} />}
             <div
               className={cn(
@@ -557,6 +663,89 @@ export default function BookingPage() {
             secondaryAction={step > 1 && !isPending && !isTransitioning ? handleBack : undefined}
           />
         )}
+        <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Randevu İptali</DialogTitle>
+              <DialogDescription>
+                {cancelStep === 1
+                  ? "Randevunuzu iptal etmek için telefon numaranızı girin"
+                  : "Telefonunuza gönderilen 6 haneli OTP kodunu girin"}
+              </DialogDescription>
+            </DialogHeader>
+            {cancelStep === 1 ? (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="cancelPhone">Telefon Numarası</Label>
+                  <Input
+                    id="cancelPhone"
+                    type="tel"
+                    value={cancelPhone}
+                    onChange={(e) => {
+                      const normalized = normalizeCancelPhone(e.target.value)
+                      if (normalized.length <= 13) {
+                        setCancelPhone(normalized)
+                      }
+                    }}
+                    placeholder="5xxxxxxxxx"
+                    maxLength={13}
+                    className="mt-1"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={handleCancelModalClose}>
+                    İptal
+                  </Button>
+                  <Button onClick={handleCancelPhoneSubmit} disabled={loadingCancel || !cancelPhone.match(/^\+90[5][0-9]{9}$/)}>
+                    {loadingCancel ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Yükleniyor...
+                      </>
+                    ) : (
+                      "Devam Et"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="cancelOtp">OTP Kodu</Label>
+                  <Input
+                    id="cancelOtp"
+                    type="text"
+                    value={cancelOtp}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "")
+                      if (digits.length <= 6) {
+                        setCancelOtp(digits)
+                      }
+                    }}
+                    placeholder="000000"
+                    maxLength={6}
+                    className="mt-1 text-center text-2xl tracking-widest"
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setCancelStep(1)}>
+                    Geri
+                  </Button>
+                  <Button onClick={handleCancelOtpSubmit} disabled={loadingCancel || cancelOtp.length !== 6}>
+                    {loadingCancel ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Yükleniyor...
+                      </>
+                    ) : (
+                      "Randevuyu İptal Et"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

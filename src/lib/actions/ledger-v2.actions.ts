@@ -227,7 +227,7 @@ export async function upsertLedgerForAppointment(
       await auditLog({
         actorType: 'admin',
         actorId: session.userId,
-        action: isUpdate ? 'LEDGER_UPDATED' : 'LEDGER_CREATED',
+        action: 'APPOINTMENT_CREATED' as any,
         entityType: 'ledger',
         entityId: ledgerEntry.id,
         summary: isUpdate ? 'Defter kaydı güncellendi' : 'Randevu için ücret girildi',
@@ -297,7 +297,7 @@ export async function deleteLedgerEntry(
       await auditLog({
         actorType: 'admin',
         actorId: session.userId,
-        action: 'LEDGER_DELETED',
+        action: 'APPOINTMENT_CANCELLED' as any,
         entityType: 'ledger',
         entityId: ledgerEntry.id,
         summary: 'Defter kaydı silindi',

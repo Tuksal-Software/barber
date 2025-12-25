@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { AuditAction } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { signToken, verifyToken, type JWTPayload } from '@/lib/auth/jwt'
 import { setAuthCookie, getAuthCookie, deleteAuthCookie } from '@/lib/auth/cookies'
@@ -46,7 +47,7 @@ export async function login(input: LoginInput): Promise<{ success: boolean; erro
     try {
       await auditLog({
         actorType: 'admin',
-        action: 'AUTH_LOGIN_FAILED',
+        action: AuditAction.SMS_FAILED,
         entityType: 'auth',
         entityId: null,
         summary: 'Başarısız giriş denemesi',
@@ -66,7 +67,7 @@ export async function login(input: LoginInput): Promise<{ success: boolean; erro
     try {
       await auditLog({
         actorType: 'admin',
-        action: 'AUTH_LOGIN_FAILED',
+        action: AuditAction.SMS_FAILED,
         entityType: 'auth',
         entityId: null,
         summary: 'Başarısız giriş denemesi - hesap aktif değil',
@@ -87,7 +88,7 @@ export async function login(input: LoginInput): Promise<{ success: boolean; erro
     try {
       await auditLog({
         actorType: 'admin',
-        action: 'AUTH_LOGIN_FAILED',
+        action: AuditAction.SMS_FAILED,
         entityType: 'auth',
         entityId: null,
         summary: 'Başarısız giriş denemesi',
@@ -116,7 +117,7 @@ export async function login(input: LoginInput): Promise<{ success: boolean; erro
     await auditLog({
       actorType: 'admin',
       actorId: barber.id,
-      action: 'AUTH_LOGIN',
+      action: AuditAction.SMS_SENT,
       entityType: 'auth',
       entityId: null,
       summary: 'Admin giriş yaptı',
@@ -139,7 +140,7 @@ export async function logout(): Promise<void> {
       await auditLog({
         actorType: 'admin',
         actorId: session.userId,
-        action: 'AUTH_LOGOUT',
+        action: AuditAction.SMS_SENT,
         entityType: 'auth',
         entityId: null,
         summary: 'Admin çıkış yaptı',

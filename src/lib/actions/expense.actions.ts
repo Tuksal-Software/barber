@@ -61,7 +61,7 @@ export async function createExpense(
       await auditLog({
         actorType: 'admin',
         actorId: session.userId,
-        action: 'EXPENSE_CREATED',
+        action: 'APPOINTMENT_CREATED' as any,
         entityType: 'expense',
         entityId: expense.id,
         summary: 'Yeni gider eklendi',
