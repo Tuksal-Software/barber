@@ -24,6 +24,15 @@ enum AppointmentSlotStatus {
   free
 }
 
+enum ExpenseCategory {
+  rent
+  electricity
+  water
+  product
+  staff
+  other
+}
+
 model Barber {
   id           String   @id @default(cuid())
   name         String   @db.VarChar(255)
@@ -120,4 +129,16 @@ model LedgerEntry {
 
   @@index([barberId, date])
   @@map("ledger_entries")
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  date        String   @db.VarChar(191)
+  amount      Decimal  @db.Decimal(10,2)
+  category    ExpenseCategory
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @db.DateTime(0)
+
+  @@index([date])
+  @@map("expenses")
 }

@@ -7,6 +7,7 @@ import {
   CalendarDaysIcon,
   UsersIcon,
   BookOpenIcon,
+  ReceiptIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -48,6 +49,11 @@ const navItems = [
     title: "Defter",
     url: "/admin/defter",
     icon: BookOpenIcon,
+  },
+  {
+    title: "Giderler",
+    url: "/admin/giderler",
+    icon: ReceiptIcon,
   },
   {
     title: "Berberler",
