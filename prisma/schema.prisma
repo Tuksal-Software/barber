@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -43,6 +42,7 @@ model Barber {
   workingHours        WorkingHour[]
   appointmentRequests AppointmentRequest[]
   appointmentSlots    AppointmentSlot[]
+  ledgerEntries       LedgerEntry[]
 
   @@index([email])
   @@map("barbers")
@@ -79,6 +79,7 @@ model AppointmentRequest {
 
   barber           Barber            @relation(fields: [barberId], references: [id], onDelete: Cascade)
   appointmentSlots AppointmentSlot[]
+  ledgerEntry      LedgerEntry?
 
   @@index([barberId, date])
   @@index([status])
@@ -102,4 +103,21 @@ model AppointmentSlot {
   @@index([barberId, date, status])
   @@index([status])
   @@map("appointment_slots")
+}
+
+model LedgerEntry {
+  id                   String   @id @default(cuid())
+  barberId             String
+  appointmentRequestId String?  @unique
+  date                 String   @db.VarChar(191)
+  customerName         String   @db.VarChar(255)
+  description          String?
+  amount               Decimal  @db.Decimal(10, 2)
+  createdAt            DateTime @default(now()) @db.DateTime(0)
+
+  barber             Barber            @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  appointmentRequest AppointmentRequest? @relation(fields: [appointmentRequestId], references: [id], onDelete: SetNull)
+
+  @@index([barberId, date])
+  @@map("ledger_entries")
 }

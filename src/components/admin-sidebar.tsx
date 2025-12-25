@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   CalendarDaysIcon,
   UsersIcon,
+  BookOpenIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -42,6 +43,11 @@ const navItems = [
     title: "Takvim",
     url: "/admin/randevular/takvim",
     icon: CalendarDaysIcon,
+  },
+  {
+    title: "Defter",
+    url: "/admin/defter",
+    icon: BookOpenIcon,
   },
   {
     title: "Berberler",

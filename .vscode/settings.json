@@ -1,0 +1,6 @@
+{
+  "prisma.usePrismaSchemaFolder": true,
+  "prisma.enableExperimentalFeatures": false,
+  "prisma.schemaLinting": "off"
+}
+
