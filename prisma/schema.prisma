@@ -33,7 +33,7 @@ model Barber {
   experience   Int      @default(0)
   rating       Decimal  @default(5.00) @db.Decimal(3, 2)
   specialties  String?  @db.Text
-  image        String?  @db.VarChar(500)
+  image       String?  @db.VarChar(500)
   slotDuration Int      @default(30)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now()) @db.DateTime(0)
@@ -111,7 +111,7 @@ model LedgerEntry {
   appointmentRequestId String?  @unique
   date                 String   @db.VarChar(191)
   customerName         String   @db.VarChar(255)
-  description          String?
+  description          String?  @db.Text
   amount               Decimal  @db.Decimal(10, 2)
   createdAt            DateTime @default(now()) @db.DateTime(0)
 

@@ -223,3 +223,116 @@ export async function upsertLedgerForAppointment(
   }
 }
 
+export interface DeleteLedgerResult {
+  success: boolean
+  error?: string
+}
+
+export async function deleteLedgerEntry(
+  appointmentRequestId: string
+): Promise<DeleteLedgerResult> {
+  try {
+    const session = await requireAuth()
+
+    const ledgerEntry = await prisma.ledgerEntry.findUnique({
+      where: {
+        appointmentRequestId,
+      },
+      include: {
+        appointmentRequest: {
+          select: {
+            barberId: true,
+          },
+        },
+      },
+    })
+
+    if (!ledgerEntry) {
+      return {
+        success: false,
+        error: 'Kayıt bulunamadı',
+      }
+    }
+
+    if (session.role === 'barber' && ledgerEntry.appointmentRequest.barberId !== session.userId) {
+      return {
+        success: false,
+        error: 'Bu kayıt için yetkiniz yok',
+      }
+    }
+
+    await prisma.ledgerEntry.delete({
+      where: {
+        appointmentRequestId,
+      },
+    })
+
+    return { success: true }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu',
+    }
+  }
+}
+
+export interface LedgerSummary {
+  totalRevenue: string
+  paidCount: number
+  unpaidCount: number
+}
+
+export async function getLedgerSummary(
+  params: GetLedgerCandidatesParams
+): Promise<LedgerSummary> {
+  const session = await requireAuth()
+  const { barberId, selectedDate } = params
+
+  let finalBarberId = barberId
+  if (session.role === 'barber') {
+    finalBarberId = session.userId
+  }
+
+  const where: Prisma.AppointmentRequestWhereInput = {
+    status: 'approved',
+    date: {
+      lt: selectedDate,
+    },
+  }
+
+  if (finalBarberId) {
+    where.barberId = finalBarberId
+  }
+
+  const [appointments, paidEntries] = await Promise.all([
+    prisma.appointmentRequest.count({
+      where,
+    }),
+    prisma.ledgerEntry.findMany({
+      where: {
+        barberId: finalBarberId || undefined,
+        appointmentRequest: {
+          status: 'approved',
+          date: {
+            lt: selectedDate,
+          },
+        },
+      },
+      select: {
+        amount: true,
+      },
+    }),
+  ])
+
+  const totalRevenue = paidEntries.reduce(
+    (sum, entry) => sum + parseFloat(entry.amount.toString()),
+    0
+  )
+
+  return {
+    totalRevenue: totalRevenue.toFixed(2),
+    paidCount: paidEntries.length,
+    unpaidCount: appointments - paidEntries.length,
+  }
+}
+
