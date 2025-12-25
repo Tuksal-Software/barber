@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/actions/auth.actions'
 import { Prisma } from '@prisma/client'
+import { auditLog } from '@/lib/audit/audit.logger'
 
 export interface CreateExpenseInput {
   date: string
@@ -45,6 +46,8 @@ export async function createExpense(
       }
     }
 
+    const session = await requireAuth()
+
     const expense = await prisma.expense.create({
       data: {
         date,
@@ -53,6 +56,24 @@ export async function createExpense(
         description: description || null,
       },
     })
+
+    try {
+      await auditLog({
+        actorType: 'admin',
+        actorId: session.userId,
+        action: 'EXPENSE_CREATED',
+        entityType: 'expense',
+        entityId: expense.id,
+        summary: 'Yeni gider eklendi',
+        metadata: {
+          amount,
+          category,
+          description: description || null,
+          date,
+        },
+      })
+    } catch {
+    }
 
     return {
       success: true,

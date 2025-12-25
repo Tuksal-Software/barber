@@ -1,5 +1,6 @@
 import type { SmsProvider } from './sms.provider'
 import { ConsoleSmsProvider } from './console.provider'
+import { VatanSmsProvider } from './vatan.provider'
 import { env } from '@/lib/config/env'
 
 let providerInstance: SmsProvider | null = null
@@ -14,6 +15,9 @@ function getProvider(): SmsProvider {
   switch (providerType) {
     case 'console':
       providerInstance = new ConsoleSmsProvider()
+      break
+    case 'vatan':
+      providerInstance = new VatanSmsProvider()
       break
     default:
       providerInstance = new ConsoleSmsProvider()

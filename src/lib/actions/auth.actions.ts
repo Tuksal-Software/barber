@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs'
 import { signToken, verifyToken, type JWTPayload } from '@/lib/auth/jwt'
 import { setAuthCookie, getAuthCookie, deleteAuthCookie } from '@/lib/auth/cookies'
 import { checkRateLimit, resetRateLimit } from '@/lib/auth/rate-limit'
+import { auditLog } from '@/lib/audit/audit.logger'
 
 export interface LoginInput {
   email: string
@@ -42,6 +43,19 @@ export async function login(input: LoginInput): Promise<{ success: boolean; erro
   })
 
   if (!barber) {
+    try {
+      await auditLog({
+        actorType: 'admin',
+        action: 'AUTH_LOGIN_FAILED',
+        entityType: 'auth',
+        entityId: null,
+        summary: 'Başarısız giriş denemesi',
+        metadata: {
+          email,
+        },
+      })
+    } catch {
+    }
     return {
       success: false,
       error: 'E-posta veya şifre hatalı',
@@ -49,6 +63,19 @@ export async function login(input: LoginInput): Promise<{ success: boolean; erro
   }
 
   if (!barber.isActive) {
+    try {
+      await auditLog({
+        actorType: 'admin',
+        action: 'AUTH_LOGIN_FAILED',
+        entityType: 'auth',
+        entityId: null,
+        summary: 'Başarısız giriş denemesi - hesap aktif değil',
+        metadata: {
+          email,
+        },
+      })
+    } catch {
+    }
     return {
       success: false,
       error: 'Hesabınız aktif değil',
@@ -57,6 +84,19 @@ export async function login(input: LoginInput): Promise<{ success: boolean; erro
 
   const isValidPassword = await bcrypt.compare(password, barber.password)
   if (!isValidPassword) {
+    try {
+      await auditLog({
+        actorType: 'admin',
+        action: 'AUTH_LOGIN_FAILED',
+        entityType: 'auth',
+        entityId: null,
+        summary: 'Başarısız giriş denemesi',
+        metadata: {
+          email,
+        },
+      })
+    } catch {
+    }
     return {
       success: false,
       error: 'E-posta veya şifre hatalı',
@@ -72,11 +112,44 @@ export async function login(input: LoginInput): Promise<{ success: boolean; erro
 
   await setAuthCookie(token)
 
+  try {
+    await auditLog({
+      actorType: 'admin',
+      actorId: barber.id,
+      action: 'AUTH_LOGIN',
+      entityType: 'auth',
+      entityId: null,
+      summary: 'Admin giriş yaptı',
+      metadata: {
+        email,
+      },
+    })
+  } catch {
+  }
+
   return { success: true }
 }
 
 export async function logout(): Promise<void> {
+  const session = await getSession()
   await deleteAuthCookie()
+  
+  if (session) {
+    try {
+      await auditLog({
+        actorType: 'admin',
+        actorId: session.userId,
+        action: 'AUTH_LOGOUT',
+        entityType: 'auth',
+        entityId: null,
+        summary: 'Admin çıkış yaptı',
+        metadata: {
+          email: session.email,
+        },
+      })
+    } catch {
+    }
+  }
 }
 
 export async function getSession(): Promise<Session | null> {

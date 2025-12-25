@@ -89,3 +89,4 @@ WHERE TABLE_SCHEMA = DATABASE()
   AND TABLE_NAME IN ('appointment_requests','ledger_entries','barbers','appointment_slots','working_hours')
   AND COLLATION_NAME LIKE '%0900%';
 
+

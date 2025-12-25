@@ -8,6 +8,8 @@ import {
   UsersIcon,
   BookOpenIcon,
   ReceiptIcon,
+  MessageSquareIcon,
+  ActivityIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -54,6 +56,16 @@ const navItems = [
     title: "Giderler",
     url: "/admin/giderler",
     icon: ReceiptIcon,
+  },
+  {
+    title: "SMS Logları",
+    url: "/admin/sms-log",
+    icon: MessageSquareIcon,
+  },
+  {
+    title: "Audit Logs",
+    url: "/admin/audit-logs",
+    icon: ActivityIcon,
   },
   {
     title: "Berberler",

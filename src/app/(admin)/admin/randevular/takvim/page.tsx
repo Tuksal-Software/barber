@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   ChevronLeft,
   ChevronRight,
@@ -23,6 +25,7 @@ import { approveAppointmentRequest, cancelAppointmentRequest } from "@/lib/actio
 import { parseTimeToMinutes, minutesToTime, overlaps } from "@/lib/time";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Barber {
   id: string;
@@ -177,6 +180,8 @@ export default function TakvimPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const isMobile = useIsMobile();
 
   const weekDates = useMemo(() => getWeekDates(new Date(currentWeek)), [currentWeek]);
@@ -254,16 +259,23 @@ export default function TakvimPage() {
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancelClick = () => {
+    setIsCancelDialogOpen(true);
+  };
+
+  const handleCancelConfirm = async () => {
     if (!selectedAppointment) return;
 
     setActionLoading(true);
     try {
       await cancelAppointmentRequest({
         appointmentRequestId: selectedAppointment.id,
+        reason: cancelReason.trim() || undefined,
       });
 
       toast.success("Randevu iptal edildi");
+      setIsCancelDialogOpen(false);
+      setCancelReason("");
       setIsSheetOpen(false);
       setSelectedAppointment(null);
       await loadData();
@@ -297,6 +309,27 @@ export default function TakvimPage() {
       month: 'long',
       year: 'numeric',
     });
+  };
+
+  const isPastAppointment = (appointment: CalendarAppointment): boolean => {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const appointmentDate = appointment.date;
+    const isPastDate = appointmentDate < today;
+    const isToday = appointmentDate === today;
+
+    if (isPastDate) {
+      return true;
+    }
+
+    if (isToday) {
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const appointmentStartTime = appointment.startTime;
+      const appointmentStartMinutes = parseTimeToMinutes(normalizeTime(appointmentStartTime));
+      return appointmentStartMinutes < currentMinutes;
+    }
+
+    return false;
   };
 
   const getCancelledCount = (
@@ -744,15 +777,37 @@ export default function TakvimPage() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-3">
-                      <Button
-                        variant="destructive"
-                        className="flex-1"
-                        onClick={handleCancel}
-                        disabled={actionLoading}
-                      >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        İptal Et
-                      </Button>
+                      {isPastAppointment(selectedAppointment) ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="flex-1">
+                                <Button
+                                  variant="destructive"
+                                  className="flex-1 w-full opacity-50 cursor-not-allowed"
+                                  disabled
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  İptal Et
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Geçmiş randevular iptal edilemez</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <Button
+                          variant="destructive"
+                          className="flex-1"
+                          onClick={handleCancelClick}
+                          disabled={actionLoading}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          İptal Et
+                        </Button>
+                      )}
                       <Button
                         className="flex-1"
                         onClick={handleApprove}
@@ -769,6 +824,49 @@ export default function TakvimPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Randevuyu İptal Et</DialogTitle>
+            <DialogDescription>
+              Randevuyu iptal etmek istediğinizden emin misiniz? İptal nedeni opsiyoneldir.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                İptal Nedeni (opsiyonel)
+              </label>
+              <Textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="İptal nedeni..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCancelDialogOpen(false);
+                setCancelReason("");
+              }}
+              disabled={actionLoading}
+            >
+              İptal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelConfirm}
+              disabled={actionLoading}
+            >
+              {actionLoading ? "İptal ediliyor..." : "Onayla"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

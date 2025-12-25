@@ -33,6 +33,49 @@ enum ExpenseCategory {
   other
 }
 
+enum AuditActorType {
+  customer
+  admin
+  system
+}
+
+enum AuditEntityType {
+  appointment
+  ledger
+  expense
+  sms
+  auth
+  ui
+  other
+}
+
+enum AuditAction {
+  APPOINTMENT_FORM_PHONE_ENTERED
+  APPOINTMENT_FORM_NAME_ENTERED
+  APPOINTMENT_FORM_ABANDONED
+  APPOINTMENT_CREATED
+  APPOINTMENT_APPROVED
+  APPOINTMENT_CANCELLED
+  APPOINTMENT_REJECTED
+
+  LEDGER_CREATED
+  LEDGER_UPDATED
+  LEDGER_DELETED
+
+  EXPENSE_CREATED
+  EXPENSE_UPDATED
+  EXPENSE_DELETED
+
+  SMS_SENT
+  SMS_FAILED
+
+  AUTH_LOGIN
+  AUTH_LOGIN_FAILED
+  AUTH_LOGOUT
+
+  UI_ACTION
+}
+
 model Barber {
   id           String   @id @default(cuid())
   name         String   @db.VarChar(255)
@@ -141,4 +184,37 @@ model Expense {
 
   @@index([date])
   @@map("expenses")
+}
+
+model SmsLog {
+  id        String   @id @default(cuid())
+  to        String   @db.VarChar(50)
+  message   String   @db.Text
+  event     String   @db.VarChar(100)
+  provider  String   @db.VarChar(50)
+  status    String   @db.VarChar(20)
+  error     String?  @db.Text
+  createdAt DateTime @default(now()) @db.DateTime(0)
+
+  @@index([event])
+  @@index([createdAt])
+  @@map("sms_logs")
+}
+
+model AuditLog {
+  id         String          @id @default(cuid())
+  actorType  AuditActorType
+  actorId    String?
+  action     AuditAction
+  entityType AuditEntityType
+  entityId   String?
+  summary    String          @db.Text
+  metadata   Json?
+  createdAt  DateTime        @default(now()) @db.DateTime(0)
+
+  @@index([actorType])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

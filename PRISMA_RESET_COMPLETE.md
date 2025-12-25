@@ -52,3 +52,4 @@
 - [ ] Ücret kaydetme çalışıyor
 - [ ] Description alanı DB'ye yazılıyor
 
+

@@ -24,3 +24,4 @@ ALTER TABLE ledger_entries
   MODIFY barberId VARCHAR(191) COLLATE utf8mb4_unicode_ci,
   MODIFY date VARCHAR(191) COLLATE utf8mb4_unicode_ci;
 
+

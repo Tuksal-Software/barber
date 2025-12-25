@@ -3,7 +3,10 @@
 import { prisma } from '@/lib/prisma'
 import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
 import { sendSms } from '@/lib/sms/sms.service'
-import { requireAdmin } from '@/lib/actions/auth.actions'
+import { requireAdmin, getSession } from '@/lib/actions/auth.actions'
+import { dispatchSms } from '@/lib/sms/sms.dispatcher'
+import { SmsEvent } from '@/lib/sms/sms.events'
+import { auditLog } from '@/lib/audit/audit.logger'
 
 export interface CreateAppointmentRequestInput {
   barberId: string
@@ -22,6 +25,7 @@ export interface ApproveAppointmentRequestInput {
 
 export interface CancelAppointmentRequestInput {
   appointmentRequestId: string
+  reason?: string
 }
 
 export async function getCustomerByPhone(phone: string): Promise<{ customerName: string } | null> {
@@ -114,10 +118,32 @@ export async function createAppointmentRequest(
     },
   })
 
-  await sendSms(
+  try {
+    await auditLog({
+      actorType: 'customer',
+      action: 'APPOINTMENT_CREATED',
+      entityType: 'appointment',
+      entityId: appointmentRequest.id,
+      summary: 'Appointment request created',
+      metadata: {
+        barberId,
+        date,
+        requestedStartTime,
+        requestedEndTime,
+        customerName,
+        customerPhone,
+      },
+    })
+  } catch {
+  }
+
+  await dispatchSms(SmsEvent.AppointmentCreated, {
+    customerName,
     customerPhone,
-    `Merhaba ${customerName}, randevu talebiniz alındı. Onay için bekliyoruz.`
-  ).catch(() => {})
+    barberId,
+    date,
+    requestedStartTime,
+  })
 
   return appointmentRequest.id
 }
@@ -125,7 +151,7 @@ export async function createAppointmentRequest(
 export async function approveAppointmentRequest(
   input: ApproveAppointmentRequestInput
 ): Promise<void> {
-  await requireAdmin()
+  const session = await requireAdmin()
 
   const { appointmentRequestId, approvedDurationMinutes } = input
 
@@ -136,6 +162,14 @@ export async function approveAppointmentRequest(
   if (![15, 30, 45, 60].includes(approvedDurationMinutes)) {
     throw new Error('Geçersiz süre. 15, 30, 45 veya 60 dakika olmalıdır')
   }
+
+  let smsPayload: {
+    customerName: string
+    customerPhone: string
+    date: string
+    startTime: string
+    endTime: string
+  } | null = null
 
   await prisma.$transaction(async (tx) => {
     const appointmentRequest = await tx.appointmentRequest.findUnique({
@@ -197,23 +231,54 @@ export async function approveAppointmentRequest(
       data: { status: 'approved' },
     })
 
-    await sendSms(
-      appointmentRequest.customerPhone,
-      `Merhaba ${appointmentRequest.customerName}, randevunuz onaylandı. Tarih: ${appointmentRequest.date}, Saat: ${approvedStartTime}-${approvedEndTime}`
-    ).catch(() => {})
+    smsPayload = {
+      customerName: appointmentRequest.customerName,
+      customerPhone: appointmentRequest.customerPhone,
+      date: appointmentRequest.date,
+      startTime: approvedStartTime,
+      endTime: approvedEndTime,
+    }
   })
+
+  if (smsPayload) {
+    await dispatchSms(SmsEvent.AppointmentApproved, smsPayload)
+  }
+
+  try {
+    await auditLog({
+      actorType: 'admin',
+      actorId: session.userId,
+      action: 'APPOINTMENT_APPROVED',
+      entityType: 'appointment',
+      entityId: appointmentRequestId,
+      summary: 'Appointment approved',
+      metadata: {
+        approvedStartTime: smsPayload?.startTime,
+        approvedEndTime: smsPayload?.endTime,
+      },
+    })
+  } catch {
+  }
 }
 
 export async function cancelAppointmentRequest(
   input: CancelAppointmentRequestInput
 ): Promise<void> {
-  await requireAdmin()
+  const session = await requireAdmin()
 
-  const { appointmentRequestId } = input
+  const { appointmentRequestId, reason } = input
 
   if (!appointmentRequestId) {
     throw new Error('Randevu talebi ID gereklidir')
   }
+
+  let smsPayload: {
+    customerName: string
+    customerPhone: string
+    date: string
+    time: string
+    reason?: string | null
+  } | null = null
 
   await prisma.$transaction(async (tx) => {
     const appointmentRequest = await tx.appointmentRequest.findUnique({
@@ -231,6 +296,28 @@ export async function cancelAppointmentRequest(
       return
     }
 
+    const now = new Date()
+    const today = now.toISOString().split('T')[0]
+    const appointmentDate = appointmentRequest.date
+    const isPastDate = appointmentDate < today
+    const isToday = appointmentDate === today
+
+    let isPastTime = false
+    if (isToday) {
+      const currentMinutes = now.getHours() * 60 + now.getMinutes()
+      const appointmentStartTime = appointmentRequest.status === 'approved' && appointmentRequest.appointmentSlots.length > 0
+        ? appointmentRequest.appointmentSlots[0].startTime
+        : appointmentRequest.requestedStartTime
+      const appointmentStartMinutes = parseTimeToMinutes(appointmentStartTime)
+      isPastTime = appointmentStartMinutes < currentMinutes
+    }
+
+    if (isPastDate || isPastTime) {
+      throw new Error('Geçmiş randevular iptal edilemez')
+    }
+
+    const wasPending = appointmentRequest.status === 'pending'
+
     if (appointmentRequest.status === 'approved') {
       await tx.appointmentSlot.deleteMany({
         where: {
@@ -244,10 +331,38 @@ export async function cancelAppointmentRequest(
       data: { status: 'cancelled' },
     })
 
-    await sendSms(
-      appointmentRequest.customerPhone,
-      `Merhaba ${appointmentRequest.customerName}, randevunuz iptal edildi.`
-    ).catch(() => {})
+    smsPayload = {
+      customerName: appointmentRequest.customerName,
+      customerPhone: appointmentRequest.customerPhone,
+      date: appointmentRequest.date,
+      time: appointmentRequest.requestedStartTime,
+      reason: reason || null,
+    }
   })
+
+  if (smsPayload) {
+    await dispatchSms(SmsEvent.AppointmentCancelledPending, smsPayload)
+  }
+
+  try {
+    const appointmentRequest = await prisma.appointmentRequest.findUnique({
+      where: { id: appointmentRequestId },
+      select: { status: true },
+    })
+
+    await auditLog({
+      actorType: 'admin',
+      actorId: session.userId,
+      action: 'APPOINTMENT_CANCELLED',
+      entityType: 'appointment',
+      entityId: appointmentRequestId,
+      summary: 'Appointment cancelled',
+      metadata: {
+        previousStatus: appointmentRequest?.status,
+        reason: reason || null,
+      },
+    })
+  } catch {
+  }
 }
 

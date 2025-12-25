@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/actions/auth.actions'
 import { Prisma } from '@prisma/client'
+import { auditLog } from '@/lib/audit/audit.logger'
 
 export interface GetLedgerCandidatesParams {
   barberId?: string
@@ -196,7 +197,15 @@ export async function upsertLedgerForAppointment(
       }
     }
 
-    await prisma.ledgerEntry.upsert({
+    const existingEntry = await prisma.ledgerEntry.findUnique({
+      where: {
+        appointmentRequestId: appointmentRequest.id,
+      },
+    })
+
+    const isUpdate = !!existingEntry
+
+    const ledgerEntry = await prisma.ledgerEntry.upsert({
       where: {
         appointmentRequestId: appointmentRequest.id,
       },
@@ -213,6 +222,23 @@ export async function upsertLedgerForAppointment(
         description: description || null,
       },
     })
+
+    try {
+      await auditLog({
+        actorType: 'admin',
+        actorId: session.userId,
+        action: isUpdate ? 'LEDGER_UPDATED' : 'LEDGER_CREATED',
+        entityType: 'ledger',
+        entityId: ledgerEntry.id,
+        summary: isUpdate ? 'Defter kaydı güncellendi' : 'Randevu için ücret girildi',
+        metadata: {
+          appointmentRequestId: appointmentRequest.id,
+          amount,
+          description: description || null,
+        },
+      })
+    } catch {
+    }
 
     return { success: true }
   } catch (error) {
@@ -266,6 +292,22 @@ export async function deleteLedgerEntry(
         appointmentRequestId,
       },
     })
+
+    try {
+      await auditLog({
+        actorType: 'admin',
+        actorId: session.userId,
+        action: 'LEDGER_DELETED',
+        entityType: 'ledger',
+        entityId: ledgerEntry.id,
+        summary: 'Defter kaydı silindi',
+        metadata: {
+          appointmentRequestId,
+          amount: ledgerEntry.amount.toString(),
+        },
+      })
+    } catch {
+    }
 
     return { success: true }
   } catch (error) {

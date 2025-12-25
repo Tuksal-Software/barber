@@ -1,0 +1,75 @@
+import type { SmsProvider } from './sms.provider'
+import { env } from '@/lib/config/env'
+
+function cleanPhoneNumber(phone: string): string | null {
+  if (!phone || typeof phone !== 'string') {
+    return null
+  }
+
+  let cleaned = phone.trim()
+
+  if (cleaned.startsWith('+90')) {
+    cleaned = cleaned.substring(3)
+  } else if (cleaned.startsWith('90')) {
+    cleaned = cleaned.substring(2)
+  } else if (cleaned.startsWith('0')) {
+    cleaned = cleaned.substring(1)
+  }
+
+  cleaned = cleaned.replace(/\D/g, '')
+
+  if (cleaned.length !== 10) {
+    return null
+  }
+
+  return cleaned
+}
+
+export class VatanSmsProvider implements SmsProvider {
+  async sendSms(to: string, message: string): Promise<void> {
+    try {
+      const cleanedPhone = cleanPhoneNumber(to)
+      if (!cleanedPhone) {
+        console.error('[VatanSMS] Invalid phone number:', to)
+        return
+      }
+
+      if (!env.smsApiId || !env.smsApiKey) {
+        console.error('[VatanSMS] SMS_API_ID or SMS_API_KEY is missing')
+        return
+      }
+
+      const payload = {
+        api_id: env.smsApiId,
+        api_key: env.smsApiKey,
+        sender: 'DEGISIMDJTL',
+        message_type: 'turkce',
+        message: message,
+        phones: [cleanedPhone],
+      }
+
+      const response = await fetch('https://api.vatansms.net/api/v1/1toN', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('[VatanSMS] API error', response.status, errorText)
+        return
+      }
+
+      const result = await response.json()
+      if (result.status !== 'success' && result.status !== 'ok') {
+        console.error('[VatanSMS] API returned error:', result)
+        return
+      }
+    } catch (error) {
+      console.error('[VatanSMS] Error sending SMS:', error)
+    }
+  }
+}
+

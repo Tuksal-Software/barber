@@ -13,3 +13,4 @@ WHERE TABLE_SCHEMA = DATABASE()
   AND TABLE_NAME IN ('appointment_requests', 'ledger_entries', 'barbers', 'appointment_slots', 'working_hours')
 ORDER BY TABLE_NAME, CONSTRAINT_NAME;
 
+
