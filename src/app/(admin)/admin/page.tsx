@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Calendar, Users, CheckCircle, Clock, Loader2, ArrowRight, XCircle } from "lucide-react"
+import { Calendar, Users, CheckCircle, Clock, Loader2, ArrowRight, XCircle, TrendingUp, TrendingDown, DollarSign } from "lucide-react"
 import { StatCard } from "@/components/app/StatCard"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,11 +10,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { getDashboardStats, getWeeklyAppointments, getAppointmentStatusStats } from "@/lib/actions/stats.actions"
 import { getRecentAppointments } from "@/lib/actions/appointment-query.actions"
+import { getFinanceSummary } from "@/lib/actions/dashboard-finance.actions"
 import { format, parseISO } from "date-fns"
 import { tr } from "date-fns/locale/tr"
 import { WeeklyAppointmentsChart } from "@/components/app/WeeklyAppointmentsChart"
+import { Skeleton } from "@/components/ui/skeleton"
 import type { DashboardStats, WeeklyAppointmentData, AppointmentStatusStats } from "@/lib/actions/stats.actions"
 import type { AppointmentRequestListItem } from "@/lib/actions/appointment-query.actions"
+import type { FinanceSummary } from "@/lib/actions/dashboard-finance.actions"
 
 const statusColors = {
   pending: "bg-amber-950 text-amber-300 border-amber-800",
@@ -41,22 +44,27 @@ export default function AdminDashboardPage() {
   const [recentAppointments, setRecentAppointments] = useState<AppointmentRequestListItem[]>([])
   const [weeklyData, setWeeklyData] = useState<WeeklyAppointmentData[]>([])
   const [statusStats, setStatusStats] = useState<AppointmentStatusStats>({ approved: 0, cancelled: 0 })
+  const [financeSummary, setFinanceSummary] = useState<FinanceSummary>({ totalRevenue: 0, totalExpense: 0, netProfit: 0 })
+  const [financeRange, setFinanceRange] = useState<'day' | 'week' | 'month' | 'all'>('all')
+  const [financeLoading, setFinanceLoading] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true)
-        const [statsData, appointmentsData, weeklyData, statusStats] = await Promise.all([
+        const [statsData, appointmentsData, weeklyData, statusStats, financeData] = await Promise.all([
           getDashboardStats(),
           getRecentAppointments(5),
           getWeeklyAppointments(),
           getAppointmentStatusStats(),
+          getFinanceSummary('all'),
         ])
         setStats(statsData)
         setRecentAppointments(appointmentsData)
         setWeeklyData(weeklyData)
         setStatusStats(statusStats)
+        setFinanceSummary(financeData)
       } catch (error) {
         console.error("Dashboard veri yükleme hatası:", error)
       } finally {
@@ -65,6 +73,25 @@ export default function AdminDashboardPage() {
     }
     fetchData()
   }, [])
+
+  useEffect(() => {
+    async function fetchFinance() {
+      try {
+        setFinanceLoading(true)
+        const financeData = await getFinanceSummary(financeRange)
+        setFinanceSummary(financeData)
+      } catch (error) {
+        console.error("Finance veri yükleme hatası:", error)
+      } finally {
+        setFinanceLoading(false)
+      }
+    }
+    fetchFinance()
+  }, [financeRange])
+
+  const handleFinanceRangeChange = (range: 'day' | 'week' | 'month' | 'all') => {
+    setFinanceRange(range)
+  }
 
   return (
     <div className="flex-1 space-y-4">
@@ -141,6 +168,144 @@ export default function AdminDashboardPage() {
                 </CardContent>
               </Card>
             </div>
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-foreground">Finansal Özet</CardTitle>
+                    <CardDescription className="text-muted-foreground">
+                      Gelir, gider ve net kâr analizi
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={financeRange === 'day' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleFinanceRangeChange('day')}
+                    >
+                      Günlük
+                    </Button>
+                    <Button
+                      variant={financeRange === 'week' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleFinanceRangeChange('week')}
+                    >
+                      Haftalık
+                    </Button>
+                    <Button
+                      variant={financeRange === 'month' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleFinanceRangeChange('month')}
+                    >
+                      Aylık
+                    </Button>
+                    <Button
+                      variant={financeRange === 'all' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => handleFinanceRangeChange('all')}
+                    >
+                      Tümü
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {financeLoading ? (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Card className="bg-card border-border">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-4 rounded" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-8 w-32 mb-2" />
+                        <Skeleton className="h-3 w-20" />
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-card border-border">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-4 rounded" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-8 w-32 mb-2" />
+                        <Skeleton className="h-3 w-20" />
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-card border-border">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-4 rounded" />
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-8 w-32 mb-2" />
+                        <Skeleton className="h-3 w-20" />
+                      </CardContent>
+                    </Card>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Card className="bg-card border-border">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-foreground">
+                          Toplam Gelir
+                        </CardTitle>
+                        <TrendingUp className="h-4 w-4 text-green-500" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-foreground">
+                          {new Intl.NumberFormat("tr-TR", {
+                            style: "currency",
+                            currency: "TRY",
+                          }).format(financeSummary.totalRevenue)}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Randevu ücretleri
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-card border-border">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-foreground">
+                          Toplam Gider
+                        </CardTitle>
+                        <TrendingDown className="h-4 w-4 text-red-500" />
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold text-foreground">
+                          {new Intl.NumberFormat("tr-TR", {
+                            style: "currency",
+                            currency: "TRY",
+                          }).format(financeSummary.totalExpense)}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Dükkan giderleri
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="bg-card border-border">
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-foreground">
+                          Net Kâr
+                        </CardTitle>
+                        <DollarSign className={`h-4 w-4 ${financeSummary.netProfit >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+                      </CardHeader>
+                      <CardContent>
+                        <div className={`text-2xl font-bold ${financeSummary.netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {new Intl.NumberFormat("tr-TR", {
+                            style: "currency",
+                            currency: "TRY",
+                          }).format(financeSummary.netProfit)}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {financeSummary.netProfit >= 0 ? 'Kâr' : 'Zarar'}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
               <div className="col-span-4">
                 <WeeklyAppointmentsChart data={weeklyData} />
