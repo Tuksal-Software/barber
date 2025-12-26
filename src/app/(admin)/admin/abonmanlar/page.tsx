@@ -25,8 +25,8 @@ import { getSubscriptions, createSubscription, updateSubscription, cancelSubscri
 import { getCustomerByPhone } from "@/lib/actions/appointment.actions";
 import { SubscriptionRecurrenceType } from "@prisma/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
-import { tr } from "date-fns/locale";
+import { format } from "date-fns"
+import { tr } from "date-fns/locale/tr"
 import { TimeRangePicker } from "@/components/app/TimeRangePicker";
 import { minutesToTime, parseTimeToMinutes } from "@/lib/time";
 

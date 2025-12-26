@@ -1,7 +1,7 @@
 "use client"
 
 import { format, startOfWeek, addDays, isSameDay } from "date-fns"
-import { tr } from "date-fns/locale"
+import { tr } from "date-fns/locale/tr"
 import { cn } from "@/lib/utils"
 import type { Appointment } from "@/lib/constants"
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import { format, addDays, isSameDay, isPast, startOfDay } from "date-fns"
-import { tr } from "date-fns/locale"
+import { tr } from "date-fns/locale/tr"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 

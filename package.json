@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "clean": "node -e \"const fs=require('fs');const path=require('path');['.next','node_modules/.cache','node_modules/.prisma'].forEach(d=>{try{fs.rmSync(d,{recursive:true,force:true});console.log('Deleted:',d)}catch(e){}})\"",
+    "dev:clean": "npm run clean && next dev",
+    "build:clean": "npm run clean && next build",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma db push --force-reset && npm run db:seed"

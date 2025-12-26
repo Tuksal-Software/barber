@@ -9,9 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getAuditLogs } from "@/lib/actions/audit.actions"
 import type { AuditLogItem } from "@/lib/actions/audit.actions"
-import { formatDistanceToNow } from "date-fns"
-import { tr } from "date-fns/locale"
-import { format } from "date-fns"
+import { formatDistanceToNow, format } from "date-fns"
+import { tr } from "date-fns/locale/tr"
 import { User, Shield, Server, ChevronDown } from "lucide-react"
 
 export const dynamic = 'force-dynamic'

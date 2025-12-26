@@ -7,7 +7,7 @@ import { auditLog } from '@/lib/audit/audit.logger'
 import { parseTimeToMinutes, overlaps } from '@/lib/time'
 import { dispatchSms } from '@/lib/sms/sms.dispatcher'
 import { SmsEvent } from '@/lib/sms/sms.events'
-import { sendSms } from '@/lib/sms/sms.service'
+import { sendSms as sendSmsMessage } from '@/lib/sms/sms.service'
 import { getAdminPhoneSetting } from '@/lib/settings/settings-helpers'
 
 export interface WorkingHour {
@@ -342,7 +342,7 @@ export async function createOverride(
       if (adminPhone && adminPhone.trim()) {
         const adminMessage = `⚠️ ${date} ${startTime}-${endTime} saatleri kapatıldı. ${cancelledCount} randevu iptal edildi.`
         try {
-          await sendSms(adminPhone, adminMessage)
+          await sendSmsMessage(adminPhone, adminMessage)
           await prisma.smsLog.create({
             data: {
               to: adminPhone,

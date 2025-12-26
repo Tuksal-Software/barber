@@ -9,7 +9,7 @@ import { dispatchSms } from '@/lib/sms/sms.dispatcher'
 import { SmsEvent } from '@/lib/sms/sms.events'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { addDays, addWeeks, startOfMonth, getDay, format, isAfter, isBefore, parseISO } from 'date-fns'
-import { tr } from 'date-fns/locale'
+import { tr } from 'date-fns/locale/tr'
 
 export interface CreateSubscriptionInput {
   barberId: string
