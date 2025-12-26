@@ -41,20 +41,24 @@ export interface SubscriptionCancelledPayload {
   customerPhone: string
 }
 
-type SmsTemplateFunction<T = unknown> = (payload: T) => string
-
-type SmsTemplateMap = {
-  [SmsEvent.AppointmentCreated]: SmsTemplateFunction<AppointmentCreatedPayload>
-  [SmsEvent.AppointmentApproved]: SmsTemplateFunction<AppointmentApprovedPayload>
-  [SmsEvent.AppointmentCancelledPending]: SmsTemplateFunction<AppointmentCancelledPendingPayload>
-  [SmsEvent.AppointmentCancelledApproved]: SmsTemplateFunction
-  [SmsEvent.AppointmentReminder2h]: SmsTemplateFunction
-  [SmsEvent.AppointmentReminder1h]: SmsTemplateFunction
-  [SmsEvent.SubscriptionCreated]: SmsTemplateFunction<SubscriptionCreatedPayload>
-  [SmsEvent.SubscriptionCancelled]: SmsTemplateFunction<SubscriptionCancelledPayload>
+type SmsPayloadMap = {
+  [SmsEvent.AppointmentCreated]: AppointmentCreatedPayload
+  [SmsEvent.AppointmentApproved]: AppointmentApprovedPayload
+  [SmsEvent.AppointmentCancelledPending]: AppointmentCancelledPendingPayload
+  [SmsEvent.AppointmentCancelledApproved]: Record<string, never>
+  [SmsEvent.AppointmentReminder2h]: Record<string, never>
+  [SmsEvent.AppointmentReminder1h]: Record<string, never>
+  [SmsEvent.SubscriptionCreated]: SubscriptionCreatedPayload
+  [SmsEvent.SubscriptionCancelled]: SubscriptionCancelledPayload
 }
 
-const templates: Record<SmsEvent, Record<SmsRole, SmsTemplateFunction>> = {
+type SmsTemplateMap = {
+  [K in SmsEvent]: {
+    [R in SmsRole]: (payload: SmsPayloadMap[K]) => string
+  }
+}
+
+const templates: SmsTemplateMap = {
   [SmsEvent.AppointmentCreated]: {
     customer: (payload: AppointmentCreatedPayload) =>
       `Merhaba ${payload.customerName}, randevu talebiniz alındı. Onay için bekliyoruz.`,
@@ -64,7 +68,7 @@ const templates: Record<SmsEvent, Record<SmsRole, SmsTemplateFunction>> = {
   [SmsEvent.AppointmentApproved]: {
     customer: (payload: AppointmentApprovedPayload) =>
       `Merhaba ${payload.customerName}, randevunuz ONAYLANDI.\nTarih: ${payload.date}\nSaat: ${payload.startTime} - ${payload.endTime}`,
-    admin: () => '',
+    admin: (_payload: AppointmentApprovedPayload) => '',
   },
   [SmsEvent.AppointmentCancelledPending]: {
     customer: (payload: AppointmentCancelledPendingPayload) => {
@@ -73,19 +77,19 @@ const templates: Record<SmsEvent, Record<SmsRole, SmsTemplateFunction>> = {
         : 'İşletme tarafından kapatılan saatler'
       return `📌 Randevunuz iptal edilmiştir\n📅 Tarih: ${payload.date}\n⏰ Saat: ${payload.time}\n❗ Neden: ${reason}`
     },
-    admin: () => '',
+    admin: (_payload: AppointmentCancelledPendingPayload) => '',
   },
   [SmsEvent.AppointmentCancelledApproved]: {
-    customer: () => '',
-    admin: () => '',
+    customer: (_payload: Record<string, never>) => '',
+    admin: (_payload: Record<string, never>) => '',
   },
   [SmsEvent.AppointmentReminder2h]: {
-    customer: () => '',
-    admin: () => '',
+    customer: (_payload: Record<string, never>) => '',
+    admin: (_payload: Record<string, never>) => '',
   },
   [SmsEvent.AppointmentReminder1h]: {
-    customer: () => '',
-    admin: () => '',
+    customer: (_payload: Record<string, never>) => '',
+    admin: (_payload: Record<string, never>) => '',
   },
   [SmsEvent.SubscriptionCreated]: {
     customer: (payload: SubscriptionCreatedPayload) => {
@@ -104,19 +108,19 @@ const templates: Record<SmsEvent, Record<SmsRole, SmsTemplateFunction>> = {
       
       return `Merhaba ${payload.customerName}, abonman randevularınız oluşturuldu.\n${recurrenceText} saat ${payload.startTime}`
     },
-    admin: () => '',
+    admin: (_payload: SubscriptionCreatedPayload) => '',
   },
   [SmsEvent.SubscriptionCancelled]: {
     customer: (payload: SubscriptionCancelledPayload) =>
       `Merhaba ${payload.customerName}, abonman randevularınız iptal edilmiştir.`,
-    admin: () => '',
+    admin: (_payload: SubscriptionCancelledPayload) => '',
   },
 }
 
-export function getSmsTemplate(
-  event: SmsEvent,
+export function getSmsTemplate<K extends SmsEvent>(
+  event: K,
   role: SmsRole
-): SmsTemplateFunction {
+): (payload: SmsPayloadMap[K]) => string {
   return templates[event][role]
 }
 
