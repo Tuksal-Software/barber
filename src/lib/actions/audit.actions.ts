@@ -4,9 +4,9 @@ import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/actions/auth.actions'
 
 export interface AuditLogFilters {
-  actorType?: 'customer' | 'admin' | 'system'
+  actorType?: 'customer' | 'admin' | 'system' | 'all'
   action?: string
-  entityType?: 'appointment' | 'ledger' | 'expense' | 'sms' | 'auth' | 'ui' | 'other'
+  entityType?: 'appointment' | 'ledger' | 'expense' | 'sms' | 'auth' | 'ui' | 'other' | 'all'
   fromDate?: string
   toDate?: string
   search?: string

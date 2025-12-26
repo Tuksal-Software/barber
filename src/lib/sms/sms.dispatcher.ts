@@ -4,6 +4,7 @@ import { sendSms } from './sms.service'
 import { env } from '@/lib/config/env'
 import { prisma } from '@/lib/prisma'
 import { auditLog } from '@/lib/audit/audit.logger'
+import { getAdminPhoneSetting, getSmsSenderSetting } from '@/lib/settings/settings-helpers'
 
 type SmsPayload = AppointmentCreatedPayload | AppointmentApprovedPayload | AppointmentCancelledPendingPayload
 
@@ -21,7 +22,9 @@ async function logSms(to: string, message: string, event: SmsEvent, status: 'suc
     })
 
     try {
-      const isAdmin = env.adminPhone ? to === env.adminPhone : false
+      const adminPhone = await getAdminPhoneSetting()
+      const smsSender = await getSmsSenderSetting()
+      const isAdmin = adminPhone ? to === adminPhone : false
       await auditLog({
         actorType: 'system',
         action: status === 'success' ? 'SMS_SENT' : 'SMS_FAILED',
@@ -33,7 +36,7 @@ async function logSms(to: string, message: string, event: SmsEvent, status: 'suc
           event,
           error: error || null,
           provider: 'vatanSMS',
-          sender: 'DEGISIMDJTL',
+          sender: smsSender,
           messageLength: message.length,
           isAdmin,
         },
@@ -69,11 +72,12 @@ export async function dispatchSms(
         console.warn('[SMS Dispatcher] Customer phone is empty, skipping SMS')
       }
 
-      if (env.adminPhone && env.adminPhone.trim()) {
+      const adminPhone = await getAdminPhoneSetting()
+      if (adminPhone && adminPhone.trim()) {
         promises.push(
-          sendSms(env.adminPhone, adminMessage)
-            .then(() => logSms(env.adminPhone!, adminMessage, event, 'success'))
-            .catch((error) => logSms(env.adminPhone!, adminMessage, event, 'error', error instanceof Error ? error.message : String(error)))
+          sendSms(adminPhone, adminMessage)
+            .then(() => logSms(adminPhone, adminMessage, event, 'success'))
+            .catch((error) => logSms(adminPhone, adminMessage, event, 'error', error instanceof Error ? error.message : String(error)))
         )
       } else {
         console.warn('[SMS Dispatcher] Admin phone is not set, skipping admin SMS')

@@ -24,6 +24,7 @@ import { parseTimeToMinutes, minutesToTime } from "@/lib/time";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface Barber {
   id: string;
@@ -39,6 +40,7 @@ interface Appointment {
   requestedStartTime: string;
   requestedEndTime: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  cancelledBy: string | null;
   barberId: string;
   barberName: string;
   appointmentSlots?: Array<{
@@ -130,6 +132,7 @@ export default function RandevularPage() {
         requestedStartTime: r.requestedStartTime,
         requestedEndTime: r.requestedEndTime,
         status: r.status,
+        cancelledBy: r.cancelledBy,
         barberId: r.barberId,
         barberName: r.barberName,
         appointmentSlots: r.appointmentSlots,
@@ -320,7 +323,12 @@ export default function RandevularPage() {
               {filteredAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
-                  className="p-4 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-card"
+                  className={cn(
+                    "p-4 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
+                    appointment.status === 'cancelled' && appointment.cancelledBy === 'customer' 
+                      ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
+                      : "bg-card"
+                  )}
                   onClick={() => handleAppointmentClick(appointment)}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -328,6 +336,11 @@ export default function RandevularPage() {
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold text-foreground">{appointment.customerName}</h4>
                         {getStatusBadge(appointment.status)}
+                        {appointment.status === 'cancelled' && appointment.cancelledBy && (
+                          <Badge variant="outline" className="text-xs">
+                            {appointment.cancelledBy === 'customer' ? 'Müşteri' : 'Admin'}
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="space-y-1 text-sm text-muted-foreground">

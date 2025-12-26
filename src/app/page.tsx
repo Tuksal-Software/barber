@@ -22,7 +22,7 @@ import { TimeRangePicker } from "@/components/app/TimeRangePicker"
 import { HorizontalDatePicker } from "@/components/app/HorizontalDatePicker"
 import { EmptyState } from "@/components/app/EmptyState"
 import { getActiveBarbers } from "@/lib/actions/barber.actions"
-import { getCustomerTimeButtons } from "@/lib/actions/availability.actions"
+import { getCustomerTimeButtonsV2 } from "@/lib/actions/availability.actions"
 import { createAppointmentRequest, getCustomerByPhone } from "@/lib/actions/appointment.actions"
 import { requestCancelOtp, confirmCancelOtp } from "@/lib/actions/customer-cancel.actions"
 import { cn } from "@/lib/utils"
@@ -166,7 +166,7 @@ export default function BookingPage() {
       try {
         setLoadingSlots(true)
         const dateStr = format(selectedDate!, "yyyy-MM-dd")
-        const buttons = await getCustomerTimeButtons({
+        const buttons = await getCustomerTimeButtonsV2({
           barberId: selectedBarber!.id,
           date: dateStr,
         })

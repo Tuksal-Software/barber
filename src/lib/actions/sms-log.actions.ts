@@ -36,7 +36,8 @@ export async function getSmsLogs(limit: number = 50): Promise<SmsLogItem[]> {
     },
   })
 
-  const adminPhone = env.adminPhone
+  const { getAdminPhoneSetting } = await import('@/lib/settings/settings-helpers')
+  const adminPhone = await getAdminPhoneSetting()
 
   return logs.map((log) => ({
     ...log,

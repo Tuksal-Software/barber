@@ -1,5 +1,6 @@
 import type { SmsProvider } from './sms.provider'
 import { env } from '@/lib/config/env'
+import { getSmsSenderSetting } from '@/lib/settings/settings-helpers'
 
 function cleanPhoneNumber(phone: string): string | null {
   if (!phone || typeof phone !== 'string') {
@@ -39,10 +40,12 @@ export class VatanSmsProvider implements SmsProvider {
         return
       }
 
+      const sender = await getSmsSenderSetting()
+
       const payload = {
         api_id: env.smsApiId,
         api_key: env.smsApiKey,
-        sender: 'DEGISIMDJTL',
+        sender: sender,
         message_type: 'turkce',
         message: message,
         phones: [cleanedPhone],

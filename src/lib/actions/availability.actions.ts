@@ -13,7 +13,7 @@ export interface GetAvailableTimeSlotsParams {
   date: string
 }
 
-export async function getAvailableTimeSlots(
+export async function getAvailableTimeSlotsV2(
   params: GetAvailableTimeSlotsParams
 ): Promise<AvailableTimeSlot[]> {
   const { barberId, date } = params
@@ -119,7 +119,7 @@ export interface GetCustomerTimeButtonsParams {
   date: string
 }
 
-export async function getCustomerTimeButtons(
+export async function getCustomerTimeButtonsV2(
   params: GetCustomerTimeButtonsParams
 ): Promise<CustomerTimeButton[]> {
   const { barberId, date } = params

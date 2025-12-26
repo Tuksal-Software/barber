@@ -15,6 +15,7 @@ export interface AppointmentRequestListItem {
   requestedStartTime: string
   requestedEndTime: string | null
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  cancelledBy: string | null
   createdAt: Date
   appointmentSlots?: Array<{
     startTime: string
@@ -61,6 +62,7 @@ export async function getPendingAppointmentRequests(): Promise<AppointmentReques
     requestedStartTime: req.requestedStartTime,
     requestedEndTime: req.requestedEndTime,
     status: req.status,
+    cancelledBy: req.cancelledBy,
     createdAt: req.createdAt,
   }))
 }
@@ -102,6 +104,7 @@ export async function getRecentAppointments(limit: number = 5): Promise<Appointm
     requestedStartTime: req.requestedStartTime,
     requestedEndTime: req.requestedEndTime,
     status: req.status,
+    cancelledBy: req.cancelledBy,
     createdAt: req.createdAt,
   }))
 }
@@ -148,6 +151,7 @@ export async function getAllAppointmentRequests(): Promise<AppointmentRequestLis
     requestedStartTime: req.requestedStartTime,
     requestedEndTime: req.requestedEndTime,
     status: req.status,
+    cancelledBy: req.cancelledBy,
     createdAt: req.createdAt,
     appointmentSlots: req.appointmentSlots,
   }))

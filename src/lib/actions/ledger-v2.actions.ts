@@ -280,7 +280,7 @@ export async function deleteLedgerEntry(
       }
     }
 
-    if (session.role === 'barber' && ledgerEntry.appointmentRequest.barberId !== session.userId) {
+    if (session.role === 'barber' && ledgerEntry.appointmentRequest?.barberId !== session.userId) {
       return {
         success: false,
         error: 'Bu kayıt için yetkiniz yok',

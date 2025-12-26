@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { AuditAction } from '@prisma/client'
 import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
+import { createAppointmentDateTimeTR, getNowTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
 import { requireAdmin, getSession } from '@/lib/actions/auth.actions'
 import { dispatchSms } from '@/lib/sms/sms.dispatcher'
@@ -92,10 +93,10 @@ export async function createAppointmentRequest(
     },
   })
 
-  const now = new Date()
+  const nowTR = getNowTR()
   const futureAppointment = activeAppointments.find((appointment) => {
-    const appointmentDateTime = new Date(`${appointment.date}T${appointment.requestedStartTime}:00`)
-    return appointmentDateTime > now
+    const appointmentDateTime = createAppointmentDateTimeTR(appointment.date, appointment.requestedStartTime)
+    return appointmentDateTime.getTime() > nowTR.getTime()
   })
 
   if (futureAppointment) {
@@ -135,7 +136,8 @@ export async function createAppointmentRequest(
         customerPhone,
       },
     })
-  } catch {
+  } catch (error) {
+    console.error('Audit log error:', error)
   }
 
   await dispatchSms(SmsEvent.AppointmentCreated, {
@@ -253,12 +255,13 @@ export async function approveAppointmentRequest(
       entityType: 'appointment',
       entityId: appointmentRequestId,
       summary: 'Appointment approved',
-      metadata: {
-        approvedStartTime: smsPayload?.startTime,
-        approvedEndTime: smsPayload?.endTime,
-      },
+      metadata: smsPayload ? {
+        approvedStartTime: (smsPayload as { startTime: string; endTime: string }).startTime,
+        approvedEndTime: (smsPayload as { startTime: string; endTime: string }).endTime,
+      } : null,
     })
-  } catch {
+  } catch (error) {
+    console.error('Audit log error:', error)
   }
 }
 
@@ -297,13 +300,13 @@ export async function cancelAppointmentRequest(
       return
     }
 
-    const now = new Date()
     const appointmentStartTime = appointmentRequest.status === 'approved' && appointmentRequest.appointmentSlots.length > 0
       ? appointmentRequest.appointmentSlots[0].startTime
       : appointmentRequest.requestedStartTime
-    const appointmentDateTime = new Date(`${appointmentRequest.date}T${appointmentStartTime}:00`)
+    const appointmentDateTime = createAppointmentDateTimeTR(appointmentRequest.date, appointmentStartTime)
+    const nowTR = getNowTR()
 
-    if (appointmentDateTime <= now) {
+    if (appointmentDateTime.getTime() <= nowTR.getTime()) {
       throw new Error('Geçmiş randevular iptal edilemez')
     }
 
@@ -319,7 +322,10 @@ export async function cancelAppointmentRequest(
 
     await tx.appointmentRequest.update({
       where: { id: appointmentRequestId },
-      data: { status: 'cancelled' },
+      data: {
+        status: 'cancelled',
+        cancelledBy: 'admin' as any,
+      },
     })
 
     smsPayload = {
@@ -341,18 +347,22 @@ export async function cancelAppointmentRequest(
       select: { status: true },
     })
 
-    await auditLog({
-      actorType: 'admin',
-      actorId: session.userId,
-      action: AuditAction.APPOINTMENT_CANCELLED,
-      entityType: 'appointment',
-      entityId: appointmentRequestId,
-      summary: 'Appointment cancelled',
-      metadata: {
-        previousStatus: appointmentRequest?.status,
-        reason: reason || null,
-      },
-    })
+    try {
+      await auditLog({
+        actorType: 'admin',
+        actorId: session.userId,
+        action: AuditAction.APPOINTMENT_CANCELLED,
+        entityType: 'appointment',
+        entityId: appointmentRequestId,
+        summary: 'Appointment cancelled',
+        metadata: {
+          previousStatus: appointmentRequest?.status,
+          reason: reason || null,
+        },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
   } catch {
   }
 }

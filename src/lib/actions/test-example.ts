@@ -1,14 +1,14 @@
 'use server'
 
 import { createAppointmentRequest, approveAppointmentRequest } from './appointment.actions'
-import { getAvailableTimeSlots } from './availability.actions'
+import { getAvailableTimeSlotsV2 } from './availability.actions'
 
 export async function exampleUsage() {
   const barberId = 'example-barber-id'
   const date = '2024-12-20'
 
   console.log('1. Mevcut müsaitlik kontrolü...')
-  const availableBefore = await getAvailableTimeSlots({ barberId, date })
+  const availableBefore = await getAvailableTimeSlotsV2({ barberId, date })
   console.log('Müsait slotlar:', availableBefore)
 
   console.log('\n2. Randevu talebi oluşturuluyor...')
@@ -24,7 +24,7 @@ export async function exampleUsage() {
   console.log('Randevu talebi ID:', requestId)
 
   console.log('\n3. Talepten sonra müsaitlik kontrolü (pending talepler bloklamaz)...')
-  const availableAfterRequest = await getAvailableTimeSlots({ barberId, date })
+  const availableAfterRequest = await getAvailableTimeSlotsV2({ barberId, date })
   console.log('Müsait slotlar:', availableAfterRequest)
 
   console.log('\n4. Randevu talebi 15 dakika için onaylanıyor...')
@@ -35,7 +35,7 @@ export async function exampleUsage() {
   console.log('Randevu onaylandı')
 
   console.log('\n5. Onaydan sonra müsaitlik kontrolü...')
-  const availableAfterApproval = await getAvailableTimeSlots({ barberId, date })
+  const availableAfterApproval = await getAvailableTimeSlotsV2({ barberId, date })
   console.log('Müsait slotlar:', availableAfterApproval)
   console.log('10:00-10:15 aralığı artık dolu olmalı')
 }

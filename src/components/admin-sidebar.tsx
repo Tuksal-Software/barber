@@ -10,6 +10,7 @@ import {
   ReceiptIcon,
   MessageSquareIcon,
   ActivityIcon,
+  SettingsIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -66,6 +67,11 @@ const navItems = [
     title: "Audit Logs",
     url: "/admin/audit-logs",
     icon: ActivityIcon,
+  },
+  {
+    title: "Ayarlar",
+    url: "/admin/settings",
+    icon: SettingsIcon,
   },
   {
     title: "Berberler",

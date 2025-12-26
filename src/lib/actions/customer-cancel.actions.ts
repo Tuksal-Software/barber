@@ -5,9 +5,9 @@ import { AuditAction } from '@prisma/client'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { sendSms } from '@/lib/sms/sms.service'
 import { env } from '@/lib/config/env'
-import { parseTimeToMinutes } from '@/lib/time'
-
-const otpStore = new Map<string, { code: string; appointmentId: string; expiresAt: number; attemptCount: number }>()
+import { createAppointmentDateTimeTR, getNowTR, isAppointmentInPast, getHoursUntilAppointment } from '@/lib/time/appointmentDateTime'
+import { getSetting } from '@/lib/settings/settings.service'
+import { defaultSettings } from '@/lib/settings/defaults'
 
 function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -30,17 +30,21 @@ export async function requestCancelOtp(phone: string): Promise<{ success: boolea
       return { success: false, error: 'Geçerli bir telefon numarası girin' }
     }
 
-    await auditLog({
-      actorType: 'customer',
-      actorId: normalizedPhone,
-      action: AuditAction.UI_CANCEL_ATTEMPT,
-      entityType: 'appointment',
-      entityId: null,
-      summary: 'Customer attempted to cancel appointment',
-      metadata: { phone: normalizedPhone },
-    })
+    try {
+      await auditLog({
+        actorType: 'customer',
+        actorId: normalizedPhone,
+        action: AuditAction.UI_CANCEL_ATTEMPT,
+        entityType: 'appointment',
+        entityId: null,
+        summary: 'Customer attempted to cancel appointment',
+        metadata: { phone: normalizedPhone },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
 
-    const appointment = await prisma.appointmentRequest.findFirst({
+    const allAppointments = await prisma.appointmentRequest.findMany({
       where: {
         customerPhone: normalizedPhone,
         status: {
@@ -56,87 +60,247 @@ export async function requestCancelOtp(phone: string): Promise<{ success: boolea
       },
     })
 
-    if (!appointment) {
-      return { success: false, error: 'Aktif randevunuz bulunamadı' }
+    const nowTR = getNowTR()
+    let appointment = null
+
+    for (const apt of allAppointments) {
+      const appointmentDateTime = createAppointmentDateTimeTR(apt.date, apt.requestedStartTime)
+      if (appointmentDateTime.getTime() > nowTR.getTime()) {
+        appointment = apt
+        break
+      }
     }
 
-    const now = new Date()
-    const appointmentDateTime = new Date(`${appointment.date}T${appointment.requestedStartTime}:00`)
-    
-    if (appointmentDateTime <= now) {
-      await auditLog({
-        actorType: 'customer',
-        actorId: normalizedPhone,
-        action: AuditAction.APPOINTMENT_CANCEL_BLOCKED_PAST,
-        entityType: 'appointment',
-        entityId: appointment.id,
-        summary: 'Geçmiş randevu iptal edilmeye çalışıldı',
-        metadata: {
-          date: appointment.date,
-          time: appointment.appointmentSlots[0]?.startTime || appointment.requestedStartTime,
-        },
-      }).catch(() => {})
+    if (!appointment) {
+      return { success: false, error: 'İptal edilebilecek aktif bir randevunuz bulunamadı.' }
+    }
+
+    if (isAppointmentInPast(appointment.date, appointment.requestedStartTime)) {
+      try {
+        await auditLog({
+          actorType: 'customer',
+          actorId: normalizedPhone,
+          action: AuditAction.APPOINTMENT_CANCEL_BLOCKED_PAST,
+          entityType: 'appointment',
+          entityId: appointment.id,
+          summary: 'Geçmiş randevu iptal edilmeye çalışıldı',
+          metadata: {
+            date: appointment.date,
+            time: appointment.requestedStartTime,
+          },
+        })
+      } catch (error) {
+        console.error('Audit log error:', error)
+      }
       return { success: false, error: 'Geçmiş randevular iptal edilemez' }
     }
 
     if (appointment.status === 'pending') {
       const otp = generateOtp()
-      const expiresAt = Date.now() + 10 * 60 * 1000
+      const nowTR = getNowTR()
+      const expiresAt = new Date(nowTR.getTime() + 10 * 60 * 1000)
 
-      otpStore.set(normalizedPhone, {
-        code: otp,
-        appointmentId: appointment.id,
-        expiresAt,
-        attemptCount: 0,
+      await prisma.customerCancelOtp.create({
+        data: {
+          phone: normalizedPhone,
+          code: otp,
+          appointmentId: appointment.id,
+          expiresAt,
+          used: false,
+        },
       })
 
-      await auditLog({
-        actorType: 'customer',
-        actorId: normalizedPhone,
-        action: AuditAction.APPOINTMENT_CANCEL_ATTEMPT,
-        entityType: 'appointment',
-        entityId: appointment.id,
-        summary: 'Pending randevu müşteri tarafından iptal edilmeye çalışıldı',
-        metadata: { phone: normalizedPhone, appointmentId: appointment.id, status: 'pending' },
-      }).catch(() => {})
+      try {
+        await auditLog({
+          actorType: 'customer',
+          actorId: normalizedPhone,
+          action: AuditAction.APPOINTMENT_CANCEL_ATTEMPT,
+          entityType: 'appointment',
+          entityId: appointment.id,
+          summary: 'Pending randevu müşteri tarafından iptal edilmeye çalışıldı',
+          metadata: { phone: normalizedPhone, appointmentId: appointment.id, status: 'pending' },
+        })
+      } catch (error) {
+        console.error('Audit log error:', error)
+      }
 
       const otpMessage = `Randevu iptal kodunuz: ${otp}`
-      
+
       try {
         await sendSms(normalizedPhone, otpMessage)
-        await auditLog({
-          actorType: 'system',
-          action: AuditAction.SMS_SENT,
-          entityType: 'sms',
-          entityId: null,
-          summary: 'OTP SMS sent',
-          metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_OTP', sender: 'DEGISIMDJTL' },
-        }).catch(() => {})
+        try {
+          await prisma.smsLog.create({
+            data: {
+              to: normalizedPhone,
+              message: otpMessage,
+              event: 'CUSTOMER_CANCEL_OTP',
+              provider: 'vatansms',
+              status: 'success',
+              error: null,
+            },
+          })
+        } catch (error) {
+          console.error('SMS log error:', error)
+        }
+        try {
+          await auditLog({
+            actorType: 'system',
+            action: AuditAction.CUSTOMER_CANCEL_OTP_SENT,
+            entityType: 'appointment',
+            entityId: appointment.id,
+            summary: 'OTP SMS sent',
+            metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_OTP', sender: 'DEGISIMDJTL' },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
       } catch (smsError) {
-        await auditLog({
-          actorType: 'system',
-          action: AuditAction.SMS_FAILED,
-          entityType: 'sms',
-          entityId: null,
-          summary: 'OTP SMS failed',
-          metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_OTP', error: smsError instanceof Error ? smsError.message : String(smsError) },
-        }).catch(() => {})
+        try {
+          await prisma.smsLog.create({
+            data: {
+              to: normalizedPhone,
+              message: otpMessage,
+              event: 'CUSTOMER_CANCEL_OTP',
+              provider: 'vatansms',
+              status: 'error',
+              error: smsError instanceof Error ? smsError.message : String(smsError),
+            },
+          })
+        } catch (error) {
+          console.error('SMS log error:', error)
+        }
+        try {
+          await auditLog({
+            actorType: 'system',
+            action: AuditAction.SMS_FAILED,
+            entityType: 'sms',
+            entityId: null,
+            summary: 'OTP SMS failed',
+            metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_OTP', error: smsError instanceof Error ? smsError.message : String(smsError) },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
       }
 
       return { success: true }
     }
 
     if (appointment.status === 'approved') {
-      await auditLog({
-        actorType: 'customer',
-        actorId: normalizedPhone,
-        action: AuditAction.APPOINTMENT_CANCEL_ATTEMPT,
-        entityType: 'appointment',
-        entityId: appointment.id,
-        summary: 'Onaylı randevu müşteri tarafından iptal edilmeye çalışıldı',
-        metadata: { phone: normalizedPhone, appointmentId: appointment.id, status: 'approved' },
-      }).catch(() => {})
-      return { success: false, error: 'Randevu onaylandı, iptal için işletmeyle iletişime geçin' }
+      const customerCancelSettings = await getSetting<{ approvedMinHours: number }>(
+        'customerCancel',
+        defaultSettings.customerCancel
+      )
+      const limitHours = Number(customerCancelSettings.approvedMinHours) || 2
+      const diffInHours = getHoursUntilAppointment(appointment.date, appointment.requestedStartTime)
+
+      console.log(`[Customer Cancel] Approved appointment cancel check - limitHours: ${limitHours}, diffInHours: ${diffInHours}`)
+
+      if (diffInHours < limitHours) {
+        try {
+          await auditLog({
+            actorType: 'customer',
+            actorId: normalizedPhone,
+            action: AuditAction.APPOINTMENT_CANCEL_BLOCKED_PAST,
+            entityType: 'appointment',
+            entityId: appointment.id,
+            summary: `Onaylı randevu ${limitHours} saatten az kaldığı için iptal edilemedi`,
+            metadata: { phone: normalizedPhone, appointmentId: appointment.id, diffInHours, limitHours },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
+        return { success: false, error: `Randevuya ${limitHours} saatten az kaldığı için iptal edilemez. Lütfen işletmeyle iletişime geçin.` }
+      }
+
+      const otp = generateOtp()
+      const nowTR = getNowTR()
+      const expiresAt = new Date(nowTR.getTime() + 10 * 60 * 1000)
+
+      await prisma.customerCancelOtp.create({
+        data: {
+          phone: normalizedPhone,
+          code: otp,
+          appointmentId: appointment.id,
+          expiresAt,
+          used: false,
+        },
+      })
+
+      try {
+        await auditLog({
+          actorType: 'customer',
+          actorId: normalizedPhone,
+          action: AuditAction.APPOINTMENT_CANCEL_ATTEMPT,
+          entityType: 'appointment',
+          entityId: appointment.id,
+          summary: 'Onaylı randevu müşteri tarafından iptal edilmeye çalışıldı',
+          metadata: { phone: normalizedPhone, appointmentId: appointment.id, status: 'approved', diffInHours },
+        })
+      } catch (error) {
+        console.error('Audit log error:', error)
+      }
+
+      const otpMessage = `Randevu iptal kodunuz: ${otp}`
+
+      try {
+        await sendSms(normalizedPhone, otpMessage)
+        try {
+          await prisma.smsLog.create({
+            data: {
+              to: normalizedPhone,
+              message: otpMessage,
+              event: 'CUSTOMER_CANCEL_OTP',
+              provider: 'vatansms',
+              status: 'success',
+              error: null,
+            },
+          })
+        } catch (error) {
+          console.error('SMS log error:', error)
+        }
+        try {
+          await auditLog({
+            actorType: 'system',
+            action: AuditAction.CUSTOMER_CANCEL_OTP_SENT,
+            entityType: 'appointment',
+            entityId: appointment.id,
+            summary: 'OTP SMS sent',
+            metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_OTP', sender: 'DEGISIMDJTL' },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
+      } catch (smsError) {
+        try {
+          await prisma.smsLog.create({
+            data: {
+              to: normalizedPhone,
+              message: otpMessage,
+              event: 'CUSTOMER_CANCEL_OTP',
+              provider: 'vatansms',
+              status: 'error',
+              error: smsError instanceof Error ? smsError.message : String(smsError),
+            },
+          })
+        } catch (error) {
+          console.error('SMS log error:', error)
+        }
+        try {
+          await auditLog({
+            actorType: 'system',
+            action: AuditAction.SMS_FAILED,
+            entityType: 'sms',
+            entityId: null,
+            summary: 'OTP SMS failed',
+            metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_OTP', error: smsError instanceof Error ? smsError.message : String(smsError) },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
+      }
+
+      return { success: true }
     }
 
     return { success: false, error: 'Aktif randevunuz bulunamadı' }
@@ -153,41 +317,48 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
       return { success: false, error: 'Geçerli bir telefon numarası girin' }
     }
 
-    const stored = otpStore.get(normalizedPhone)
+    const nowTR = getNowTR()
+    const otpRecord = await prisma.customerCancelOtp.findFirst({
+      where: {
+        phone: normalizedPhone,
+        code,
+        used: false,
+        expiresAt: {
+          gt: nowTR,
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
 
-    if (!stored) {
-      return { success: false, error: 'OTP bulunamadı. Lütfen tekrar deneyin' }
-    }
-
-    if (Date.now() > stored.expiresAt) {
-      otpStore.delete(normalizedPhone)
-      return { success: false, error: 'OTP süresi doldu. Lütfen tekrar deneyin' }
-    }
-
-    if (stored.code !== code) {
-      stored.attemptCount++
-      otpStore.set(normalizedPhone, stored)
-
-      await auditLog({
-        actorType: 'customer',
-        actorId: normalizedPhone,
-        action: AuditAction.UI_CANCEL_ATTEMPT,
-        entityType: 'appointment',
-        entityId: stored.appointmentId,
-        summary: 'OTP verification failed',
-        metadata: { phone: normalizedPhone, appointmentId: stored.appointmentId, attemptCount: stored.attemptCount },
-      })
-
-      if (stored.attemptCount >= 3) {
-        otpStore.delete(normalizedPhone)
-        return { success: false, error: 'Çok fazla hatalı deneme. Lütfen tekrar başlayın' }
+    if (!otpRecord) {
+      try {
+        await auditLog({
+          actorType: 'customer',
+          actorId: normalizedPhone,
+          action: AuditAction.CUSTOMER_CANCEL_FAILED,
+          entityType: 'appointment',
+          entityId: null,
+          summary: 'OTP verification failed',
+          metadata: { phone: normalizedPhone },
+        })
+      } catch (error) {
+        console.error('Audit log error:', error)
       }
+      return { success: false, error: 'Girdiğiniz OTP kodu hatalı.' }
+    }
 
-      return { success: false, error: 'Yanlış OTP kodu' }
+    if (otpRecord.expiresAt.getTime() <= nowTR.getTime()) {
+      await prisma.customerCancelOtp.update({
+        where: { id: otpRecord.id },
+        data: { used: true },
+      })
+      return { success: false, error: 'OTP kodunun süresi dolmuş. Lütfen tekrar deneyin.' }
     }
 
     const appointment = await prisma.appointmentRequest.findUnique({
-      where: { id: stored.appointmentId },
+      where: { id: otpRecord.appointmentId },
       include: {
         appointmentSlots: true,
         barber: true,
@@ -195,98 +366,239 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
     })
 
     if (!appointment) {
-      otpStore.delete(normalizedPhone)
+      await prisma.customerCancelOtp.update({
+        where: { id: otpRecord.id },
+        data: { used: true },
+      })
       return { success: false, error: 'Randevu bulunamadı' }
     }
 
-    if (appointment.status !== 'pending') {
-      otpStore.delete(normalizedPhone)
-      if (appointment.status === 'approved') {
-        return { success: false, error: 'Onaylı randevular iptal edilemez' }
-      }
+    if (appointment.status !== 'pending' && appointment.status !== 'approved') {
+      await prisma.customerCancelOtp.update({
+        where: { id: otpRecord.id },
+        data: { used: true },
+      })
       return { success: false, error: 'Bu randevu zaten iptal edilmiş' }
     }
 
-    await auditLog({
-      actorType: 'customer',
-      actorId: normalizedPhone,
-      action: AuditAction.UI_CANCEL_ATTEMPT,
-      entityType: 'appointment',
-      entityId: appointment.id,
-      summary: 'OTP verified for cancel',
-      metadata: { phone: normalizedPhone, appointmentId: appointment.id },
-    }).catch(() => {})
-
-    await prisma.$transaction(async (tx) => {
-      await tx.appointmentRequest.update({
-        where: { id: appointment.id },
-        data: { status: 'cancelled' },
+    if (isAppointmentInPast(appointment.date, appointment.requestedStartTime)) {
+      await prisma.customerCancelOtp.update({
+        where: { id: otpRecord.id },
+        data: { used: true },
       })
-    })
-
-    otpStore.delete(normalizedPhone)
-
-    await auditLog({
-      actorType: 'customer',
-      actorId: normalizedPhone,
-      action: AuditAction.APPOINTMENT_CANCELLED,
-      entityType: 'appointment',
-      entityId: appointment.id,
-      summary: 'Appointment cancelled by customer',
-      metadata: {
-        phone: normalizedPhone,
-        appointmentId: appointment.id,
-        customerName: appointment.customerName,
-        date: appointment.date,
-        time: appointment.requestedStartTime,
-      },
-    })
-
-    const customerMessage = `Randevunuz başarıyla iptal edilmiştir. ${appointment.date} ${appointment.requestedStartTime}`
-    
-    try {
-      await sendSms(normalizedPhone, customerMessage)
-      await auditLog({
-        actorType: 'system',
-        action: 'SMS_SENT',
-        entityType: 'sms',
-        entityId: null,
-        summary: 'Customer cancel SMS sent',
-        metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_SUCCESS', sender: 'DEGISIMDJTL' },
-      })
-    } catch (smsError) {
-      await auditLog({
-        actorType: 'system',
-        action: 'SMS_FAILED',
-        entityType: 'sms',
-        entityId: null,
-        summary: 'Customer cancel SMS failed',
-        metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_SUCCESS', error: smsError instanceof Error ? smsError.message : String(smsError) },
-      })
+      return { success: false, error: 'Geçmiş randevular iptal edilemez' }
     }
 
-    if (env.adminPhone) {
-      const adminMessage = `Bir müşteri randevusunu iptal etti.\n${appointment.customerName} – ${appointment.date} ${appointment.requestedStartTime}`
-      
+    if (appointment.status === 'approved') {
+      const customerCancelSettings = await getSetting<{ approvedMinHours: number }>(
+        'customerCancel',
+        defaultSettings.customerCancel
+      )
+      const limitHours = Number(customerCancelSettings.approvedMinHours) || 2
+      const diffInHours = getHoursUntilAppointment(appointment.date, appointment.requestedStartTime)
+
+      console.log(`[Customer Cancel] Approved appointment confirm cancel check - limitHours: ${limitHours}, diffInHours: ${diffInHours}`)
+
+      if (diffInHours < limitHours) {
+        await prisma.customerCancelOtp.update({
+          where: { id: otpRecord.id },
+          data: { used: true },
+        })
+        try {
+          await auditLog({
+            actorType: 'customer',
+            actorId: normalizedPhone,
+            action: AuditAction.APPOINTMENT_CANCEL_BLOCKED_PAST,
+            entityType: 'appointment',
+            entityId: appointment.id,
+            summary: `Onaylı randevu ${limitHours} saatten az kaldığı için iptal edilemedi`,
+            metadata: { phone: normalizedPhone, appointmentId: appointment.id, diffInHours, limitHours },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
+        return { success: false, error: `Randevuya ${limitHours} saatten az kaldığı için iptal edilemez. Lütfen işletmeyle iletişime geçin.` }
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (appointment.status === 'approved') {
+        await tx.appointmentSlot.deleteMany({
+          where: {
+            appointmentRequestId: appointment.id,
+          },
+        })
+      }
+
+      await tx.appointmentRequest.update({
+        where: { id: appointment.id },
+        data: {
+          status: 'cancelled',
+          cancelledBy: 'customer' as any,
+        },
+      })
+
+      await tx.customerCancelOtp.update({
+        where: { id: otpRecord.id },
+        data: { used: true },
+      })
+    })
+
+    try {
+      await auditLog({
+        actorType: 'customer',
+        actorId: normalizedPhone,
+        action: AuditAction.CUSTOMER_CANCEL_CONFIRMED,
+        entityType: 'appointment',
+        entityId: appointment.id,
+        summary: 'OTP verified and appointment cancelled',
+        metadata: { phone: normalizedPhone, appointmentId: appointment.id },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
+
+    try {
+      await auditLog({
+        actorType: 'customer',
+        actorId: normalizedPhone,
+        action: AuditAction.APPOINTMENT_CANCELLED,
+        entityType: 'appointment',
+        entityId: appointment.id,
+        summary: 'Appointment cancelled by customer',
+        metadata: {
+          phone: normalizedPhone,
+          appointmentId: appointment.id,
+          customerName: appointment.customerName,
+          date: appointment.date,
+          time: appointment.requestedStartTime,
+        },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
+
+    const customerMessage = `Randevunuz başarıyla iptal edilmiştir. ${appointment.date} ${appointment.requestedStartTime}`
+
+    try {
+      await sendSms(normalizedPhone, customerMessage)
       try {
-        await sendSms(env.adminPhone, adminMessage)
+        await prisma.smsLog.create({
+          data: {
+            to: normalizedPhone,
+            message: customerMessage,
+            event: 'CUSTOMER_CANCEL_SUCCESS',
+            provider: 'vatansms',
+            status: 'success',
+            error: null,
+          },
+        })
+      } catch (error) {
+        console.error('SMS log error:', error)
+      }
+      try {
         await auditLog({
           actorType: 'system',
           action: AuditAction.SMS_SENT,
           entityType: 'sms',
           entityId: null,
-          summary: 'Admin cancel notification SMS sent',
-          metadata: { to: env.adminPhone, event: 'CUSTOMER_CANCEL_ADMIN_NOTIFY', sender: 'DEGISIMDJTL' },
+          summary: 'Customer cancel SMS sent',
+          metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_SUCCESS', sender: 'DEGISIMDJTL' },
         })
-      } catch (smsError) {
+      } catch (error) {
+        console.error('Audit log error:', error)
+      }
+    } catch (smsError) {
+      try {
+        await prisma.smsLog.create({
+          data: {
+            to: normalizedPhone,
+            message: customerMessage,
+            event: 'CUSTOMER_CANCEL_SUCCESS',
+            provider: 'vatansms',
+            status: 'error',
+            error: smsError instanceof Error ? smsError.message : String(smsError),
+          },
+        })
+      } catch (error) {
+        console.error('SMS log error:', error)
+      }
+      try {
         await auditLog({
           actorType: 'system',
           action: AuditAction.SMS_FAILED,
           entityType: 'sms',
           entityId: null,
-          summary: 'Admin cancel notification SMS failed',
-          metadata: { to: env.adminPhone, event: 'CUSTOMER_CANCEL_ADMIN_NOTIFY', error: smsError instanceof Error ? smsError.message : String(smsError) },
+          summary: 'Customer cancel SMS failed',
+          metadata: { to: normalizedPhone, event: 'CUSTOMER_CANCEL_SUCCESS', error: smsError instanceof Error ? smsError.message : String(smsError) },
         })
+      } catch (error) {
+        console.error('Audit log error:', error)
+      }
+    }
+
+    const { getAdminPhoneSetting, getSmsSenderSetting } = await import('@/lib/settings/settings-helpers')
+    const adminPhone = await getAdminPhoneSetting()
+    if (adminPhone) {
+      const adminMessage = `📌 Müşteri tarafından iptal edildi:\n${appointment.customerName} – ${appointment.date} ${appointment.requestedStartTime}`
+
+      try {
+        await sendSms(adminPhone, adminMessage)
+        const smsSender = await getSmsSenderSetting()
+        try {
+          await prisma.smsLog.create({
+            data: {
+              to: adminPhone,
+              message: adminMessage,
+              event: 'CUSTOMER_CANCEL_ADMIN_NOTIFY',
+              provider: 'vatansms',
+              status: 'success',
+              error: null,
+            },
+          })
+        } catch (error) {
+          console.error('SMS log error:', error)
+        }
+        try {
+          await auditLog({
+            actorType: 'system',
+            action: AuditAction.SMS_SENT,
+            entityType: 'sms',
+            entityId: null,
+            summary: 'Admin cancel notification SMS sent',
+            metadata: { to: adminPhone, event: 'CUSTOMER_CANCEL_ADMIN_NOTIFY', sender: smsSender },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
+      } catch (smsError) {
+        try {
+          await prisma.smsLog.create({
+            data: {
+              to: adminPhone,
+              message: adminMessage,
+              event: 'CUSTOMER_CANCEL_ADMIN_NOTIFY',
+              provider: 'vatansms',
+              status: 'error',
+              error: smsError instanceof Error ? smsError.message : String(smsError),
+            },
+          })
+        } catch (error) {
+          console.error('SMS log error:', error)
+        }
+        try {
+          const smsSender = await getSmsSenderSetting()
+          await auditLog({
+            actorType: 'system',
+            action: AuditAction.SMS_FAILED,
+            entityType: 'sms',
+            entityId: null,
+            summary: 'Admin cancel notification SMS failed',
+            metadata: { to: adminPhone, event: 'CUSTOMER_CANCEL_ADMIN_NOTIFY', sender: smsSender, error: smsError instanceof Error ? smsError.message : String(smsError) },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
       }
     }
 
