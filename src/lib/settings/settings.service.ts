@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma'
 import { defaultSettings } from './defaults'
 import { Prisma } from '@prisma/client'
+import { auditLog } from '@/lib/audit/audit.logger'
+import { AuditAction } from '@prisma/client'
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   try {
@@ -16,8 +18,16 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   return fallback
 }
 
-export async function setSetting(key: string, value: unknown): Promise<void> {
+export async function setSetting(key: string, value: unknown, actorId?: string): Promise<void> {
   const jsonValue = value === null ? Prisma.JsonNull : value
+  
+  const existing = await prisma.appSetting.findUnique({
+    where: { key },
+  })
+  
+  const isCreate = !existing
+  const oldValue = existing?.value
+
   await prisma.appSetting.upsert({
     where: { key },
     create: {
@@ -28,6 +38,25 @@ export async function setSetting(key: string, value: unknown): Promise<void> {
       value: jsonValue as Prisma.InputJsonValue,
     },
   })
+
+  if (isCreate) {
+    try {
+      await auditLog({
+        actorType: actorId ? 'admin' : 'system',
+        actorId: actorId || null,
+        action: AuditAction.SETTINGS_CREATED,
+        entityType: 'settings',
+        entityId: key,
+        summary: `Setting created: ${key}`,
+        metadata: {
+          key,
+          value: jsonValue,
+        },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
+  }
 }
 
 export async function getAllSettings(): Promise<Record<string, unknown>> {
@@ -45,6 +74,8 @@ export async function ensureDefaultSettings(): Promise<void> {
   })
   const existingKeys = new Set(existingSettings.map((s) => s.key))
 
+  const settingsToCreate = []
+
   if (!existingKeys.has('adminPhone')) {
     await prisma.appSetting.upsert({
       where: { key: 'adminPhone' },
@@ -54,6 +85,7 @@ export async function ensureDefaultSettings(): Promise<void> {
       },
       update: {},
     })
+    settingsToCreate.push('adminPhone')
   }
 
   if (!existingKeys.has('shopName')) {
@@ -65,6 +97,7 @@ export async function ensureDefaultSettings(): Promise<void> {
       },
       update: {},
     })
+    settingsToCreate.push('shopName')
   }
 
   if (!existingKeys.has('sms')) {
@@ -76,6 +109,7 @@ export async function ensureDefaultSettings(): Promise<void> {
       },
       update: {},
     })
+    settingsToCreate.push('sms')
   }
 
   if (!existingKeys.has('customerCancel')) {
@@ -87,6 +121,7 @@ export async function ensureDefaultSettings(): Promise<void> {
       },
       update: {},
     })
+    settingsToCreate.push('customerCancel')
   }
 
   if (!existingKeys.has('timezone')) {
@@ -98,6 +133,30 @@ export async function ensureDefaultSettings(): Promise<void> {
       },
       update: {},
     })
+    settingsToCreate.push('timezone')
+  }
+
+  for (const key of settingsToCreate) {
+    try {
+      await auditLog({
+        actorType: 'system',
+        actorId: null,
+        action: AuditAction.SETTINGS_CREATED,
+        entityType: 'settings',
+        entityId: key,
+        summary: `Default setting created: ${key}`,
+        metadata: {
+          key,
+          value: key === 'adminPhone' ? defaultSettings.adminPhone : 
+                 key === 'shopName' ? defaultSettings.shopName :
+                 key === 'sms' ? defaultSettings.sms :
+                 key === 'customerCancel' ? defaultSettings.customerCancel :
+                 defaultSettings.timezone,
+        },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
   }
 }
 

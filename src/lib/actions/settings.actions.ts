@@ -1,10 +1,13 @@
 'use server'
 
 import { z } from 'zod'
-import { requireAdmin } from './auth.actions'
+import { requireAdmin, getSession } from './auth.actions'
 import { getSetting, setSetting, getAllSettings } from '@/lib/settings/settings.service'
 import { defaultSettings } from '@/lib/settings/defaults'
 import { env } from '@/lib/config/env'
+import { auditLog } from '@/lib/audit/audit.logger'
+import { AuditAction } from '@prisma/client'
+import { prisma } from '@/lib/prisma'
 
 const updateSettingsSchema = z.object({
   adminPhone: z.string().nullable(),
@@ -48,21 +51,71 @@ export async function getSettings(): Promise<SettingsResponse> {
 export async function updateSettings(
   payload: z.infer<typeof updateSettingsSchema>
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin()
+  const session = await requireAdmin()
 
   try {
     const validated = updateSettingsSchema.parse(payload)
 
-    await setSetting('adminPhone', validated.adminPhone)
-    await setSetting('shopName', validated.shopName)
+    const oldSettings = await getAllSettings()
+
+    await setSetting('adminPhone', validated.adminPhone, session.userId)
+    await setSetting('shopName', validated.shopName, session.userId)
     await setSetting('sms', {
       enabled: validated.smsEnabled,
       sender: validated.smsSender,
-    })
+    }, session.userId)
     await setSetting('customerCancel', {
       approvedMinHours: validated.approvedCancelMinHours,
-    })
-    await setSetting('timezone', validated.timezone)
+    }, session.userId)
+    await setSetting('timezone', validated.timezone, session.userId)
+
+    try {
+      await auditLog({
+        actorType: 'admin',
+        actorId: session.userId,
+        action: AuditAction.SETTINGS_UPDATED,
+        entityType: 'settings',
+        entityId: null,
+        summary: 'Settings updated',
+        metadata: {
+          oldValues: {
+            adminPhone: oldSettings.adminPhone,
+            shopName: oldSettings.shopName,
+            sms: oldSettings.sms,
+            customerCancel: oldSettings.customerCancel,
+            timezone: oldSettings.timezone,
+          },
+          newValues: {
+            adminPhone: validated.adminPhone,
+            shopName: validated.shopName,
+            sms: {
+              enabled: validated.smsEnabled,
+              sender: validated.smsSender,
+            },
+            customerCancel: {
+              approvedMinHours: validated.approvedCancelMinHours,
+            },
+            timezone: validated.timezone,
+          },
+        },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
+
+    try {
+      await auditLog({
+        actorType: 'admin',
+        actorId: session.userId,
+        action: AuditAction.UI_SETTINGS_SAVED,
+        entityType: 'ui',
+        entityId: null,
+        summary: 'Settings page saved',
+        metadata: {},
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
 
     return { success: true }
   } catch (error) {

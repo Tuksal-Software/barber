@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/actions/auth.actions'
 import { Prisma } from '@prisma/client'
 import { auditLog } from '@/lib/audit/audit.logger'
+import { AuditAction } from '@prisma/client'
 
 export interface GetLedgerCandidatesParams {
   barberId?: string
@@ -204,6 +205,10 @@ export async function upsertLedgerForAppointment(
     })
 
     const isUpdate = !!existingEntry
+    const oldValue = existingEntry ? {
+      amount: existingEntry.amount.toString(),
+      description: existingEntry.description,
+    } : null
 
     const ledgerEntry = await prisma.ledgerEntry.upsert({
       where: {
@@ -227,17 +232,21 @@ export async function upsertLedgerForAppointment(
       await auditLog({
         actorType: 'admin',
         actorId: session.userId,
-        action: 'APPOINTMENT_CREATED' as any,
+        action: isUpdate ? AuditAction.LEDGER_UPDATED : AuditAction.LEDGER_CREATED,
         entityType: 'ledger',
         entityId: ledgerEntry.id,
-        summary: isUpdate ? 'Defter kaydı güncellendi' : 'Randevu için ücret girildi',
+        summary: isUpdate ? 'Ledger entry updated' : 'Ledger entry created',
         metadata: {
           appointmentRequestId: appointmentRequest.id,
-          amount,
-          description: description || null,
+          before: oldValue,
+          after: {
+            amount: amount.toString(),
+            description: description || null,
+          },
         },
       })
-    } catch {
+    } catch (error) {
+      console.error('Audit log error:', error)
     }
 
     return { success: true }
@@ -287,6 +296,13 @@ export async function deleteLedgerEntry(
       }
     }
 
+    const beforeDelete = {
+      id: ledgerEntry.id,
+      amount: ledgerEntry.amount.toString(),
+      description: ledgerEntry.description,
+      appointmentRequestId: ledgerEntry.appointmentRequestId,
+    }
+
     await prisma.ledgerEntry.delete({
       where: {
         appointmentRequestId,
@@ -297,16 +313,16 @@ export async function deleteLedgerEntry(
       await auditLog({
         actorType: 'admin',
         actorId: session.userId,
-        action: 'APPOINTMENT_CANCELLED' as any,
+        action: AuditAction.LEDGER_DELETED,
         entityType: 'ledger',
         entityId: ledgerEntry.id,
-        summary: 'Defter kaydı silindi',
+        summary: 'Ledger entry deleted',
         metadata: {
-          appointmentRequestId,
-          amount: ledgerEntry.amount.toString(),
+          before: beforeDelete,
         },
       })
-    } catch {
+    } catch (error) {
+      console.error('Audit log error:', error)
     }
 
     return { success: true }

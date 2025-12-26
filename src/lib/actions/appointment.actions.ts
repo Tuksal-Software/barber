@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { AuditAction } from '@prisma/client'
+import { AuditAction, Prisma } from '@prisma/client'
 import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
 import { createAppointmentDateTimeTR, getNowTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
@@ -63,6 +63,27 @@ export async function createAppointmentRequest(
     requestedEndTime,
   } = input
 
+  try {
+    await auditLog({
+      actorType: 'customer',
+      actorId: customerPhone,
+      action: AuditAction.APPOINTMENT_CREATE_ATTEMPT,
+      entityType: 'appointment',
+      entityId: null,
+      summary: 'Appointment creation attempted',
+      metadata: {
+        barberId,
+        customerName,
+        customerPhone,
+        date,
+        requestedStartTime,
+        requestedEndTime,
+      },
+    })
+  } catch (error) {
+    console.error('Audit log error:', error)
+  }
+
   if (!barberId || !customerName || !customerPhone || !date || !requestedStartTime) {
     throw new Error('Tüm zorunlu alanlar doldurulmalıdır')
   }
@@ -94,12 +115,31 @@ export async function createAppointmentRequest(
   })
 
   const nowTR = getNowTR()
-  const futureAppointment = activeAppointments.find((appointment) => {
+  const futureAppointment = activeAppointments.find((appointment: { date: string; requestedStartTime: string }) => {
     const appointmentDateTime = createAppointmentDateTimeTR(appointment.date, appointment.requestedStartTime)
     return appointmentDateTime.getTime() > nowTR.getTime()
   })
 
   if (futureAppointment) {
+    try {
+      await auditLog({
+        actorType: 'customer',
+        actorId: customerPhone,
+        action: AuditAction.APPOINTMENT_CANCEL_DENIED,
+        entityType: 'appointment',
+        entityId: null,
+        summary: 'Appointment creation denied - active appointment exists',
+        metadata: {
+          reason: 'active_appointment_exists',
+          existingAppointment: {
+            date: futureAppointment.date,
+            requestedStartTime: futureAppointment.requestedStartTime,
+          },
+        },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
     throw new Error('Aktif bir randevunuz bulunduğu için yeni randevu alamazsınız.')
   }
 
@@ -174,7 +214,7 @@ export async function approveAppointmentRequest(
     endTime: string
   } | null = null
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const appointmentRequest = await tx.appointmentRequest.findUnique({
       where: { id: appointmentRequestId },
     })
@@ -284,7 +324,7 @@ export async function cancelAppointmentRequest(
     reason?: string | null
   } | null = null
 
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const appointmentRequest = await tx.appointmentRequest.findUnique({
       where: { id: appointmentRequestId },
       include: {
@@ -307,6 +347,25 @@ export async function cancelAppointmentRequest(
     const nowTR = getNowTR()
 
     if (appointmentDateTime.getTime() <= nowTR.getTime()) {
+      try {
+        await auditLog({
+          actorType: 'admin',
+          actorId: session.userId,
+          action: AuditAction.APPOINTMENT_CANCEL_DENIED,
+          entityType: 'appointment',
+          entityId: appointmentRequestId,
+          summary: 'Appointment cancel denied - past appointment',
+          metadata: {
+            reason: 'past_appointment',
+            date: appointmentRequest.date,
+            time: appointmentStartTime,
+            appointmentDateTime: appointmentDateTime.toISOString(),
+            now: nowTR.toISOString(),
+          },
+        })
+      } catch (error) {
+        console.error('Audit log error:', error)
+      }
       throw new Error('Geçmiş randevular iptal edilemez')
     }
 
