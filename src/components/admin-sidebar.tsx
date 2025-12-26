@@ -11,6 +11,7 @@ import {
   MessageSquareIcon,
   ActivityIcon,
   SettingsIcon,
+  ClockIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -67,6 +68,11 @@ const navItems = [
     title: "Audit Logs",
     url: "/admin/audit-logs",
     icon: ActivityIcon,
+  },
+  {
+    title: "Çalışma Saatleri",
+    url: "/admin/working-hours",
+    icon: ClockIcon,
   },
   {
     title: "Ayarlar",

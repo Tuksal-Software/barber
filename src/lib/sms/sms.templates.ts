@@ -51,10 +51,10 @@ const templates: Record<SmsEvent, Record<SmsRole, SmsTemplateFunction>> = {
   },
   [SmsEvent.AppointmentCancelledPending]: {
     customer: (payload: AppointmentCancelledPendingPayload) => {
-      if (payload.reason && payload.reason.trim()) {
-        return `Merhaba ${payload.customerName}, randevunuz iptal edilmiştir.\nNeden: ${payload.reason}`
-      }
-      return `Merhaba ${payload.customerName}, randevunuz iptal edilmiştir.`
+      const reason = payload.reason && payload.reason.trim() 
+        ? payload.reason 
+        : 'İşletme tarafından kapatılan saatler'
+      return `📌 Randevunuz iptal edilmiştir\n📅 Tarih: ${payload.date}\n⏰ Saat: ${payload.time}\n❗ Neden: ${reason}`
     },
     admin: () => '',
   },

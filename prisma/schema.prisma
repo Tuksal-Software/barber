@@ -83,6 +83,12 @@ enum AuditAction {
 
   SMS_SENT
   SMS_FAILED
+
+  WORKING_HOUR_UPDATED
+  WORKING_HOUR_OVERRIDE_CREATED
+  WORKING_HOUR_OVERRIDE_DELETED
+  WORKING_HOUR_OVERRIDE_APPLIED
+  APPOINTMENT_CANCELLED_BY_OVERRIDE
 }
 
 model Barber {
@@ -101,6 +107,7 @@ model Barber {
   updatedAt    DateTime @updatedAt @db.DateTime(0)
 
   workingHours        WorkingHour[]
+  workingHourOverrides WorkingHourOverride[]
   appointmentRequests AppointmentRequest[]
   appointmentSlots    AppointmentSlot[]
   ledgerEntries       LedgerEntry[]
@@ -124,6 +131,21 @@ model WorkingHour {
   @@unique([barberId, dayOfWeek])
   @@index([barberId])
   @@map("working_hours")
+}
+
+model WorkingHourOverride {
+  id        String   @id @default(cuid())
+  barberId  String
+  date      String   @db.VarChar(191)
+  startTime String   @db.VarChar(10)
+  endTime   String   @db.VarChar(10)
+  reason    String?  @db.Text
+  createdAt DateTime @default(now()) @db.DateTime(0)
+
+  barber Barber @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barberId, date])
+  @@map("working_hour_overrides")
 }
 
 model AppointmentRequest {

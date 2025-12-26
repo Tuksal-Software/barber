@@ -336,9 +336,23 @@ export default function RandevularPage() {
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold text-foreground">{appointment.customerName}</h4>
                         {getStatusBadge(appointment.status)}
-                        {appointment.status === 'cancelled' && appointment.cancelledBy && (
+                        {appointment.status === 'cancelled' && appointment.cancelledBy === 'admin' && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Badge variant="destructive" className="text-xs">
+                                  Çalışma saatleri kapatıldı
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Bu randevu çalışma saatleri kapatıldığı için iptal edilmiştir.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {appointment.status === 'cancelled' && appointment.cancelledBy === 'customer' && (
                           <Badge variant="outline" className="text-xs">
-                            {appointment.cancelledBy === 'customer' ? 'Müşteri' : 'Admin'}
+                            Müşteri
                           </Badge>
                         )}
                       </div>

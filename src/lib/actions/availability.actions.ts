@@ -59,17 +59,29 @@ export async function getAvailableTimeSlotsV2(
   const workStartMinutes = parseTimeToMinutes(workingHour.startTime)
   const workEndMinutes = parseTimeToMinutes(workingHour.endTime)
 
-  const blockedSlots = await prisma.appointmentSlot.findMany({
-    where: {
-      barberId,
-      date,
-      status: 'blocked',
-    },
-    select: {
-      startTime: true,
-      endTime: true,
-    },
-  })
+  const [blockedSlots, overrides] = await Promise.all([
+    prisma.appointmentSlot.findMany({
+      where: {
+        barberId,
+        date,
+        status: 'blocked',
+      },
+      select: {
+        startTime: true,
+        endTime: true,
+      },
+    }),
+    prisma.workingHourOverride.findMany({
+      where: {
+        barberId,
+        date,
+      },
+      select: {
+        startTime: true,
+        endTime: true,
+      },
+    }),
+  ])
 
   const availableSlots: AvailableTimeSlot[] = []
   const now = new Date()
@@ -93,6 +105,15 @@ export async function getAvailableTimeSlotsV2(
       if (overlaps(slotStartTime, slotEndTime, blockedSlot.startTime, blockedSlot.endTime)) {
         isBlocked = true
         break
+      }
+    }
+
+    if (!isBlocked) {
+      for (const override of overrides) {
+        if (overlaps(slotStartTime, slotEndTime, override.startTime, override.endTime)) {
+          isBlocked = true
+          break
+        }
       }
     }
 
@@ -164,7 +185,7 @@ export async function getCustomerTimeButtonsV2(
   const workStartMinutes = parseTimeToMinutes(workingHour.startTime)
   const workEndMinutes = parseTimeToMinutes(workingHour.endTime)
 
-  const [pendingOrApprovedRequests, appointmentSlots] = await Promise.all([
+  const [pendingOrApprovedRequests, appointmentSlots, overrides] = await Promise.all([
     prisma.appointmentRequest.findMany({
       where: {
         barberId,
@@ -188,6 +209,16 @@ export async function getCustomerTimeButtonsV2(
         barberId,
         date,
         status: 'blocked',
+      },
+      select: {
+        startTime: true,
+        endTime: true,
+      },
+    }),
+    prisma.workingHourOverride.findMany({
+      where: {
+        barberId,
+        date,
       },
       select: {
         startTime: true,
@@ -232,6 +263,12 @@ export async function getCustomerTimeButtonsV2(
     const slotStart = parseTimeToMinutes(slot.startTime)
     const slotEnd = parseTimeToMinutes(slot.endTime)
     allBlockedRanges.push({ start: slotStart, end: slotEnd })
+  }
+
+  for (const override of overrides) {
+    const overrideStart = parseTimeToMinutes(override.startTime)
+    const overrideEnd = parseTimeToMinutes(override.endTime)
+    allBlockedRanges.push({ start: overrideStart, end: overrideEnd })
   }
 
   const gapButtons = new Set<string>()

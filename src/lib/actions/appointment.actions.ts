@@ -240,21 +240,39 @@ export async function approveAppointmentRequest(
     const approvedStartTime = appointmentRequest.requestedStartTime
     const approvedEndTime = minutesToTime(endMinutes)
 
-    const existingBlockedSlots = await tx.appointmentSlot.findMany({
-      where: {
-        barberId: appointmentRequest.barberId,
-        date: appointmentRequest.date,
-        status: 'blocked',
-      },
-      select: {
-        startTime: true,
-        endTime: true,
-      },
-    })
+    const [existingBlockedSlots, overrides] = await Promise.all([
+      tx.appointmentSlot.findMany({
+        where: {
+          barberId: appointmentRequest.barberId,
+          date: appointmentRequest.date,
+          status: 'blocked',
+        },
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      }),
+      tx.workingHourOverride.findMany({
+        where: {
+          barberId: appointmentRequest.barberId,
+          date: appointmentRequest.date,
+        },
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      }),
+    ])
 
     for (const slot of existingBlockedSlots) {
       if (overlaps(approvedStartTime, approvedEndTime, slot.startTime, slot.endTime)) {
         throw new Error('Seçilen zaman aralığı zaten dolu')
+      }
+    }
+
+    for (const override of overrides) {
+      if (overlaps(approvedStartTime, approvedEndTime, override.startTime, override.endTime)) {
+        throw new Error('Seçilen zaman aralığı kapatılmış saatler içeriyor')
       }
     }
 
