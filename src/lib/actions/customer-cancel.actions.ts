@@ -75,6 +75,26 @@ export async function requestCancelOtp(phone: string): Promise<{ success: boolea
       return { success: false, error: 'İptal edilebilecek aktif bir randevunuz bulunamadı.' }
     }
 
+    if (appointment.subscriptionId) {
+      try {
+        await auditLog({
+          actorType: 'customer',
+          actorId: normalizedPhone,
+          action: AuditAction.APPOINTMENT_CANCEL_DENIED,
+          entityType: 'appointment',
+          entityId: appointment.id,
+          summary: 'Abonman randevusu iptal edilmeye çalışıldı',
+          metadata: {
+            appointmentId: appointment.id,
+            subscriptionId: appointment.subscriptionId,
+          },
+        })
+      } catch (error) {
+        console.error('Audit log error:', error)
+      }
+      return { success: false, error: 'Abonman randevuları iptal edilemez. Lütfen işletmeyle iletişime geçin.' }
+    }
+
     if (isAppointmentInPast(appointment.date, appointment.requestedStartTime)) {
       try {
         await auditLog({
@@ -371,6 +391,30 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
         data: { used: true },
       })
       return { success: false, error: 'Randevu bulunamadı' }
+    }
+
+    if (appointment.subscriptionId) {
+      await prisma.customerCancelOtp.update({
+        where: { id: otpRecord.id },
+        data: { used: true },
+      })
+      try {
+        await auditLog({
+          actorType: 'customer',
+          actorId: normalizedPhone,
+          action: AuditAction.APPOINTMENT_CANCEL_DENIED,
+          entityType: 'appointment',
+          entityId: appointment.id,
+          summary: 'Abonman randevusu iptal edilmeye çalışıldı',
+          metadata: {
+            appointmentId: appointment.id,
+            subscriptionId: appointment.subscriptionId,
+          },
+        })
+      } catch (error) {
+        console.error('Audit log error:', error)
+      }
+      return { success: false, error: 'Abonman randevuları iptal edilemez. Lütfen işletmeyle iletişime geçin.' }
     }
 
     if (appointment.status !== 'pending' && appointment.status !== 'approved') {

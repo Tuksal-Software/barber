@@ -159,7 +159,10 @@ function groupBySlot(apts: CalendarAppointment[]): Map<string, CalendarAppointme
 }
 
 
-function getBorderColor(status: CalendarAppointment['status']): string {
+function getBorderColor(status: CalendarAppointment['status'], subscriptionId?: string | null): string {
+  if (subscriptionId) {
+    return 'border-purple-500';
+  }
   switch (status) {
     case 'approved': return 'border-green-500';
     case 'pending': return 'border-yellow-500';
@@ -287,7 +290,10 @@ export default function TakvimPage() {
     }
   };
 
-  const getStatusBadge = (status: CalendarAppointment['status']) => {
+  const getStatusBadge = (status: CalendarAppointment['status'], subscriptionId?: string | null) => {
+    if (subscriptionId) {
+      return <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20">Abonman</Badge>;
+    }
     switch (status) {
       case 'approved':
         return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Onaylandı</Badge>;
@@ -486,7 +492,7 @@ export default function TakvimPage() {
                   </div>
                 ) : (
                   dayAppointments.map(({ appointment, cancelledCount }) => {
-                    const borderColor = getBorderColor(appointment.status);
+                    const borderColor = getBorderColor(appointment.status, appointment.subscriptionId);
                     return (
                       <div
                         key={appointment.id}
@@ -507,7 +513,7 @@ export default function TakvimPage() {
                           <div className="flex-1 space-y-2">
                             <div className="flex items-center gap-2">
                               <h4 className="font-semibold text-foreground">{appointment.customerName}</h4>
-                              {getStatusBadge(appointment.status)}
+                              {getStatusBadge(appointment.status, appointment.subscriptionId)}
                             </div>
                             
                             <div className="space-y-1 text-sm text-muted-foreground">
@@ -646,7 +652,7 @@ export default function TakvimPage() {
                         >
                           {renderedAppointments.map(({ appointment, cancelledCount }) => {
                             const { rowStart, rowEnd } = getSlotSpan(appointment.startTime, appointment.endTime);
-                            const borderColor = getBorderColor(appointment.status);
+                            const borderColor = getBorderColor(appointment.status, appointment.subscriptionId);
                             
                             return (
                               <div
@@ -676,7 +682,7 @@ export default function TakvimPage() {
                                   {`${normalizeTime(appointment.startTime)} - ${normalizeTime(appointment.endTime)}`}
                                 </div>
                                 <div className="mt-1 flex-shrink-0">
-                                  {getStatusBadge(appointment.status)}
+                                  {getStatusBadge(appointment.status, appointment.subscriptionId)}
                                 </div>
                               </div>
                             );
@@ -747,7 +753,7 @@ export default function TakvimPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-muted-foreground">Durum:</span>
-                        {getStatusBadge(selectedAppointment.status)}
+                        {getStatusBadge(selectedAppointment.status, selectedAppointment.subscriptionId)}
                       </div>
                     </div>
                   </div>

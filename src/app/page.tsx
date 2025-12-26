@@ -444,7 +444,6 @@ export default function BookingPage() {
                           </div>
                           <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                             <Scissors className="h-4 w-4" />
-                            <span>{barber.slotDuration} dakika</span>
                           </div>
                         </div>
                       </div>

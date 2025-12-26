@@ -33,6 +33,12 @@ enum ExpenseCategory {
   other
 }
 
+enum SubscriptionRecurrenceType {
+  weekly
+  biweekly
+  monthly
+}
+
 enum AuditActorType {
   customer
   admin
@@ -89,6 +95,11 @@ enum AuditAction {
   WORKING_HOUR_OVERRIDE_DELETED
   WORKING_HOUR_OVERRIDE_APPLIED
   APPOINTMENT_CANCELLED_BY_OVERRIDE
+
+  SUBSCRIPTION_CREATED
+  SUBSCRIPTION_UPDATED
+  SUBSCRIPTION_CANCELLED
+  SUBSCRIPTION_APPOINTMENTS_GENERATED
 }
 
 model Barber {
@@ -111,6 +122,7 @@ model Barber {
   appointmentRequests AppointmentRequest[]
   appointmentSlots    AppointmentSlot[]
   ledgerEntries       LedgerEntry[]
+  subscriptions       Subscription[]
 
   @@index([email])
   @@map("barbers")
@@ -159,14 +171,17 @@ model AppointmentRequest {
   requestedEndTime   String?                  @db.VarChar(191)
   status             AppointmentRequestStatus @default(pending)
   cancelledBy        String?                  @db.VarChar(20)
+  subscriptionId     String?
   createdAt          DateTime                 @default(now()) @db.DateTime(0)
 
   barber           Barber            @relation(fields: [barberId], references: [id], onDelete: Cascade)
   appointmentSlots AppointmentSlot[]
   ledgerEntry      LedgerEntry?
+  subscription     Subscription?     @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
 
   @@index([barberId, date])
   @@index([status])
+  @@index([subscriptionId])
   @@map("appointment_requests")
 }
 
@@ -273,4 +288,33 @@ model AppSetting {
   createdAt DateTime @default(now()) @db.DateTime(0)
 
   @@map("app_settings")
+}
+
+model Subscription {
+  id               String                   @id @default(cuid())
+  barberId         String
+  customerName     String                   @db.VarChar(255)
+  customerPhone    String                   @db.VarChar(20)
+
+  recurrenceType   SubscriptionRecurrenceType
+  dayOfWeek        Int
+  weekOfMonth      Int?
+
+  startTime        String                   @db.VarChar(10)
+  durationMinutes Int
+
+  startDate        String                   @db.VarChar(191)
+  endDate          String?                  @db.VarChar(191)
+
+  isActive         Boolean                  @default(true)
+  createdAt        DateTime                 @default(now()) @db.DateTime(0)
+  updatedAt        DateTime                 @updatedAt @db.DateTime(0)
+
+  barber             Barber              @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  appointmentRequests AppointmentRequest[]
+
+  @@index([barberId])
+  @@index([customerPhone])
+  @@index([isActive])
+  @@map("subscriptions")
 }

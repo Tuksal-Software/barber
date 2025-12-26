@@ -168,6 +168,7 @@ export interface CalendarAppointment {
   startTime: string
   endTime: string
   status: 'approved' | 'pending' | 'rejected' | 'cancelled'
+  subscriptionId?: string | null
 }
 
 export async function getCalendarAppointments(): Promise<CalendarAppointment[]> {
@@ -202,6 +203,7 @@ export async function getCalendarAppointments(): Promise<CalendarAppointment[]> 
         startTime: norm(slot.startTime),
         endTime: norm(slot.endTime),
         status: req.status,
+        subscriptionId: req.subscriptionId,
       }
     }
 
@@ -219,6 +221,7 @@ export async function getCalendarAppointments(): Promise<CalendarAppointment[]> 
       startTime: start,
       endTime: end,
       status: req.status,
+      subscriptionId: req.subscriptionId,
     }
   })
 }

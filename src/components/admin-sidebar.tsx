@@ -12,6 +12,7 @@ import {
   ActivityIcon,
   SettingsIcon,
   ClockIcon,
+  RepeatIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -48,6 +49,11 @@ const navItems = [
     title: "Takvim",
     url: "/admin/randevular/takvim",
     icon: CalendarDaysIcon,
+  },
+  {
+    title: "Abonmanlar",
+    url: "/admin/abonmanlar",
+    icon: RepeatIcon,
   },
   {
     title: "Defter",

@@ -26,6 +26,21 @@ export interface AppointmentCancelledPendingPayload {
   reason?: string | null
 }
 
+export interface SubscriptionCreatedPayload {
+  customerName: string
+  customerPhone: string
+  recurrenceType: string
+  dayOfWeek: number
+  weekOfMonth?: number | null
+  startTime: string
+  startDate: string
+}
+
+export interface SubscriptionCancelledPayload {
+  customerName: string
+  customerPhone: string
+}
+
 type SmsTemplateFunction<T = unknown> = (payload: T) => string
 
 type SmsTemplateMap = {
@@ -35,6 +50,8 @@ type SmsTemplateMap = {
   [SmsEvent.AppointmentCancelledApproved]: SmsTemplateFunction
   [SmsEvent.AppointmentReminder2h]: SmsTemplateFunction
   [SmsEvent.AppointmentReminder1h]: SmsTemplateFunction
+  [SmsEvent.SubscriptionCreated]: SmsTemplateFunction<SubscriptionCreatedPayload>
+  [SmsEvent.SubscriptionCancelled]: SmsTemplateFunction<SubscriptionCancelledPayload>
 }
 
 const templates: Record<SmsEvent, Record<SmsRole, SmsTemplateFunction>> = {
@@ -68,6 +85,30 @@ const templates: Record<SmsEvent, Record<SmsRole, SmsTemplateFunction>> = {
   },
   [SmsEvent.AppointmentReminder1h]: {
     customer: () => '',
+    admin: () => '',
+  },
+  [SmsEvent.SubscriptionCreated]: {
+    customer: (payload: SubscriptionCreatedPayload) => {
+      const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi']
+      const dayName = dayNames[payload.dayOfWeek === 0 ? 0 : payload.dayOfWeek]
+      
+      let recurrenceText = ''
+      if (payload.recurrenceType === 'weekly') {
+        recurrenceText = `Her ${dayName} günü`
+      } else if (payload.recurrenceType === 'biweekly') {
+        recurrenceText = `2 haftada bir ${dayName} günü`
+      } else {
+        const weekText = payload.weekOfMonth === 1 ? '1.' : payload.weekOfMonth === 2 ? '2.' : payload.weekOfMonth === 3 ? '3.' : payload.weekOfMonth === 4 ? '4.' : '5.'
+        recurrenceText = `Her ayın ${weekText} ${dayName} günü`
+      }
+      
+      return `Merhaba ${payload.customerName}, abonman randevularınız oluşturuldu.\n${recurrenceText} saat ${payload.startTime}`
+    },
+    admin: () => '',
+  },
+  [SmsEvent.SubscriptionCancelled]: {
+    customer: (payload: SubscriptionCancelledPayload) =>
+      `Merhaba ${payload.customerName}, abonman randevularınız iptal edilmiştir.`,
     admin: () => '',
   },
 }
