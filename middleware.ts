@@ -7,14 +7,13 @@ export async function middleware(request: NextRequest) {
 
   if (pathname === '/admin/login') {
     const token = request.cookies.get('admin-auth')?.value
-    const payload = token ? verifyToken(token) : null
-    const isAuthenticated = payload !== null
-    const isAdmin = payload?.role === 'admin'
-
-    if (isAuthenticated && isAdmin) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/admin'
-      return NextResponse.redirect(url)
+    if (token) {
+      const payload = verifyToken(token)
+      if (payload && payload.role === 'admin') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/admin'
+        return NextResponse.redirect(url)
+      }
     }
     return NextResponse.next()
   }
@@ -43,7 +42,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/admin',
     '/admin/:path*',
   ],
 }

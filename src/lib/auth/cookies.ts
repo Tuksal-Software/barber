@@ -7,7 +7,7 @@ export async function setAuthCookie(token: string): Promise<void> {
   cookieStore.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     path: '/',
-    sameSite: 'strict',
+    sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     maxAge: 60 * 60 * 24 * 7,
   })
@@ -23,7 +23,7 @@ export async function deleteAuthCookie(): Promise<void> {
   cookieStore.set(AUTH_COOKIE_NAME, '', {
     httpOnly: true,
     path: '/',
-    sameSite: 'strict',
+    sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     maxAge: 0,
   })

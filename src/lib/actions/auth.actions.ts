@@ -165,8 +165,18 @@ export async function getSession(): Promise<Session | null> {
     return null
   }
 
+  if (payload.role !== 'admin') {
+    return null
+  }
+
+  const userId = payload.userId ?? (payload as any).sub ?? (payload as any).id ?? null
+  if (!userId) {
+    await deleteAuthCookie()
+    return null
+  }
+
   const barber = await prisma.barber.findUnique({
-    where: { id: payload.userId },
+    where: { id: userId },
     select: {
       id: true,
       email: true,
@@ -183,7 +193,7 @@ export async function getSession(): Promise<Session | null> {
 
   return {
     userId: barber.id,
-    role: barber.role,
+    role: 'admin',
     email: barber.email,
     name: barber.name,
   }
@@ -198,9 +208,12 @@ export async function requireAuth(): Promise<Session> {
 }
 
 export async function requireAdmin(): Promise<Session> {
-  const session = await requireAuth()
+  const session = await getSession()
+  if (!session) {
+    throw new Error('Unauthorized')
+  }
   if (session.role !== 'admin') {
-    throw new Error('Forbidden')
+    throw new Error('Unauthorized')
   }
   return session
 }
