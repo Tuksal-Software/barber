@@ -76,23 +76,46 @@ export async function requestCancelOtp(phone: string): Promise<{ success: boolea
     }
 
     if (appointment.subscriptionId) {
-      try {
-        await auditLog({
-          actorType: 'customer',
-          actorId: normalizedPhone,
-          action: AuditAction.APPOINTMENT_CANCEL_DENIED,
-          entityType: 'appointment',
-          entityId: appointment.id,
-          summary: 'Abonman randevusu iptal edilmeye çalışıldı',
-          metadata: {
-            appointmentId: appointment.id,
-            subscriptionId: appointment.subscriptionId,
+      const subscriptionAppointments = await prisma.appointmentRequest.findMany({
+        where: {
+          subscriptionId: appointment.subscriptionId,
+          status: {
+            in: ['pending', 'approved'],
           },
-        })
-      } catch (error) {
-        console.error('Audit log error:', error)
+        },
+        orderBy: [
+          { date: 'asc' },
+          { requestedStartTime: 'asc' },
+        ],
+        include: {
+          appointmentSlots: true,
+        },
+      })
+
+      const nearestSubscriptionAppointment = subscriptionAppointments.find(apt => {
+        const appointmentDateTime = createAppointmentDateTimeTR(apt.date, apt.requestedStartTime)
+        return appointmentDateTime.getTime() > nowTR.getTime()
+      })
+
+      if (!nearestSubscriptionAppointment || nearestSubscriptionAppointment.id !== appointment.id) {
+        try {
+          await auditLog({
+            actorType: 'customer',
+            actorId: normalizedPhone,
+            action: AuditAction.SUBSCRIPTION_CANCEL_BLOCKED,
+            entityType: 'appointment',
+            entityId: appointment.id,
+            summary: 'Abonman kapsamında sadece en yakın randevu iptal edilebilir',
+            metadata: {
+              appointmentId: appointment.id,
+              subscriptionId: appointment.subscriptionId,
+            },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
+        return { success: false, error: 'Abonman kapsamında sadece en yakın randevunuzu iptal edebilirsiniz.' }
       }
-      return { success: false, error: 'Abonman randevuları iptal edilemez. Lütfen işletmeyle iletişime geçin.' }
     }
 
     if (isAppointmentInPast(appointment.date, appointment.requestedStartTime)) {
@@ -394,27 +417,51 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
     }
 
     if (appointment.subscriptionId) {
-      await prisma.customerCancelOtp.update({
-        where: { id: otpRecord.id },
-        data: { used: true },
-      })
-      try {
-        await auditLog({
-          actorType: 'customer',
-          actorId: normalizedPhone,
-          action: AuditAction.APPOINTMENT_CANCEL_DENIED,
-          entityType: 'appointment',
-          entityId: appointment.id,
-          summary: 'Abonman randevusu iptal edilmeye çalışıldı',
-          metadata: {
-            appointmentId: appointment.id,
-            subscriptionId: appointment.subscriptionId,
+      const subscriptionAppointments = await prisma.appointmentRequest.findMany({
+        where: {
+          subscriptionId: appointment.subscriptionId,
+          status: {
+            in: ['pending', 'approved'],
           },
+        },
+        orderBy: [
+          { date: 'asc' },
+          { requestedStartTime: 'asc' },
+        ],
+        include: {
+          appointmentSlots: true,
+        },
+      })
+
+      const nowTR = getNowTR()
+      const nearestSubscriptionAppointment = subscriptionAppointments.find(apt => {
+        const appointmentDateTime = createAppointmentDateTimeTR(apt.date, apt.requestedStartTime)
+        return appointmentDateTime.getTime() > nowTR.getTime()
+      })
+
+      if (!nearestSubscriptionAppointment || nearestSubscriptionAppointment.id !== appointment.id) {
+        await prisma.customerCancelOtp.update({
+          where: { id: otpRecord.id },
+          data: { used: true },
         })
-      } catch (error) {
-        console.error('Audit log error:', error)
+        try {
+          await auditLog({
+            actorType: 'customer',
+            actorId: normalizedPhone,
+            action: AuditAction.SUBSCRIPTION_CANCEL_BLOCKED,
+            entityType: 'appointment',
+            entityId: appointment.id,
+            summary: 'Abonman kapsamında sadece en yakın randevu iptal edilebilir',
+            metadata: {
+              appointmentId: appointment.id,
+              subscriptionId: appointment.subscriptionId,
+            },
+          })
+        } catch (error) {
+          console.error('Audit log error:', error)
+        }
+        return { success: false, error: 'Abonman kapsamında sadece en yakın randevunuzu iptal edebilirsiniz.' }
       }
-      return { success: false, error: 'Abonman randevuları iptal edilemez. Lütfen işletmeyle iletişime geçin.' }
     }
 
     if (appointment.status !== 'pending' && appointment.status !== 'approved') {
@@ -503,19 +550,26 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
     }
 
     try {
+      const auditAction = appointment.subscriptionId 
+        ? AuditAction.SUBSCRIPTION_APPOINTMENT_CANCELLED
+        : AuditAction.APPOINTMENT_CANCELLED
+      
       await auditLog({
         actorType: 'customer',
         actorId: normalizedPhone,
-        action: AuditAction.APPOINTMENT_CANCELLED,
+        action: auditAction,
         entityType: 'appointment',
         entityId: appointment.id,
-        summary: 'Appointment cancelled by customer',
+        summary: appointment.subscriptionId 
+          ? 'Abonman randevusu müşteri tarafından iptal edildi'
+          : 'Appointment cancelled by customer',
         metadata: {
           phone: normalizedPhone,
           appointmentId: appointment.id,
           customerName: appointment.customerName,
           date: appointment.date,
           time: appointment.requestedStartTime,
+          subscriptionId: appointment.subscriptionId,
         },
       })
     } catch (error) {

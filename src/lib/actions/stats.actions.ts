@@ -10,6 +10,7 @@ export interface DashboardStats {
   approvedToday: number
   approvedTotal: number
   activeBarbers: number
+  subscriptionCustomers: number
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
@@ -22,11 +23,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   const todayDateStr = format(today, 'yyyy-MM-dd')
 
-  const [pending, approvedToday, approvedTotal, activeBarbers] = await Promise.all([
+  const [pending, approvedToday, approvedTotal, activeBarbers, subscriptionCustomers] = await Promise.all([
     prisma.appointmentRequest.count({
       where: {
         ...baseWhere,
         status: 'pending',
+        subscriptionId: null,
       },
     }),
     prisma.appointmentRequest.count({
@@ -34,12 +36,14 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         ...baseWhere,
         status: 'approved',
         date: todayDateStr,
+        subscriptionId: null,
       },
     }),
     prisma.appointmentRequest.count({
       where: {
         ...baseWhere,
         status: 'approved',
+        subscriptionId: null,
       },
     }),
     prisma.barber.count({
@@ -48,6 +52,19 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         role: 'barber',
       },
     }),
+    prisma.appointmentRequest.findMany({
+      where: {
+        ...baseWhere,
+        subscriptionId: { not: null },
+        status: {
+          in: ['pending', 'approved'],
+        },
+      },
+      select: {
+        customerPhone: true,
+      },
+      distinct: ['customerPhone'],
+    }).then(result => result.length),
   ])
 
   return {
@@ -55,6 +72,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     approvedToday,
     approvedTotal,
     activeBarbers,
+    subscriptionCustomers,
   }
 }
 
@@ -79,6 +97,7 @@ export async function getWeeklyAppointments(): Promise<WeeklyAppointmentData[]> 
         gte: format(weekStart, 'yyyy-MM-dd'),
         lte: format(weekEnd, 'yyyy-MM-dd'),
       },
+      subscriptionId: null,
     },
     select: {
       date: true,
@@ -124,12 +143,14 @@ export async function getAppointmentStatusStats(): Promise<AppointmentStatusStat
       where: {
         ...baseWhere,
         status: 'approved',
+        subscriptionId: null,
       },
     }),
     prisma.appointmentRequest.count({
       where: {
         ...baseWhere,
         status: 'cancelled',
+        subscriptionId: null,
       },
     }),
   ])

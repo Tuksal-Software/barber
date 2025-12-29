@@ -474,41 +474,50 @@ export async function cancelSubscription(
   }
   
   const nowTR = getNowTR()
-  const nowTRStr = format(nowTR, 'yyyy-MM-dd')
   
-  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    for (const appointment of subscription.appointmentRequests) {
-      const appointmentDateTime = createAppointmentDateTimeTR(
-        appointment.date,
-        appointment.appointmentSlots.length > 0
-          ? appointment.appointmentSlots[0].startTime
-          : appointment.requestedStartTime
-      )
-      
-      if (appointmentDateTime.getTime() > nowTR.getTime()) {
-        await tx.appointmentSlot.deleteMany({
-          where: {
-            appointmentRequestId: appointment.id,
-          },
-        })
-        
-        await tx.appointmentRequest.update({
-          where: { id: appointment.id },
-          data: {
-            status: 'cancelled',
-            cancelledBy: 'admin' as any,
-          },
-        })
-      }
-    }
+  const futureAppointmentIds: string[] = []
+  
+  for (const appointment of subscription.appointmentRequests) {
+    const appointmentDateTime = createAppointmentDateTimeTR(
+      appointment.date,
+      appointment.appointmentSlots.length > 0
+        ? appointment.appointmentSlots[0].startTime
+        : appointment.requestedStartTime
+    )
     
-    await tx.subscription.update({
+    if (appointmentDateTime.getTime() > nowTR.getTime()) {
+      futureAppointmentIds.push(appointment.id)
+    }
+  }
+  
+  await prisma.$transaction([
+    ...(futureAppointmentIds.length > 0 ? [
+      prisma.appointmentSlot.deleteMany({
+        where: {
+          appointmentRequestId: {
+            in: futureAppointmentIds,
+          },
+        },
+      }),
+      prisma.appointmentRequest.updateMany({
+        where: {
+          id: {
+            in: futureAppointmentIds,
+          },
+        },
+        data: {
+          status: 'cancelled',
+          cancelledBy: 'admin' as any,
+        },
+      }),
+    ] : []),
+    prisma.subscription.update({
       where: { id: subscriptionId },
       data: {
         isActive: false,
       },
-    })
-  })
+    }),
+  ])
   
   try {
     await dispatchSms(SmsEvent.SubscriptionCancelled, {

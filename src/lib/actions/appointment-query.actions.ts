@@ -38,7 +38,10 @@ export async function getPendingAppointmentRequests(): Promise<AppointmentReques
   }
 
   const requests = await prisma.appointmentRequest.findMany({
-    where,
+    where: {
+      ...where,
+      subscriptionId: null,
+    },
     include: {
       barber: {
         select: {
@@ -79,7 +82,10 @@ export async function getRecentAppointments(limit: number = 5): Promise<Appointm
   }
 
   const requests = await prisma.appointmentRequest.findMany({
-    where,
+    where: {
+      ...where,
+      subscriptionId: null,
+    },
     include: {
       barber: {
         select: {
@@ -121,7 +127,10 @@ export async function getAllAppointmentRequests(): Promise<AppointmentRequestLis
   }
 
   const requests = await prisma.appointmentRequest.findMany({
-    where,
+    where: {
+      ...where,
+      subscriptionId: null,
+    },
     include: {
       barber: {
         select: {

@@ -42,6 +42,7 @@ export default function AdminDashboardPage() {
     approvedToday: 0,
     approvedTotal: 0,
     activeBarbers: 0,
+    subscriptionCustomers: 0,
   })
   const [recentAppointments, setRecentAppointments] = useState<AppointmentRequestListItem[]>([])
   const [weeklyData, setWeeklyData] = useState<WeeklyAppointmentData[]>([])
@@ -179,6 +180,22 @@ export default function AdminDashboardPage() {
                   <div className="text-2xl font-bold text-foreground">{stats.activeBarbers}</div>
                   <p className="text-xs text-muted-foreground">
                     Sistemdeki aktif berber sayısı
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="bg-card border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-foreground">
+                    Abonman Müşteriler
+                  </CardTitle>
+                  <User className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{stats.subscriptionCustomers}</div>
+                  <p className="text-xs text-muted-foreground">
+                    Aktif abonman müşteri sayısı
                   </p>
                 </CardContent>
               </Card>
