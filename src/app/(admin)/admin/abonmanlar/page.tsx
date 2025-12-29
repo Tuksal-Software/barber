@@ -69,9 +69,8 @@ const RECURRENCE_TYPES = [
 
 function generateTimeSlots(): Array<{ time: string; disabled: boolean }> {
   const slots: Array<{ time: string; disabled: boolean }> = [];
-  for (let hour = 11; hour < 22; hour++) {
+  for (let hour = 10; hour < 23; hour++) {
     slots.push({ time: `${hour.toString().padStart(2, '0')}:00`, disabled: false });
-    slots.push({ time: `${hour.toString().padStart(2, '0')}:30`, disabled: false });
   }
   return slots;
 }
