@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { format } from "date-fns"
 import { tr } from "date-fns/locale/tr"
-import { Star, Scissors, Loader2, Clock, CheckCircle2, X, CalendarOff } from "lucide-react"
+import { Star, Scissors, Loader2, Clock, CheckCircle2, X } from "lucide-react"
 import Image from "next/image"
 import { BottomBar } from "@/components/app/BottomBar"
 import { Stepper } from "@/components/app/Stepper"
@@ -25,6 +25,7 @@ import { getActiveBarbers } from "@/lib/actions/barber.actions"
 import { getCustomerTimeButtonsV2 } from "@/lib/actions/availability.actions"
 import { createAppointmentRequest, getCustomerByPhone } from "@/lib/actions/appointment.actions"
 import { requestCancelOtp, confirmCancelOtp } from "@/lib/actions/customer-cancel.actions"
+import { getShopName } from "@/lib/actions/settings.actions"
 import { cn } from "@/lib/utils"
 import type { BarberListItem } from "@/lib/actions/barber.actions"
 import type { CustomerTimeButton } from "@/lib/actions/availability.actions"
@@ -63,6 +64,7 @@ export default function BookingPage() {
   const [cancelPhone, setCancelPhone] = useState("")
   const [cancelOtp, setCancelOtp] = useState("")
   const [loadingCancel, setLoadingCancel] = useState(false)
+  const [shopName, setShopName] = useState("")
 
   const {
     register,
@@ -153,6 +155,18 @@ export default function BookingPage() {
       }
     }
     fetchBarbers()
+  }, [])
+
+  useEffect(() => {
+    async function fetchShopName() {
+      try {
+        const name = await getShopName()
+        setShopName(name)
+      } catch (error) {
+        console.error("Shop name yüklenirken hata oluştu:", error)
+      }
+    }
+    fetchShopName()
   }, [])
 
   useEffect(() => {
@@ -452,6 +466,12 @@ export default function BookingPage() {
                 ))}
               </div>
             )}
+            <div 
+              className="mt-4 text-sm text-red-600 hover:text-red-700 cursor-pointer text-center"
+              onClick={handleCancelModalOpen}
+            >
+              Randevumu İptal Et
+            </div>
           </div>
         )
 
@@ -615,18 +635,11 @@ export default function BookingPage() {
             priority
           />
         </div>
+        <div className="font-medium text-center">
+          {shopName}
+        </div>
         <div className="flex-1 pb-32 pt-4">
           <div className="mx-auto max-w-2xl px-4">
-            <div className="mb-4">
-              <Button
-                variant="secondary"
-                onClick={handleCancelModalOpen}
-                className="w-full rounded-md"
-              >
-                <CalendarOff className="mr-2 h-4 w-4" />
-                Mevcut Randevumu İptal Et
-              </Button>
-            </div>
             {!showSuccess && <Stepper steps={wizardSteps} currentStep={step} />}
             <div
               className={cn(

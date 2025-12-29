@@ -48,6 +48,11 @@ export async function getSettings(): Promise<SettingsResponse> {
   }
 }
 
+export async function getShopName(): Promise<string> {
+  const dbSettings = await getAllSettings()
+  return (dbSettings.shopName as string) ?? defaultSettings.shopName
+}
+
 export async function updateSettings(
   payload: z.infer<typeof updateSettingsSchema>
 ): Promise<{ success: boolean; error?: string }> {
