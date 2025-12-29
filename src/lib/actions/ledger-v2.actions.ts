@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/actions/auth.actions'
 import { Prisma } from '@prisma/client'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { AuditAction } from '@prisma/client'
+import { isAppointmentInPast } from '@/lib/time/appointmentDateTime'
 
 export interface GetLedgerCandidatesParams {
   barberId?: string
@@ -47,19 +48,14 @@ export async function getLedgerCandidates(
   params: GetLedgerCandidatesParams
 ): Promise<GetLedgerCandidatesResult> {
   const session = await requireAuth()
-  const { barberId, selectedDate } = params
+  const { barberId } = params
 
   let finalBarberId = barberId
   if (session.role === 'barber') {
     finalBarberId = session.userId
   }
 
-  const where: Prisma.AppointmentRequestWhereInput = {
-    status: 'approved',
-    date: {
-      lt: selectedDate,
-    },
-  }
+  const where: Prisma.AppointmentRequestWhereInput = {}
 
   if (finalBarberId) {
     where.barberId = finalBarberId
@@ -103,10 +99,15 @@ export async function getLedgerCandidates(
   const paid: PaidLedgerItem[] = []
 
   for (const appointment of appointments) {
-    const startTime = appointment.appointmentSlots[0]
+    const startTimeStr = appointment.appointmentSlots[0]
       ? appointment.appointmentSlots[0].startTime.slice(0, 5)
       : appointment.requestedStartTime.slice(0, 5)
-    
+
+    if (!isAppointmentInPast(appointment.date, startTimeStr)) {
+      continue
+    }
+
+    const startTime = startTimeStr
     const endTime = appointment.appointmentSlots[0]
       ? appointment.appointmentSlots[0].endTime.slice(0, 5)
       : appointment.requestedEndTime
@@ -344,53 +345,83 @@ export async function getLedgerSummary(
   params: GetLedgerCandidatesParams
 ): Promise<LedgerSummary> {
   const session = await requireAuth()
-  const { barberId, selectedDate } = params
+  const { barberId } = params
 
   let finalBarberId = barberId
   if (session.role === 'barber') {
     finalBarberId = session.userId
   }
 
-  const where: Prisma.AppointmentRequestWhereInput = {
-    status: 'approved',
-    date: {
-      lt: selectedDate,
-    },
-  }
+  const where: Prisma.AppointmentRequestWhereInput = {}
 
   if (finalBarberId) {
     where.barberId = finalBarberId
   }
 
-  const [appointments, paidEntries] = await Promise.all([
-    prisma.appointmentRequest.count({
+  const [allAppointments, allPaidEntries] = await Promise.all([
+    prisma.appointmentRequest.findMany({
       where,
+      include: {
+        appointmentSlots: {
+          take: 1,
+          orderBy: {
+            startTime: 'asc',
+          },
+          select: {
+            startTime: true,
+          },
+        },
+      },
     }),
     prisma.ledgerEntry.findMany({
       where: {
         barberId: finalBarberId || undefined,
+      },
+      include: {
         appointmentRequest: {
-          status: 'approved',
-          date: {
-            lt: selectedDate,
+          select: {
+            date: true,
+            requestedStartTime: true,
+            appointmentSlots: {
+              take: 1,
+              orderBy: {
+                startTime: 'asc',
+              },
+              select: {
+                startTime: true,
+              },
+            },
           },
         },
-      },
-      select: {
-        amount: true,
       },
     }),
   ])
 
-  const totalRevenue = paidEntries.reduce(
+  const pastAppointments = allAppointments.filter((appointment) => {
+    const startTimeStr = appointment.appointmentSlots[0]
+      ? appointment.appointmentSlots[0].startTime.slice(0, 5)
+      : appointment.requestedStartTime.slice(0, 5)
+    return isAppointmentInPast(appointment.date, startTimeStr)
+  })
+
+  const pastPaidEntries = allPaidEntries.filter((entry) => {
+    const appointment = entry.appointmentRequest
+    if (!appointment) return false
+    const startTimeStr = appointment.appointmentSlots && appointment.appointmentSlots.length > 0
+      ? appointment.appointmentSlots[0].startTime.slice(0, 5)
+      : appointment.requestedStartTime.slice(0, 5)
+    return isAppointmentInPast(appointment.date, startTimeStr)
+  })
+
+  const totalRevenue = pastPaidEntries.reduce(
     (sum, entry) => sum + parseFloat(entry.amount.toString()),
     0
   )
 
   return {
     totalRevenue: totalRevenue.toFixed(2),
-    paidCount: paidEntries.length,
-    unpaidCount: appointments - paidEntries.length,
+    paidCount: pastPaidEntries.length,
+    unpaidCount: pastAppointments.length - pastPaidEntries.length,
   }
 }
 

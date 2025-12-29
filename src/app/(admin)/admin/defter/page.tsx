@@ -78,42 +78,17 @@ export default function DefterPage() {
     loadInitialData()
   }, [])
 
-  useEffect(() => {
-    if (selectedDate) {
-      loadLedgerData()
-    }
-  }, [selectedBarber, selectedDate])
-
-  const loadInitialData = async () => {
-    try {
-      const session = await getSessionClient()
-      if (session) {
-        setIsAdmin(session.role === "admin")
-        if (session.role === "admin") {
-          const barbersList = await getActiveBarbers()
-          setBarbers(barbersList.map((b) => ({ id: b.id, name: b.name })))
-        } else {
-          setSelectedBarber(session.userId)
-        }
-      }
-    } catch (error) {
-      console.error("Error loading initial data:", error)
-    }
-  }
-
-  const loadLedgerData = async () => {
-    if (!selectedDate) return
-
+  const loadLedgerData = useCallback(async () => {
     setLoading(true)
     try {
       const [result, summaryData] = await Promise.all([
         getLedgerCandidates({
           barberId: selectedBarber === "all" ? undefined : selectedBarber,
-          selectedDate,
+          selectedDate: selectedDate || "",
         }),
         getLedgerSummary({
           barberId: selectedBarber === "all" ? undefined : selectedBarber,
-          selectedDate,
+          selectedDate: selectedDate || "",
         }),
       ])
       setUnpaid(result.unpaid)
@@ -133,7 +108,29 @@ export default function DefterPage() {
     } finally {
       setLoading(false)
     }
+  }, [selectedBarber, selectedDate])
+
+  useEffect(() => {
+    loadLedgerData()
+  }, [loadLedgerData])
+
+  const loadInitialData = async () => {
+    try {
+      const session = await getSessionClient()
+      if (session) {
+        setIsAdmin(session.role === "admin")
+        if (session.role === "admin") {
+          const barbersList = await getActiveBarbers()
+          setBarbers(barbersList.map((b) => ({ id: b.id, name: b.name })))
+        } else {
+          setSelectedBarber(session.userId)
+        }
+      }
+    } catch (error) {
+      console.error("Error loading initial data:", error)
+    }
   }
+
 
   const handleAmountChange = (appointmentId: string, value: string) => {
     setFormData((prev) => ({
