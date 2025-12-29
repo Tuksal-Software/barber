@@ -34,7 +34,7 @@ interface Barber {
 
 const TIME_SLOTS = (() => {
   const slots: string[] = [];
-  for (let hour = 10; hour < 22; hour++) {
+  for (let hour = 10; hour < 23; hour++) {
     slots.push(`${hour.toString().padStart(2, '0')}:00`);
     slots.push(`${hour.toString().padStart(2, '0')}:30`);
   }
