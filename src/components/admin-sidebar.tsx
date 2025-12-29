@@ -13,6 +13,7 @@ import {
   SettingsIcon,
   ClockIcon,
   RepeatIcon,
+  CalendarPlusIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -54,6 +55,11 @@ const navItems = [
     title: "Abonmanlar",
     url: "/admin/abonmanlar",
     icon: RepeatIcon,
+  },
+  {
+    title: "Manuel Randevu",
+    url: "/admin/manuel-randevu",
+    icon: CalendarPlusIcon,
   },
   {
     title: "Defter",

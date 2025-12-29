@@ -6,7 +6,7 @@ import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
 import { createAppointmentDateTimeTR, getNowTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
 import { requireAdmin, getSession } from '@/lib/actions/auth.actions'
-import { dispatchSms } from '@/lib/sms/sms.dispatcher'
+import { dispatchSms, sendSmsForEvent } from '@/lib/sms/sms.dispatcher'
 import { SmsEvent } from '@/lib/sms/sms.events'
 import { auditLog } from '@/lib/audit/audit.logger'
 
@@ -28,6 +28,16 @@ export interface ApproveAppointmentRequestInput {
 export interface CancelAppointmentRequestInput {
   appointmentRequestId: string
   reason?: string
+}
+
+export interface CreateAdminAppointmentInput {
+  barberId: string
+  customerName: string
+  customerPhone: string
+  customerEmail?: string
+  date: string
+  requestedStartTime: string
+  durationMinutes: 30 | 60
 }
 
 export async function getCustomerByPhone(phone: string): Promise<{ customerName: string } | null> {
@@ -442,5 +452,162 @@ export async function cancelAppointmentRequest(
     }
   } catch {
   }
+}
+
+export async function createAdminAppointment(
+  input: CreateAdminAppointmentInput
+): Promise<string> {
+  const session = await requireAdmin()
+
+  const {
+    barberId,
+    customerName,
+    customerPhone,
+    customerEmail,
+    date,
+    requestedStartTime,
+    durationMinutes,
+  } = input
+
+  if (!barberId || !customerName || !customerPhone || !date || !requestedStartTime || !durationMinutes) {
+    throw new Error('Tüm zorunlu alanlar doldurulmalıdır')
+  }
+
+  if (![30, 60].includes(durationMinutes)) {
+    throw new Error('Geçersiz süre. 30 veya 60 dakika olmalıdır')
+  }
+
+  const barber = await prisma.barber.findUnique({
+    where: { id: barberId },
+    select: { isActive: true },
+  })
+
+  if (!barber) {
+    throw new Error('Berber bulunamadı')
+  }
+
+  if (!barber.isActive) {
+    throw new Error('Berber aktif değil')
+  }
+
+  const startMinutes = parseTimeToMinutes(requestedStartTime)
+  const endMinutes = startMinutes + durationMinutes
+  const approvedEndTime = minutesToTime(endMinutes)
+
+  const appointmentRequest = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const [existingBlockedSlots, overrides] = await Promise.all([
+      tx.appointmentSlot.findMany({
+        where: {
+          barberId,
+          date,
+          status: 'blocked',
+        },
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      }),
+      tx.workingHourOverride.findMany({
+        where: {
+          barberId,
+          date,
+        },
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      }),
+    ])
+
+    for (const slot of existingBlockedSlots) {
+      if (overlaps(requestedStartTime, approvedEndTime, slot.startTime, slot.endTime)) {
+        throw new Error('Seçilen zaman aralığı zaten dolu')
+      }
+    }
+
+    for (const override of overrides) {
+      if (overlaps(requestedStartTime, approvedEndTime, override.startTime, override.endTime)) {
+        throw new Error('Seçilen zaman aralığı kapatılmış saatler içeriyor')
+      }
+    }
+
+    const appointmentRequest = await tx.appointmentRequest.create({
+      data: {
+        barber: {
+          connect: {
+            id: barberId,
+          },
+        },
+        customerName,
+        customerPhone,
+        customerEmail: customerEmail || null,
+        date,
+        requestedStartTime,
+        requestedEndTime: approvedEndTime,
+        status: 'approved',
+      },
+    })
+
+    await tx.appointmentSlot.create({
+      data: {
+        barberId,
+        appointmentRequestId: appointmentRequest.id,
+        date,
+        startTime: requestedStartTime,
+        endTime: approvedEndTime,
+        status: 'blocked',
+      },
+    })
+
+    return appointmentRequest
+  })
+
+  try {
+    await auditLog({
+      actorType: 'admin',
+      actorId: session.userId,
+      action: AuditAction.ADMIN_APPOINTMENT_CREATED,
+      entityType: 'appointment',
+      entityId: appointmentRequest.id,
+      summary: 'Admin appointment created',
+      metadata: {
+        barberId,
+        customerName,
+        customerPhone,
+        date,
+        requestedStartTime,
+        approvedEndTime,
+        source: 'ADMIN_MANUAL',
+        createdBy: 'admin',
+        approvedBy: 'admin',
+      },
+    })
+  } catch (error) {
+    console.error('Audit log error:', error)
+  }
+
+  console.log('[createAdminAppointment] Transaction completed, sending SMS...')
+  console.log('[createAdminAppointment] SMS params:', {
+    customerName,
+    customerPhone,
+    date,
+    startTime: requestedStartTime,
+    endTime: approvedEndTime,
+  })
+
+  await sendSmsForEvent({
+    event: SmsEvent.AdminAppointmentCreated,
+    to: customerPhone,
+    payload: {
+      customerName,
+      date,
+      startTime: requestedStartTime,
+      endTime: approvedEndTime,
+    },
+  })
+
+  console.log('[createAdminAppointment] SMS send completed')
+
+  return appointmentRequest.id
 }
 

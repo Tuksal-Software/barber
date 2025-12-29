@@ -1,12 +1,12 @@
 import { SmsEvent } from './sms.events'
-import { getSmsTemplate, type SmsRole, type AppointmentCreatedPayload, type AppointmentApprovedPayload, type AppointmentCancelledPendingPayload, type SubscriptionCreatedPayload, type SubscriptionCancelledPayload } from './sms.templates'
+import { getSmsTemplate, type SmsRole, type AppointmentCreatedPayload, type AppointmentApprovedPayload, type AppointmentCancelledPendingPayload, type SubscriptionCreatedPayload, type SubscriptionCancelledPayload, type AdminAppointmentCreatedPayload } from './sms.templates'
 import { sendSms } from './sms.service'
 import { env } from '@/lib/config/env'
 import { prisma } from '@/lib/prisma'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { getAdminPhoneSetting, getSmsSenderSetting } from '@/lib/settings/settings-helpers'
 
-type SmsPayload = AppointmentCreatedPayload | AppointmentApprovedPayload | AppointmentCancelledPendingPayload | SubscriptionCreatedPayload | SubscriptionCancelledPayload
+type SmsPayload = AppointmentCreatedPayload | AppointmentApprovedPayload | AppointmentCancelledPendingPayload | SubscriptionCreatedPayload | SubscriptionCancelledPayload | AdminAppointmentCreatedPayload
 
 async function logSms(to: string, message: string, event: SmsEvent, status: 'success' | 'error', error?: string): Promise<void> {
   try {
@@ -143,6 +143,50 @@ export async function dispatchSms(
     }
   } catch (error) {
     console.error('[SMS Dispatcher] Error:', error)
+  }
+}
+
+export async function sendSmsForEvent(params: {
+  event: SmsEvent
+  to: string
+  payload: any
+}): Promise<void> {
+  console.log('[sendSmsForEvent] Called with:', params)
+  const { event, to, payload } = params
+  
+  try {
+    const customerTemplate = getSmsTemplate(event, 'customer')
+    const message = customerTemplate(payload)
+    
+    console.log('[sendSmsForEvent] Generated message:', message)
+    
+    await sendSms(to, message)
+    
+    await prisma.smsLog.create({
+      data: {
+        to,
+        message,
+        event,
+        provider: 'vatansms',
+        status: 'success',
+        error: null,
+      },
+    })
+    
+    console.log('[sendSmsForEvent] SMS logged successfully')
+  } catch (error) {
+    console.error('[sendSmsForEvent] Error:', error)
+    await prisma.smsLog.create({
+      data: {
+        to,
+        message: '',
+        event,
+        provider: 'vatansms',
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    })
+    throw error
   }
 }
 

@@ -7,6 +7,7 @@ export enum SmsEvent {
   AppointmentReminder1h = 'AppointmentReminder1h',
   SubscriptionCreated = 'SubscriptionCreated',
   SubscriptionCancelled = 'SubscriptionCancelled',
+  AdminAppointmentCreated = 'AdminAppointmentCreated',
 }
 
 

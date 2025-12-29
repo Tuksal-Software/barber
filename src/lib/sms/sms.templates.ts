@@ -19,6 +19,14 @@ export interface AppointmentApprovedPayload {
   endTime: string
 }
 
+export interface AdminAppointmentCreatedPayload {
+  customerName: string
+  customerPhone: string
+  date: string
+  startTime: string
+  endTime: string
+}
+
 export interface AppointmentCancelledPendingPayload {
   customerName: string
   customerPhone: string
@@ -51,6 +59,7 @@ type SmsPayloadMap = {
   [SmsEvent.AppointmentReminder1h]: Record<string, never>
   [SmsEvent.SubscriptionCreated]: SubscriptionCreatedPayload
   [SmsEvent.SubscriptionCancelled]: SubscriptionCancelledPayload
+  [SmsEvent.AdminAppointmentCreated]: AdminAppointmentCreatedPayload
 }
 
 type SmsTemplateMap = {
@@ -115,6 +124,11 @@ const templates: SmsTemplateMap = {
     customer: (payload: SubscriptionCancelledPayload) =>
       `Merhaba ${payload.customerName}, abonman randevularınız iptal edilmiştir.`,
     admin: (_payload: SubscriptionCancelledPayload) => '',
+  },
+  [SmsEvent.AdminAppointmentCreated]: {
+    customer: (payload: any) =>
+      `Merhaba ${payload.customerName}, ${formatDateForSms(payload.date)} tarihinde ${payload.startTime}-${payload.endTime} saatleri arasında randevunuz oluşturulmuştur.`,
+    admin: (_payload: any) => '',
   },
 }
 
