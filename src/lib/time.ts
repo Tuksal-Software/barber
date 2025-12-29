@@ -32,5 +32,27 @@ export function overlaps(
   return startAMinutes < endBMinutes && startBMinutes < endAMinutes
 }
 
+export function formatAppointmentTimeRange(
+  requestedStartTime: string,
+  requestedEndTime: string | null | undefined,
+  appointmentSlots?: Array<{ startTime: string; endTime: string }> | null
+): string {
+  const startTime = requestedStartTime.trim().slice(0, 5)
+  
+  let endTime: string | null = null
+  
+  if (requestedEndTime) {
+    endTime = requestedEndTime.trim().slice(0, 5)
+  } else if (appointmentSlots && appointmentSlots.length > 0) {
+    endTime = appointmentSlots[0].endTime.trim().slice(0, 5)
+  }
+  
+  if (endTime) {
+    return `${startTime} - ${endTime}`
+  }
+  
+  return startTime
+}
+
 
 

@@ -92,6 +92,12 @@ export async function getRecentAppointments(limit: number = 5): Promise<Appointm
           name: true,
         },
       },
+      appointmentSlots: {
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      },
     },
     orderBy: {
       createdAt: 'desc',
@@ -112,6 +118,7 @@ export async function getRecentAppointments(limit: number = 5): Promise<Appointm
     status: req.status,
     cancelledBy: req.cancelledBy,
     createdAt: req.createdAt,
+    appointmentSlots: req.appointmentSlots,
   }))
 }
 

@@ -20,7 +20,7 @@ import {
 import { getActiveBarbers } from "@/lib/actions/barber.actions";
 import { getAllAppointmentRequests } from "@/lib/actions/appointment-query.actions";
 import { approveAppointmentRequest, cancelAppointmentRequest } from "@/lib/actions/appointment.actions";
-import { parseTimeToMinutes, minutesToTime } from "@/lib/time";
+import { parseTimeToMinutes, minutesToTime, formatAppointmentTimeRange } from "@/lib/time";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -365,10 +365,11 @@ export default function RandevularPage() {
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4" />
                           <span>
-                            {appointment.requestedStartTime}
-                            {appointment.requestedEndTime
-                              ? ` - ${appointment.requestedEndTime}`
-                              : ' (Onay bekliyor)'}
+                            {formatAppointmentTimeRange(
+                              appointment.requestedStartTime,
+                              appointment.requestedEndTime,
+                              appointment.appointmentSlots
+                            )}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -435,10 +436,11 @@ export default function RandevularPage() {
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">
-                          {selectedAppointment.requestedStartTime}
-                          {selectedAppointment.requestedEndTime
-                            ? ` - ${selectedAppointment.requestedEndTime}`
-                            : ' (Onay bekliyor)'}
+                          {formatAppointmentTimeRange(
+                            selectedAppointment.requestedStartTime,
+                            selectedAppointment.requestedEndTime,
+                            selectedAppointment.appointmentSlots
+                          )}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -553,12 +555,12 @@ export default function RandevularPage() {
           <div className="space-y-4 py-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                İptal Nedeni (opsiyonel)
+                İptal Nedeni (Neden girilmezse gönderilecek neden: İşletme tarafından kapatılan saatler)
               </label>
               <Textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="İptal nedeni..."
+                placeholder="İşletme tarafından kapatılan saatler"
                 rows={3}
               />
             </div>

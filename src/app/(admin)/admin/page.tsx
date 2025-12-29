@@ -16,6 +16,7 @@ import { format, parseISO, formatDistanceToNow } from "date-fns"
 import { tr } from "date-fns/locale/tr"
 import { WeeklyAppointmentsChart } from "@/components/app/WeeklyAppointmentsChart"
 import { Skeleton } from "@/components/ui/skeleton"
+import { formatAppointmentTimeRange } from "@/lib/time"
 import type { DashboardStats, WeeklyAppointmentData, AppointmentStatusStats } from "@/lib/actions/stats.actions"
 import type { AppointmentRequestListItem } from "@/lib/actions/appointment-query.actions"
 import type { FinanceSummary } from "@/lib/actions/dashboard-finance.actions"
@@ -494,16 +495,20 @@ export default function AdminDashboardPage() {
                               <div className="flex flex-col">
                                 <span>{typeof appointment.date === 'string' ? format(new Date(appointment.date + 'T00:00:00'), "d MMM yyyy", { locale: tr }) : format(appointment.date, "d MMM yyyy", { locale: tr })}</span>
                                 <span className="text-xs md:hidden">
-                                  {appointment.requestedEndTime
-                                    ? `${appointment.requestedStartTime} - ${appointment.requestedEndTime}`
-                                    : `${appointment.requestedStartTime} (Onay Bekliyor)`}
+                                  {formatAppointmentTimeRange(
+                                    appointment.requestedStartTime,
+                                    appointment.requestedEndTime,
+                                    appointment.appointmentSlots
+                                  )}
                                 </span>
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground hidden md:table-cell">
-                              {appointment.requestedEndTime
-                                ? `${appointment.requestedStartTime} - ${appointment.requestedEndTime}`
-                                : `${appointment.requestedStartTime} (Onay Bekliyor)`}
+                              {formatAppointmentTimeRange(
+                                appointment.requestedStartTime,
+                                appointment.requestedEndTime,
+                                appointment.appointmentSlots
+                              )}
                             </TableCell>
                             <TableCell>
                               <Badge

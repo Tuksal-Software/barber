@@ -1,4 +1,5 @@
 import { SmsEvent } from './sms.events'
+import { formatDateForSms } from '@/lib/time/formatDate'
 
 export type SmsRole = 'customer' | 'admin'
 
@@ -61,13 +62,13 @@ type SmsTemplateMap = {
 const templates: SmsTemplateMap = {
   [SmsEvent.AppointmentCreated]: {
     customer: (payload: AppointmentCreatedPayload) =>
-      `Merhaba ${payload.customerName}, randevu talebiniz alındı. Onay için bekliyoruz.`,
+      `Merhaba ${payload.customerName}, randevu talebiniz alındı. Berber Onayı bekleniyor...`,
     admin: (payload: AppointmentCreatedPayload) =>
-      `Yeni randevu talebi alındı. Müşteri: ${payload.customerName}, Tarih: ${payload.date}, Saat: ${payload.requestedStartTime}`,
+      `Yeni randevu talebi alındı. Müşteri: ${payload.customerName}, Tarih: ${formatDateForSms(payload.date)}, Saat: ${payload.requestedStartTime}`,
   },
   [SmsEvent.AppointmentApproved]: {
     customer: (payload: AppointmentApprovedPayload) =>
-      `Merhaba ${payload.customerName}, randevunuz ONAYLANDI.\nTarih: ${payload.date}\nSaat: ${payload.startTime} - ${payload.endTime}`,
+      `Merhaba ${payload.customerName}, randevunuz ONAYLANDI.\nTarih: ${formatDateForSms(payload.date)}\nSaat: ${payload.startTime} - ${payload.endTime}`,
     admin: (_payload: AppointmentApprovedPayload) => '',
   },
   [SmsEvent.AppointmentCancelledPending]: {
@@ -75,7 +76,7 @@ const templates: SmsTemplateMap = {
       const reason = payload.reason && payload.reason.trim() 
         ? payload.reason 
         : 'İşletme tarafından kapatılan saatler'
-      return `📌 Randevunuz iptal edilmiştir\n📅 Tarih: ${payload.date}\n⏰ Saat: ${payload.time}\n❗ Neden: ${reason}`
+      return `📌 Randevunuz iptal edilmiştir\n📅 Tarih: ${formatDateForSms(payload.date)}\n⏰ Saat: ${payload.time}\n❗ Neden: ${reason}`
     },
     admin: (_payload: AppointmentCancelledPendingPayload) => '',
   },

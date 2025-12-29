@@ -842,12 +842,12 @@ export default function TakvimPage() {
           <div className="space-y-4 py-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
-                İptal Nedeni (opsiyonel)
+                İptal Nedeni (Neden girilmezse gönderilecek neden: İşletme tarafından kapatılan saatler)
               </label>
               <Textarea
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="İptal nedeni..."
+                placeholder="İşletme tarafından kapatılan saatler"
                 rows={3}
               />
             </div>

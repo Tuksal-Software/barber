@@ -6,6 +6,7 @@ import { auditLog } from '@/lib/audit/audit.logger'
 import { sendSms } from '@/lib/sms/sms.service'
 import { env } from '@/lib/config/env'
 import { createAppointmentDateTimeTR, getNowTR, isAppointmentInPast, getHoursUntilAppointment } from '@/lib/time/appointmentDateTime'
+import { formatDateTimeForSms } from '@/lib/time/formatDate'
 import { getSetting } from '@/lib/settings/settings.service'
 import { defaultSettings } from '@/lib/settings/defaults'
 
@@ -576,7 +577,7 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
       console.error('Audit log error:', error)
     }
 
-    const customerMessage = `Randevunuz başarıyla iptal edilmiştir. ${appointment.date} ${appointment.requestedStartTime}`
+    const customerMessage = `Randevunuz başarıyla iptal edilmiştir. ${formatDateTimeForSms(appointment.date, appointment.requestedStartTime)}`
 
     try {
       await sendSms(normalizedPhone, customerMessage)
@@ -638,7 +639,7 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
     const { getAdminPhoneSetting, getSmsSenderSetting } = await import('@/lib/settings/settings-helpers')
     const adminPhone = await getAdminPhoneSetting()
     if (adminPhone) {
-      const adminMessage = `📌 Müşteri tarafından iptal edildi:\n${appointment.customerName} – ${appointment.date} ${appointment.requestedStartTime}`
+      const adminMessage = `📌 Müşteri tarafından iptal edildi:\n${appointment.customerName} – ${formatDateTimeForSms(appointment.date, appointment.requestedStartTime)}`
 
       try {
         await sendSms(adminPhone, adminMessage)

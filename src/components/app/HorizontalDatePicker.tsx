@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useRef, useEffect } from "react"
 import { format, addDays, isSameDay, isPast, startOfDay } from "date-fns"
 import { tr } from "date-fns/locale/tr"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ interface HorizontalDatePickerProps {
 }
 
 const DAY_NAMES_SHORT = ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pa"]
+const DAY_NAMES_FULL = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
 
 export function HorizontalDatePicker({
   selectedDate,
@@ -21,6 +22,8 @@ export function HorizontalDatePicker({
 }: HorizontalDatePickerProps) {
   const today = useMemo(() => startOfDay(new Date()), [])
   const tomorrow = useMemo(() => addDays(today, 1), [today])
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const isScrollingRef = useRef(false)
   
   const dates = useMemo(() => {
     return Array.from({ length: 61 }, (_, i) => addDays(today, i))
@@ -35,52 +38,83 @@ export function HorizontalDatePicker({
     return isSameDay(date, selectedDate)
   }
 
-  const isTodaySelected = useMemo(() => {
-    return selectedDate && isSameDay(selectedDate, today)
-  }, [selectedDate, today])
+  const selectedDateText = useMemo(() => {
+    if (!selectedDate) return ""
+    
+    const dayOfWeek = selectedDate.getDay()
+    const dayNameIndex = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+    const dayName = DAY_NAMES_FULL[dayNameIndex]
+    const formattedDate = format(selectedDate, "dd.MM.yyyy", { locale: tr })
+    const capitalizedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1)
+    
+    let suffix = ""
+    if (isSameDay(selectedDate, today)) {
+      suffix = " (Bugün)"
+    } else if (isSameDay(selectedDate, tomorrow)) {
+      suffix = " (Yarın)"
+    }
+    
+    return `${formattedDate} ${capitalizedDayName}${suffix}`
+  }, [selectedDate, today, tomorrow])
 
-  const isTomorrowSelected = useMemo(() => {
-    return selectedDate && isSameDay(selectedDate, tomorrow)
-  }, [selectedDate, tomorrow])
+  useEffect(() => {
+    if (!selectedDate || !scrollContainerRef.current) return
+    
+    const selectedIndex = dates.findIndex(date => isSameDay(date, selectedDate))
+    if (selectedIndex === -1) return
+    
+    const container = scrollContainerRef.current
+    const cardWidth = 56 + 8
+    const scrollPosition = selectedIndex * cardWidth
+    
+    if (!isScrollingRef.current) {
+      container.scrollTo({
+        left: scrollPosition,
+        behavior: "smooth"
+      })
+    }
+  }, [selectedDate, dates])
 
-  const handleTodayClick = () => {
-    onDateSelect(today)
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (e.deltaY === 0 && e.deltaX === 0) return
+    
+    const container = scrollContainerRef.current
+    if (!container) return
+    
+    e.preventDefault()
+    container.scrollLeft += e.deltaX || e.deltaY
   }
 
-  const handleTomorrowClick = () => {
-    onDateSelect(tomorrow)
+  const handleTouchStart = () => {
+    isScrollingRef.current = true
+  }
+
+  const handleTouchEnd = () => {
+    setTimeout(() => {
+      isScrollingRef.current = false
+    }, 100)
   }
 
   return (
     <div className={cn("w-full space-y-3", className)}>
-      <div className="flex gap-2">
-        <Button
-          variant={isTodaySelected ? "default" : "outline"}
-          size="sm"
-          onClick={handleTodayClick}
-          className={cn(
-            "h-8 px-3 text-xs font-medium transition-all duration-200",
-            isTodaySelected && "shadow-md shadow-primary/20 ring-2 ring-primary/20"
-          )}
-        >
-          Bugün
-        </Button>
-        <Button
-          variant={isTomorrowSelected ? "default" : "outline"}
-          size="sm"
-          onClick={handleTomorrowClick}
-          className={cn(
-            "h-8 px-3 text-xs font-medium transition-all duration-200",
-            isTomorrowSelected && "shadow-md shadow-primary/20 ring-2 ring-primary/20"
-          )}
-        >
-          Yarın
-        </Button>
-      </div>
+      {selectedDate && (
+        <div className="text-sm font-medium text-foreground">
+          {selectedDateText}
+        </div>
+      )}
 
       <div 
-        className="overflow-x-auto pb-2 scrollbar-hide scroll-smooth"
-        style={{ scrollSnapType: "x mandatory" }}
+        ref={scrollContainerRef}
+        className="overflow-x-auto pb-2 scrollbar-hide"
+        style={{ 
+          scrollSnapType: "x mandatory",
+          scrollBehavior: "smooth",
+          WebkitOverflowScrolling: "touch",
+          overscrollBehaviorX: "contain"
+        }}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         <div className="flex gap-2 min-w-max">
           {dates.map((date, index) => {
@@ -91,14 +125,12 @@ export function HorizontalDatePicker({
             const monthName = format(date, "MMMM", { locale: tr })
             const disabled = isDateDisabled(date)
             const selected = isDateSelected(date)
-            const isToday = isSameDay(date, today)
-            const isWeekStart = dayOfWeek === 1 || (index === 0 && dayOfWeek !== 0)
 
             return (
               <div 
                 key={index} 
                 className="flex items-end gap-2"
-                style={{ scrollSnapAlign: isWeekStart ? "start" : "none" }}
+                style={{ scrollSnapAlign: "start" }}
               >
                 <Button
                   variant={selected ? "default" : "outline"}
@@ -110,9 +142,7 @@ export function HorizontalDatePicker({
                     "transition-all duration-200",
                     disabled && "opacity-50 cursor-not-allowed",
                     selected && !disabled && "ring-2 ring-primary ring-offset-2 shadow-lg shadow-primary/30",
-                    !disabled && !selected && "hover:bg-accent",
-                    isToday && !selected && "border-primary/50",
-                    selected && !disabled && "animate-[fadeIn_0.2s_ease-in-out]"
+                    !disabled && !selected && "hover:bg-accent"
                   )}
                 >
                   <span className={cn(
