@@ -26,3 +26,4 @@ INSERT INTO `_prisma_migrations` (
   1
 );
 
+

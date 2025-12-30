@@ -165,7 +165,7 @@ export default function AbonmanlarPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
-  const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('all');
+  const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('active');
   
   const [formData, setFormData] = useState({
     barberId: '',

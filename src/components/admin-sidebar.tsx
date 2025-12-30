@@ -40,62 +40,73 @@ const navItems = [
     title: "Dashboard",
     url: "/admin",
     icon: LayoutDashboardIcon,
+    disabled: false
   },
   {
     title: "Randevular",
     url: "/admin/randevular",
     icon: CalendarIcon,
+    disabled: false
   },
   {
     title: "Takvim",
     url: "/admin/randevular/takvim",
     icon: CalendarDaysIcon,
+    disabled: false
   },
   {
     title: "Abonmanlar",
     url: "/admin/abonmanlar",
     icon: RepeatIcon,
-  },
-  {
-    title: "Manuel Randevu",
-    url: "/admin/manuel-randevu",
-    icon: CalendarPlusIcon,
-  },
-  {
-    title: "Defter",
-    url: "/admin/defter",
-    icon: BookOpenIcon,
-  },
-  {
-    title: "Giderler",
-    url: "/admin/giderler",
-    icon: ReceiptIcon,
-  },
-  {
-    title: "SMS Logları",
-    url: "/admin/sms-log",
-    icon: MessageSquareIcon,
-  },
-  {
-    title: "Audit Logs",
-    url: "/admin/audit-logs",
-    icon: ActivityIcon,
+    disabled: false
   },
   {
     title: "Çalışma Saatleri",
     url: "/admin/working-hours",
     icon: ClockIcon,
+    disabled: false
   },
   {
-    title: "Ayarlar",
-    url: "/admin/settings",
-    icon: SettingsIcon,
+    title: "Manuel Randevu",
+    url: "/admin/manuel-randevu",
+    icon: CalendarPlusIcon,
+    disabled: false
+  },
+  {
+    title: "Defter",
+    url: "/admin/defter",
+    icon: BookOpenIcon,
+    disabled: false
+  },
+  {
+    title: "Giderler",
+    url: "/admin/giderler",
+    icon: ReceiptIcon,
+    disabled: false
+  },
+  {
+    title: "SMS Logları",
+    url: "/admin/sms-log",
+    icon: MessageSquareIcon,
+    disabled: false
+  },
+  {
+    title: "Audit Logs",
+    url: "/admin/audit-logs",
+    icon: ActivityIcon,
+    disabled: false
   },
   {
     title: "Berberler",
     url: "/admin/berberler",
     icon: UsersIcon,
-    disabled: true,
+    disabled: false
+  },
+  {
+    title: "Ayarlar",
+    url: "/admin/settings",
+    icon: SettingsIcon,
+    disabled: false
   },
 ]
 

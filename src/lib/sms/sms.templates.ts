@@ -7,6 +7,7 @@ export interface AppointmentCreatedPayload {
   customerName: string
   customerPhone: string
   barberId: string
+  barberName?: string
   date: string
   requestedStartTime: string
   requestedEndTime?: string
@@ -83,7 +84,8 @@ const templates: SmsTemplateMap = {
       const timeRange = payload.requestedEndTime 
         ? `${payload.requestedStartTime} - ${payload.requestedEndTime}`
         : payload.requestedStartTime
-      return `Yeni randevu talebi alındı.\nMüşteri: ${payload.customerName}\nTarih: ${formatDateForSms(payload.date)}\nSaat: ${timeRange}\nHizmet: ${serviceTypeText}`
+      const barberLine = payload.barberName ? `Berber: ${payload.barberName}\n` : ''
+      return `Yeni randevu talebi alındı.\n${barberLine}Müşteri: ${payload.customerName}\nTarih: ${formatDateForSms(payload.date)}\nSaat: ${timeRange}\nHizmet: ${serviceTypeText}`
     },
   },
   [SmsEvent.AppointmentApproved]: {
@@ -93,7 +95,7 @@ const templates: SmsTemplateMap = {
         : payload.serviceType === 'sac_sakal' ? 'Saç ve Sakal'
         : ''
       const serviceLine = serviceTypeText ? `\nHizmet: ${serviceTypeText}` : ''
-      return `Merhaba ${payload.customerName}, randevunuz ONAYLANDI.\nTarih: ${formatDateForSms(payload.date)}\nSaat: ${payload.startTime} - ${payload.endTime}${serviceLine}`
+      return `Merhaba ${payload.customerName}, randevunuz ONAYLANDI.\nTarih: ${formatDateForSms(payload.date)}\nSaat: ${payload.startTime} - ${payload.endTime}${serviceLine}\n\nHizmetin aksamaması için randevu saatinden 10 dakika önce gelmenizi rica ederiz.`
     },
     admin: (_payload: AppointmentApprovedPayload) => '',
   },

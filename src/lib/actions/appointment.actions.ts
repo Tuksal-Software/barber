@@ -107,7 +107,7 @@ export async function createAppointmentRequest(
 
   const barber = await prisma.barber.findUnique({
     where: { id: barberId },
-    select: { isActive: true },
+    select: { isActive: true, name: true },
   })
 
   if (!barber) {
@@ -213,6 +213,7 @@ export async function createAppointmentRequest(
     customerName,
     customerPhone,
     barberId,
+    barberName: barber.name,
     date,
     requestedStartTime,
     requestedEndTime: finalEndTime || '',
