@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
@@ -47,6 +46,7 @@ import type { UnpaidLedgerItem, PaidLedgerItem } from "@/lib/actions/ledger-v2.a
 import { getSessionClient } from "@/lib/actions/auth-client.actions"
 import { toast } from "sonner"
 import { Edit2, X } from "lucide-react"
+import { BarberFilter } from "@/components/admin/BarberFilter"
 
 interface Barber {
   id: string
@@ -55,7 +55,7 @@ interface Barber {
 
 export default function DefterPage() {
   const [barbers, setBarbers] = useState<Barber[]>([])
-  const [selectedBarber, setSelectedBarber] = useState<string>("all")
+  const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState<string>("")
   const [unpaid, setUnpaid] = useState<UnpaidLedgerItem[]>([])
   const [paid, setPaid] = useState<PaidLedgerItem[]>([])
@@ -83,11 +83,11 @@ export default function DefterPage() {
     try {
       const [result, summaryData] = await Promise.all([
         getLedgerCandidates({
-          barberId: selectedBarber === "all" ? undefined : selectedBarber,
+          barberId: selectedBarberId || undefined,
           selectedDate: selectedDate || "",
         }),
         getLedgerSummary({
-          barberId: selectedBarber === "all" ? undefined : selectedBarber,
+          barberId: selectedBarberId || undefined,
           selectedDate: selectedDate || "",
         }),
       ])
@@ -108,7 +108,7 @@ export default function DefterPage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedBarber, selectedDate])
+  }, [selectedBarberId, selectedDate])
 
   useEffect(() => {
     loadLedgerData()
@@ -123,7 +123,7 @@ export default function DefterPage() {
           const barbersList = await getActiveBarbers()
           setBarbers(barbersList.map((b) => ({ id: b.id, name: b.name })))
         } else {
-          setSelectedBarber(session.userId)
+          setSelectedBarberId(session.userId)
         }
       }
     } catch (error) {
@@ -428,23 +428,14 @@ export default function DefterPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             {isAdmin && (
-              <div className="w-full sm:w-[200px]">
-                <Label htmlFor="barber-select" className="mb-2 block">
-                  Berber
-                </Label>
-                <Select value={selectedBarber} onValueChange={setSelectedBarber}>
-                  <SelectTrigger id="barber-select">
-                    <SelectValue placeholder="Tüm Berberler" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Tüm Berberler</SelectItem>
-                    {barbers.map((barber) => (
-                      <SelectItem key={barber.id} value={barber.id}>
-                        {barber.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="w-full">
+                <Label className="mb-2 block">Berber</Label>
+                <BarberFilter
+                  barbers={barbers}
+                  selectedBarberId={selectedBarberId}
+                  onBarberChange={setSelectedBarberId}
+                  showLabel={false}
+                />
               </div>
             )}
 

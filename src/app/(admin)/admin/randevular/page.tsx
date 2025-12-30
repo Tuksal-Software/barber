@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -25,6 +26,7 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { BarberFilter } from "@/components/admin/BarberFilter";
 
 interface Barber {
   id: string;
@@ -56,7 +58,7 @@ export default function RandevularPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
-  const [selectedBarber, setSelectedBarber] = useState<string>('all');
+  const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -73,7 +75,7 @@ export default function RandevularPage() {
 
   useEffect(() => {
     filterAppointments();
-  }, [appointments, selectedBarber, selectedStatus]);
+  }, [appointments, selectedBarberId, selectedStatus]);
 
   useEffect(() => {
     if (!selectedAppointment) {
@@ -162,8 +164,8 @@ export default function RandevularPage() {
   const filterAppointments = () => {
     let filtered = [...appointments];
 
-    if (selectedBarber !== 'all') {
-      filtered = filtered.filter(apt => apt.barberId === selectedBarber);
+    if (selectedBarberId) {
+      filtered = filtered.filter(apt => apt.barberId === selectedBarberId);
     }
 
     if (selectedStatus !== 'all') {
@@ -231,13 +233,13 @@ export default function RandevularPage() {
   const getStatusBadge = (status: Appointment['status']) => {
     switch (status) {
       case 'approved':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Onaylandı</Badge>;
+        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-xs h-5 px-2">Onaylandı</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Bekliyor</Badge>;
+        return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20 text-xs h-5 px-2">Bekliyor</Badge>;
       case 'cancelled':
-        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">İptal</Badge>;
+        return <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs h-5 px-2">İptal</Badge>;
       case 'rejected':
-        return <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20">Reddedildi</Badge>;
+        return <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20 text-xs h-5 px-2">Reddedildi</Badge>;
       default:
         return null;
     }
@@ -300,134 +302,116 @@ export default function RandevularPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold text-foreground">Randevular</h1>
-        <p className="text-muted-foreground">Randevu yönetimi ve onay işlemleri</p>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3">
+        <h1 className="text-2xl font-semibold text-foreground">Randevular</h1>
+        <BarberFilter
+          barbers={barbers}
+          selectedBarberId={selectedBarberId}
+          onBarberChange={setSelectedBarberId}
+        />
       </div>
 
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Select value={selectedBarber} onValueChange={setSelectedBarber}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Berber Seç" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Berberler</SelectItem>
-                {barbers.map((barber) => (
-                  <SelectItem key={barber.id} value={barber.id}>
-                    {barber.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1" />
+        <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as StatusFilter)}>
+          <SelectTrigger className="w-full sm:w-[180px] h-8 text-xs">
+            <SelectValue placeholder="Durum Seç" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Tüm Durumlar</SelectItem>
+            <SelectItem value="pending">Bekleyen</SelectItem>
+            <SelectItem value="approved">Onaylanan</SelectItem>
+            <SelectItem value="cancelled">İptal</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-            <Select value={selectedStatus} onValueChange={(value) => setSelectedStatus(value as StatusFilter)}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Durum Seç" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tüm Durumlar</SelectItem>
-                <SelectItem value="pending">Bekleyen</SelectItem>
-                <SelectItem value="approved">Onaylanan</SelectItem>
-                <SelectItem value="cancelled">İptal</SelectItem>
-              </SelectContent>
-            </Select>
+      <div>
+        {filteredAppointments.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            Randevu bulunamadı
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Randevu Listesi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {filteredAppointments.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Randevu bulunamadı
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredAppointments.map((appointment) => (
-                <div
-                  key={appointment.id}
-                  className={cn(
-                    "p-4 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors",
-                    appointment.status === 'cancelled' && appointment.cancelledBy === 'customer' 
-                      ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800"
-                      : "bg-card"
-                  )}
-                  onClick={() => handleAppointmentClick(appointment)}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-semibold text-foreground">{appointment.customerName}</h4>
-                        {getStatusBadge(appointment.status)}
-                        {appointment.status === 'cancelled' && appointment.cancelledBy === 'admin' && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Badge variant="destructive" className="text-xs">
-                                  Çalışma saatleri kapatıldı
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Bu randevu çalışma saatleri kapatıldığı için iptal edilmiştir.</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                        {appointment.status === 'cancelled' && appointment.cancelledBy === 'customer' && (
-                          <Badge variant="outline" className="text-xs">
-                            Müşteri
-                          </Badge>
-                        )}
+        ) : (
+          <div className="space-y-2">
+            {filteredAppointments.map((appointment) => (
+              <div
+                key={appointment.id}
+                className={cn(
+                  "p-3 border border-border/50 rounded-lg cursor-pointer hover:bg-muted/30 hover:border-border transition-all",
+                  appointment.status === 'cancelled' && appointment.cancelledBy === 'customer' 
+                    ? "bg-amber-50/30 dark:bg-amber-950/10 border-amber-200/50 dark:border-amber-800/50"
+                    : "bg-card"
+                )}
+                onClick={() => handleAppointmentClick(appointment)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-1.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="font-medium text-foreground text-sm">{appointment.customerName}</h4>
+                      {getStatusBadge(appointment.status)}
+                      {appointment.status === 'cancelled' && appointment.cancelledBy === 'admin' && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Badge variant="destructive" className="text-xs h-5 px-1.5">
+                                Çalışma saatleri kapatıldı
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Bu randevu çalışma saatleri kapatıldığı için iptal edilmiştir.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      {appointment.status === 'cancelled' && appointment.cancelledBy === 'customer' && (
+                        <Badge variant="outline" className="text-xs h-5 px-1.5">
+                          Müşteri
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>{formatDate(appointment.date)}</span>
                       </div>
-                      
-                      <div className="space-y-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          <span>{formatDate(appointment.date)}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          <span>
-                            {formatAppointmentTimeRange(
-                              appointment.requestedStartTime,
-                              appointment.requestedEndTime,
-                              appointment.appointmentSlots
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-muted-foreground">Hizmet:</span>
-                          <span className="text-xs font-medium text-primary">
-                            {getServiceTypeText(
-                              appointment.serviceType,
-                              appointment.requestedStartTime,
-                              appointment.requestedEndTime
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          <span>{appointment.barberName}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          <span>{appointment.customerPhone}</span>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>
+                          {formatAppointmentTimeRange(
+                            appointment.requestedStartTime,
+                            appointment.requestedEndTime,
+                            appointment.appointmentSlots
+                          )}
+                        </span>
                       </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-muted-foreground/70">Hizmet:</span>
+                        <span className="text-primary font-medium">
+                          {getServiceTypeText(
+                            appointment.serviceType,
+                            appointment.requestedStartTime,
+                            appointment.requestedEndTime
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <User className="h-3.5 w-3.5" />
+                        <span>{appointment.barberName}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-0.5">
+                      <Phone className="h-3 w-3" />
+                      <span>{appointment.customerPhone}</span>
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent 

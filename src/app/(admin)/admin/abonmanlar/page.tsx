@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,8 @@ import { format } from "date-fns"
 import { tr } from "date-fns/locale/tr"
 import { TimeRangePicker } from "@/components/app/TimeRangePicker";
 import { minutesToTime, parseTimeToMinutes } from "@/lib/time";
+import { BarberFilter } from "@/components/admin/BarberFilter";
+import { cn } from "@/lib/utils";
 
 interface Barber {
   id: string;
@@ -166,6 +168,7 @@ export default function AbonmanlarPage() {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
   const [filterActive, setFilterActive] = useState<'all' | 'active' | 'inactive'>('active');
+  const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     barberId: '',
@@ -228,11 +231,17 @@ export default function AbonmanlarPage() {
   }
 
   const filteredSubscriptions = useMemo(() => {
-    if (filterActive === 'all') return subscriptions;
-    return subscriptions.filter(sub => 
+    let filtered = subscriptions;
+
+    if (selectedBarberId) {
+      filtered = filtered.filter(sub => sub.barberId === selectedBarberId);
+    }
+
+    if (filterActive === 'all') return filtered;
+    return filtered.filter(sub => 
       filterActive === 'active' ? sub.isActive : !sub.isActive
     );
-  }, [subscriptions, filterActive]);
+  }, [subscriptions, filterActive, selectedBarberId]);
 
   function handleCreate() {
     setFormData({
@@ -327,13 +336,10 @@ export default function AbonmanlarPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Abonmanlar</h1>
-          <p className="text-muted-foreground mt-1">
-            Tekrarlayan randevu abonmanlarını yönetin
-          </p>
+        <div className="flex-1">
+          <h1 className="text-2xl font-semibold text-foreground">Abonmanlar</h1>
         </div>
         <Button onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" />
@@ -341,82 +347,121 @@ export default function AbonmanlarPage() {
         </Button>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Abonman Listesi</CardTitle>
-            <div className="flex gap-2">
-              <Button
-                variant={filterActive === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterActive('all')}
-              >
-                Tümü
-              </Button>
-              <Button
-                variant={filterActive === 'active' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterActive('active')}
-              >
-                Aktif
-              </Button>
-              <Button
-                variant={filterActive === 'inactive' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterActive('inactive')}
-              >
-                Pasif
-              </Button>
-            </div>
+      {barbers.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <BarberFilter
+            barbers={barbers}
+            selectedBarberId={selectedBarberId}
+            onBarberChange={setSelectedBarberId}
+          />
+        </div>
+      )}
+
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          variant={filterActive === 'all' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilterActive('all')}
+          className="h-8 text-xs"
+        >
+          Tümü
+        </Button>
+        <Button
+          variant={filterActive === 'active' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilterActive('active')}
+          className="h-8 text-xs"
+        >
+          Aktif
+        </Button>
+        <Button
+          variant={filterActive === 'inactive' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setFilterActive('inactive')}
+          className="h-8 text-xs"
+        >
+          Pasif
+        </Button>
+      </div>
+
+      <div>
+        {filteredSubscriptions.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            Abonman bulunamadı
           </div>
-        </CardHeader>
-        <CardContent>
-          {filteredSubscriptions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Abonman bulunamadı
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredSubscriptions.map((subscription) => (
-                <Card key={subscription.id} className="border">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2 flex-1">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-semibold">{subscription.customerName}</span>
-                          <Badge variant={subscription.isActive ? 'default' : 'secondary'}>
+        ) : (
+          <div className="space-y-2">
+            {filteredSubscriptions.map((subscription) => {
+                const dayName = DAY_NAMES[subscription.dayOfWeek === 0 ? 6 : subscription.dayOfWeek - 1];
+                let recurrenceText = '';
+                if (subscription.recurrenceType === 'weekly') {
+                  recurrenceText = `Her hafta ${dayName}`;
+                } else if (subscription.recurrenceType === 'biweekly') {
+                  recurrenceText = `2 haftada bir ${dayName}`;
+                } else {
+                  const weekText = subscription.weekOfMonth === 1 ? '1.' : subscription.weekOfMonth === 2 ? '2.' : subscription.weekOfMonth === 3 ? '3.' : subscription.weekOfMonth === 4 ? '4.' : '5.';
+                  recurrenceText = `Her ayın ${weekText} ${dayName} günü`;
+                }
+
+                const startMinutes = parseTimeToMinutes(subscription.startTime);
+                const endMinutes = startMinutes + subscription.durationMinutes;
+                const endTime = minutesToTime(endMinutes);
+
+                return (
+                  <div
+                    key={subscription.id}
+                    className={cn(
+                      "p-3 border border-border/50 rounded-lg transition-all bg-card",
+                      "hover:bg-muted/30 hover:border-border",
+                      !subscription.isActive && "opacity-75"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-1.5 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-medium text-foreground text-sm">{subscription.customerName}</h4>
+                          <Badge 
+                            variant={subscription.isActive ? 'default' : 'secondary'}
+                            className="text-xs h-5 px-2"
+                          >
                             {subscription.isActive ? 'Aktif' : 'Pasif'}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Phone className="h-4 w-4" />
-                          {subscription.customerPhone}
+                        
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <Repeat className="h-3.5 w-3.5" />
+                            <span>{recurrenceText}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5" />
+                            <span>{subscription.startTime} – {endTime} ({subscription.durationMinutes} dk)</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Repeat className="h-4 w-4" />
-                          {getRecurrenceDescription(
-                            subscription.recurrenceType,
-                            subscription.dayOfWeek,
-                            subscription.weekOfMonth
-                          )}
+                        
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span>
+                              {format(new Date(subscription.startDate), 'dd MMM yyyy', { locale: tr })}
+                              {subscription.endDate && ` - ${format(new Date(subscription.endDate), 'dd MMM yyyy', { locale: tr })}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5" />
+                            <span>{subscription.barber.name}</span>
+                          </div>
+                          <span className="text-muted-foreground/70">
+                            Aktif randevu: {subscription.appointmentRequests.length}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          {subscription.startTime} ({subscription.durationMinutes} dk)
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          {format(new Date(subscription.startDate), 'dd MMM yyyy', { locale: tr })}
-                          {subscription.endDate && ` - ${format(new Date(subscription.endDate), 'dd MMM yyyy', { locale: tr })}`}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Berber: {subscription.barber.name}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Aktif randevu: {subscription.appointmentRequests.length}
+                        
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 pt-0.5">
+                          <Phone className="h-3 w-3" />
+                          <span>{subscription.customerPhone}</span>
                         </div>
                       </div>
+                      
                       {subscription.isActive && (
                         <Button
                           variant="destructive"
@@ -425,19 +470,19 @@ export default function AbonmanlarPage() {
                             setSelectedSubscription(subscription);
                             setIsCancelDialogOpen(true);
                           }}
+                          className="h-7 px-2 text-xs"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          İptal Et
+                          <Trash2 className="h-3 w-3 mr-1.5" />
+                          İptal
                         </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
 
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

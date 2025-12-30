@@ -25,6 +25,7 @@ import {
 } from '@/lib/actions/working-hours.actions'
 import { Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
+import { BarberFilter } from '@/components/admin/BarberFilter'
 
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Pazar' },
@@ -140,7 +141,7 @@ function WorkingHourDayItem({
 
 export default function WorkingHoursPage() {
   const [barbers, setBarbers] = useState<Array<{ id: string; name: string }>>([])
-  const [selectedBarberId, setSelectedBarberId] = useState<string>('')
+  const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null)
   const [workingHours, setWorkingHours] = useState<Map<number, WorkingHour>>(new Map())
   const [overrides, setOverrides] = useState<WorkingHourOverride[]>([])
   const [loading, setLoading] = useState(true)
@@ -167,9 +168,6 @@ export default function WorkingHoursPage() {
     try {
       const barbersList = await getActiveBarbers()
       setBarbers(barbersList.map(b => ({ id: b.id, name: b.name })))
-      if (barbersList.length > 0) {
-        setSelectedBarberId(barbersList[0].id)
-      }
     } catch (error) {
       console.error('Error loading barbers:', error)
       toast.error('Berberler yüklenirken hata oluştu')
@@ -318,21 +316,12 @@ export default function WorkingHoursPage() {
         <CardHeader>
           <CardTitle>Berber Seçimi</CardTitle>
           <CardDescription>Çalışma saatlerini yönetmek istediğiniz berberi seçin</CardDescription>
+          <BarberFilter
+            barbers={barbers}
+            selectedBarberId={selectedBarberId}
+            onBarberChange={setSelectedBarberId}
+          />
         </CardHeader>
-        <CardContent>
-          <Select value={selectedBarberId} onValueChange={setSelectedBarberId}>
-            <SelectTrigger className="w-full sm:w-[300px]">
-              <SelectValue placeholder="Berber seçin" />
-            </SelectTrigger>
-            <SelectContent>
-              {barbers.map(barber => (
-                <SelectItem key={barber.id} value={barber.id}>
-                  {barber.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
       </Card>
 
       {selectedBarberId && (

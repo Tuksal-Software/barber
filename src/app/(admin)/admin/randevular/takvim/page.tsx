@@ -26,6 +26,7 @@ import { parseTimeToMinutes, minutesToTime, overlaps } from "@/lib/time";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { BarberFilter } from "@/components/admin/BarberFilter";
 
 interface Barber {
   id: string;
@@ -93,7 +94,7 @@ function getAppointmentsForDate(
 ): CalendarAppointment[] {
   return appointments.filter(apt => {
     if (apt.date !== dateKey) return false;
-    if (barberId && barberId !== 'all' && apt.barberId !== barberId) return false;
+    if (barberId && apt.barberId !== barberId) return false;
     return true;
   });
 }
@@ -175,7 +176,7 @@ function getBorderColor(status: CalendarAppointment['status'], subscriptionId?: 
 export default function TakvimPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
-  const [selectedBarber, setSelectedBarber] = useState<string>('all');
+  const [selectedBarberId, setSelectedBarberId] = useState<string | null>(null);
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [selectedAppointment, setSelectedAppointment] = useState<CalendarAppointment | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -377,9 +378,9 @@ export default function TakvimPage() {
   };
 
   const filteredAppointments = useMemo(() => {
-    if (selectedBarber === 'all') return appointments;
-    return appointments.filter(apt => apt.barberId === selectedBarber);
-  }, [appointments, selectedBarber]);
+    if (!selectedBarberId) return appointments;
+    return appointments.filter(apt => apt.barberId === selectedBarberId);
+  }, [appointments, selectedBarberId]);
 
   const dayAppointments = useMemo(() => {
     if (isMobile) {
@@ -461,19 +462,12 @@ export default function TakvimPage() {
             </div>
 
             <div className="flex justify-center md:justify-end">
-              <Select value={selectedBarber} onValueChange={setSelectedBarber}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="Berber Seç" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tüm Berberler</SelectItem>
-                  {barbers.map((barber) => (
-                    <SelectItem key={barber.id} value={barber.id}>
-                      {barber.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <BarberFilter
+                barbers={barbers}
+                selectedBarberId={selectedBarberId}
+                onBarberChange={setSelectedBarberId}
+                showLabel={false}
+              />
             </div>
           </div>
         </CardContent>
@@ -618,7 +612,7 @@ export default function TakvimPage() {
                     const dayAppointments = getAppointmentsForDate(
                       filteredAppointments,
                       dateKey,
-                      selectedBarber
+                      selectedBarberId
                     );
 
                     const groupedByTimeSlot = groupBySlot(dayAppointments);
