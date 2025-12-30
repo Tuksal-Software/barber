@@ -14,6 +14,7 @@ export interface AppointmentRequestListItem {
   date: string
   requestedStartTime: string
   requestedEndTime: string | null
+  serviceType: string | null
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
   cancelledBy: string | null
   createdAt: Date
@@ -64,6 +65,7 @@ export async function getPendingAppointmentRequests(): Promise<AppointmentReques
     date: req.date,
     requestedStartTime: req.requestedStartTime,
     requestedEndTime: req.requestedEndTime,
+    serviceType: req.serviceType,
     status: req.status,
     cancelledBy: req.cancelledBy,
     createdAt: req.createdAt,
@@ -115,6 +117,7 @@ export async function getRecentAppointments(limit: number = 5): Promise<Appointm
     date: req.date,
     requestedStartTime: req.requestedStartTime,
     requestedEndTime: req.requestedEndTime,
+    serviceType: req.serviceType,
     status: req.status,
     cancelledBy: req.cancelledBy,
     createdAt: req.createdAt,
@@ -166,6 +169,7 @@ export async function getAllAppointmentRequests(): Promise<AppointmentRequestLis
     date: req.date,
     requestedStartTime: req.requestedStartTime,
     requestedEndTime: req.requestedEndTime,
+    serviceType: req.serviceType,
     status: req.status,
     cancelledBy: req.cancelledBy,
     createdAt: req.createdAt,
@@ -183,6 +187,7 @@ export interface CalendarAppointment {
   date: string
   startTime: string
   endTime: string
+  serviceType: string | null
   status: 'approved' | 'pending' | 'rejected' | 'cancelled'
   subscriptionId?: string | null
 }
@@ -218,6 +223,7 @@ export async function getCalendarAppointments(): Promise<CalendarAppointment[]> 
         date: req.date,
         startTime: norm(slot.startTime),
         endTime: norm(slot.endTime),
+        serviceType: req.serviceType,
         status: req.status,
         subscriptionId: req.subscriptionId,
       }
@@ -236,6 +242,7 @@ export async function getCalendarAppointments(): Promise<CalendarAppointment[]> 
       date: req.date,
       startTime: start,
       endTime: end,
+      serviceType: req.serviceType,
       status: req.status,
       subscriptionId: req.subscriptionId,
     }

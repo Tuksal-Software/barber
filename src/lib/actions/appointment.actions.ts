@@ -8,6 +8,7 @@ import { sendSms } from '@/lib/sms/sms.service'
 import { requireAdmin, getSession } from '@/lib/actions/auth.actions'
 import { dispatchSms, sendSmsForEvent } from '@/lib/sms/sms.dispatcher'
 import { SmsEvent } from '@/lib/sms/sms.events'
+import type { AppointmentApprovedPayload } from '@/lib/sms/sms.templates'
 import { auditLog } from '@/lib/audit/audit.logger'
 
 export interface CreateAppointmentRequestInput {
@@ -18,11 +19,13 @@ export interface CreateAppointmentRequestInput {
   date: string
   requestedStartTime: string
   requestedEndTime?: string
+  serviceType?: string
+  durationMinutes?: number
 }
 
 export interface ApproveAppointmentRequestInput {
   appointmentRequestId: string
-  approvedDurationMinutes: 15 | 30 | 45 | 60
+  approvedDurationMinutes: 30 | 60
 }
 
 export interface CancelAppointmentRequestInput {
@@ -71,6 +74,8 @@ export async function createAppointmentRequest(
     date,
     requestedStartTime,
     requestedEndTime,
+    serviceType,
+    durationMinutes,
   } = input
 
   try {
@@ -88,6 +93,8 @@ export async function createAppointmentRequest(
         date,
         requestedStartTime,
         requestedEndTime,
+        serviceType,
+        durationMinutes,
       },
     })
   } catch (error) {
@@ -110,6 +117,15 @@ export async function createAppointmentRequest(
   if (!barber.isActive) {
     throw new Error('Berber aktif değil')
   }
+
+  let calculatedEndTime: string | null = null
+  if (durationMinutes && requestedStartTime) {
+    const startMinutes = parseTimeToMinutes(requestedStartTime)
+    const endMinutes = startMinutes + durationMinutes
+    calculatedEndTime = minutesToTime(endMinutes)
+  }
+
+  const finalEndTime = requestedEndTime || calculatedEndTime
 
   const activeAppointments = await prisma.appointmentRequest.findMany({
     where: {
@@ -165,7 +181,8 @@ export async function createAppointmentRequest(
       customerEmail: customerEmail || null,
       date,
       requestedStartTime,
-      requestedEndTime: requestedEndTime ?? null,
+      requestedEndTime: finalEndTime,
+      serviceType: serviceType || null,
       status: 'pending',
     },
   })
@@ -181,9 +198,11 @@ export async function createAppointmentRequest(
         barberId,
         date,
         requestedStartTime,
-        requestedEndTime,
+        requestedEndTime: finalEndTime,
         customerName,
         customerPhone,
+        serviceType,
+        durationMinutes,
       },
     })
   } catch (error) {
@@ -196,6 +215,8 @@ export async function createAppointmentRequest(
     barberId,
     date,
     requestedStartTime,
+    requestedEndTime: finalEndTime || '',
+    serviceType: serviceType || null,
   })
 
   return appointmentRequest.id
@@ -212,17 +233,11 @@ export async function approveAppointmentRequest(
     throw new Error('Randevu talebi ID ve onaylanan süre gereklidir')
   }
 
-  if (![15, 30, 45, 60].includes(approvedDurationMinutes)) {
-    throw new Error('Geçersiz süre. 15, 30, 45 veya 60 dakika olmalıdır')
+  if (![30, 60].includes(approvedDurationMinutes)) {
+    throw new Error('Geçersiz süre. 30 veya 60 dakika olmalıdır')
   }
 
-  let smsPayload: {
-    customerName: string
-    customerPhone: string
-    date: string
-    startTime: string
-    endTime: string
-  } | null = null
+  let smsPayload: AppointmentApprovedPayload | null = null
 
   await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const appointmentRequest = await tx.appointmentRequest.findUnique({
@@ -308,6 +323,7 @@ export async function approveAppointmentRequest(
       date: appointmentRequest.date,
       startTime: approvedStartTime,
       endTime: approvedEndTime,
+      serviceType: appointmentRequest.serviceType || null,
     }
   })
 

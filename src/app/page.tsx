@@ -32,6 +32,7 @@ import type { CustomerTimeButton } from "@/lib/actions/availability.actions"
 
 const wizardSteps = [
   { label: "Berber" },
+  { label: "Ürün Seçimi" },
   { label: "Tarih & Saat" },
   { label: "Bilgiler" },
   { label: "Onay" },
@@ -49,6 +50,7 @@ export default function BookingPage() {
   const [barbers, setBarbers] = useState<BarberListItem[]>([])
   const [loadingBarbers, setLoadingBarbers] = useState(true)
   const [selectedBarber, setSelectedBarber] = useState<BarberListItem | null>(null)
+  const [selectedServiceType, setSelectedServiceType] = useState<"saç" | "sakal" | "saç_sakal" | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date())
   const [selectedStart, setSelectedStart] = useState<string>("")
   const [timeButtons, setTimeButtons] = useState<CustomerTimeButton[]>([])
@@ -169,8 +171,20 @@ export default function BookingPage() {
     fetchShopName()
   }, [])
 
+  const getDurationFromServiceType = (serviceType: "saç" | "sakal" | "saç_sakal" | null): number | null => {
+    if (!serviceType) return null
+    if (serviceType === "saç_sakal") return 60
+    return 30
+  }
+
+  const mapServiceTypeToDb = (serviceType: "saç" | "sakal" | "saç_sakal"): string => {
+    if (serviceType === "saç") return "sac"
+    if (serviceType === "saç_sakal") return "sac_sakal"
+    return "sakal"
+  }
+
   useEffect(() => {
-    if (!selectedBarber || !selectedDate) {
+    if (!selectedBarber || !selectedDate || !selectedServiceType) {
       setTimeButtons([])
       setSelectedStart("")
       return
@@ -180,9 +194,15 @@ export default function BookingPage() {
       try {
         setLoadingSlots(true)
         const dateStr = format(selectedDate!, "yyyy-MM-dd")
+        const duration = getDurationFromServiceType(selectedServiceType)
+        if (!duration) {
+          setTimeButtons([])
+          return
+        }
         const buttons = await getCustomerTimeButtonsV2({
           barberId: selectedBarber!.id,
           date: dateStr,
+          durationMinutes: duration,
         })
         setTimeButtons(buttons)
         setSelectedStart("")
@@ -195,7 +215,7 @@ export default function BookingPage() {
     }
 
     fetchTimeButtons()
-  }, [selectedBarber, selectedDate])
+  }, [selectedBarber, selectedDate, selectedServiceType])
 
   const canProceed = () => {
     if (isPending) return false
@@ -203,8 +223,10 @@ export default function BookingPage() {
       case 1:
         return selectedBarber !== null && !loadingBarbers
       case 2:
-        return selectedDate !== undefined && selectedStart !== "" && !loadingSlots
+        return selectedServiceType !== null
       case 3:
+        return selectedDate !== undefined && selectedStart !== "" && !loadingSlots
+      case 4:
         return (
           formData.customerName &&
           formData.customerName.length >= 2 &&
@@ -212,7 +234,7 @@ export default function BookingPage() {
           /^\+90[5][0-9]{9}$/.test(formData.customerPhone) &&
           showNameInput
         )
-      case 4:
+      case 5:
         return true
       default:
         return false
@@ -220,12 +242,21 @@ export default function BookingPage() {
   }
 
   const handleNext = () => {
-    if (step < 4 && canProceed() && !isPending) {
+    if (step < 5 && canProceed() && !isPending) {
       setIsTransitioning(true)
       setTimeout(() => {
         setStep(step + 1)
         setIsTransitioning(false)
       }, 150)
+    }
+  }
+
+  const handleServiceTypeChange = (serviceType: "saç" | "sakal" | "saç_sakal") => {
+    if (selectedServiceType !== serviceType) {
+      setSelectedServiceType(serviceType)
+      setSelectedDate(new Date())
+      setSelectedStart("")
+      setTimeButtons([])
     }
   }
 
@@ -240,19 +271,26 @@ export default function BookingPage() {
   }
 
   const handleConfirm = () => {
-    if (!selectedBarber || !selectedDate || !selectedStart) {
+    if (!selectedBarber || !selectedDate || !selectedStart || !selectedServiceType) {
       return
     }
 
     startTransition(async () => {
       try {
         const dateStr = format(selectedDate, "yyyy-MM-dd")
+        const duration = getDurationFromServiceType(selectedServiceType)
+        if (!duration) {
+          toast.error("Geçersiz ürün seçimi")
+          return
+        }
         await createAppointmentRequest({
           barberId: selectedBarber.id,
           customerName: formData.customerName,
           customerPhone: formData.customerPhone,
           date: dateStr,
           requestedStartTime: selectedStart,
+          serviceType: mapServiceTypeToDb(selectedServiceType),
+          durationMinutes: duration,
         })
         setShowSuccess(true)
       } catch (error) {
@@ -265,6 +303,7 @@ export default function BookingPage() {
     setShowSuccess(false)
     setStep(1)
     setSelectedBarber(null)
+    setSelectedServiceType(null)
     setSelectedDate(new Date())
     setSelectedStart("")
     setPhoneValue("")
@@ -364,10 +403,10 @@ export default function BookingPage() {
   }
 
   const handleStepSubmit = handleSubmit((data) => {
-    if (step === 3 && !isPending) {
+    if (step === 4 && !isPending) {
       setIsTransitioning(true)
       setTimeout(() => {
-        setStep(4)
+        setStep(5)
         setIsTransitioning(false)
       }, 150)
     }
@@ -478,6 +517,76 @@ export default function BookingPage() {
       case 2:
         return (
           <div className="space-y-6">
+            <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Ürün Seçimi</h2>
+            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
+              <CardContent className="p-6">
+                <div className="space-y-3">
+                  <Card
+                    className={cn(
+                      "cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl",
+                      selectedServiceType === "saç" && "ring-2 ring-primary shadow-xl"
+                    )}
+                    onClick={() => !isPending && handleServiceTypeChange("saç")}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-foreground">Saç</h3>
+                          <p className="text-sm text-muted-foreground mt-1">30 dakika</p>
+                        </div>
+                        {selectedServiceType === "saç" && (
+                          <CheckCircle2 className="h-6 w-6 text-primary" />
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    className={cn(
+                      "cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl",
+                      selectedServiceType === "sakal" && "ring-2 ring-primary shadow-xl"
+                    )}
+                    onClick={() => !isPending && handleServiceTypeChange("sakal")}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-foreground">Sakal</h3>
+                          <p className="text-sm text-muted-foreground mt-1">30 dakika</p>
+                        </div>
+                        {selectedServiceType === "sakal" && (
+                          <CheckCircle2 className="h-6 w-6 text-primary" />
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card
+                    className={cn(
+                      "cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl",
+                      selectedServiceType === "saç_sakal" && "ring-2 ring-primary shadow-xl"
+                    )}
+                    onClick={() => !isPending && handleServiceTypeChange("saç_sakal")}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="font-semibold text-foreground">Saç & Sakal</h3>
+                          <p className="text-sm text-muted-foreground mt-1">60 dakika</p>
+                        </div>
+                        {selectedServiceType === "saç_sakal" && (
+                          <CheckCircle2 className="h-6 w-6 text-primary" />
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )
+
+      case 3:
+        return (
+          <div className="space-y-6">
             <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Tarih ve Saat Aralığı Seç</h2>
             <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
               <CardContent className="p-6 space-y-4">
@@ -521,7 +630,7 @@ export default function BookingPage() {
           </div>
         )
 
-      case 3:
+      case 4:
         return (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Bilgiler</h2>
@@ -580,7 +689,7 @@ export default function BookingPage() {
           </div>
         )
 
-      case 4:
+      case 5:
         return (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Onay</h2>
@@ -589,6 +698,14 @@ export default function BookingPage() {
                 <div>
                   <h3 className="font-semibold mb-2 text-muted-foreground">Berber</h3>
                   <p className="text-foreground">{selectedBarber?.name}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2 text-muted-foreground">Ürün</h3>
+                  <p className="text-foreground">
+                    {selectedServiceType === "saç" && "Saç"}
+                    {selectedServiceType === "sakal" && "Sakal"}
+                    {selectedServiceType === "saç_sakal" && "Saç & Sakal"}
+                  </p>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-2 text-muted-foreground">Tarih</h3>
@@ -657,16 +774,16 @@ export default function BookingPage() {
             primaryLabel={
               isPending
                 ? "Yükleniyor..."
-                : step === 4
+                : step === 5
                 ? "Onayla"
-                : step === 3
+                : step === 4
                 ? "Devam Et"
                 : "Devam Et"
             }
             primaryAction={
-              step === 3
+              step === 4
                 ? handleStepSubmit
-                : step === 4
+                : step === 5
                 ? handleConfirm
                 : handleNext
             }

@@ -39,6 +39,7 @@ interface Appointment {
   date: string;
   requestedStartTime: string;
   requestedEndTime: string | null;
+  serviceType: string | null;
   status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   cancelledBy: string | null;
   barberId: string;
@@ -59,7 +60,7 @@ export default function RandevularPage() {
   const [selectedStatus, setSelectedStatus] = useState<StatusFilter>('all');
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [selectedDuration, setSelectedDuration] = useState<15 | 30 | 45 | 60>(30);
+  const [selectedDuration, setSelectedDuration] = useState<30 | 60>(30);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -85,15 +86,19 @@ export default function RandevularPage() {
       const endMinutes = parseTimeToMinutes(slot.endTime);
       const duration = endMinutes - startMinutes;
       
-      if (duration === 15 || duration === 30 || duration === 45 || duration === 60) {
-        setSelectedDuration(duration as 15 | 30 | 45 | 60);
+      if (duration === 30 || duration === 60) {
+        setSelectedDuration(duration as 30 | 60);
         return;
       }
     }
 
     if (selectedAppointment.status === 'pending' || selectedAppointment.status === 'rejected') {
       if (!selectedAppointment.requestedEndTime) {
-        setSelectedDuration(30);
+        if (selectedAppointment.serviceType === 'sac_sakal') {
+          setSelectedDuration(60);
+        } else {
+          setSelectedDuration(30);
+        }
         return;
       }
       
@@ -103,15 +108,22 @@ export default function RandevularPage() {
       
       if (maxDuration >= 60) {
         setSelectedDuration(60);
-      } else if (maxDuration >= 45) {
-        setSelectedDuration(45);
-      } else if (maxDuration >= 30) {
-        setSelectedDuration(30);
       } else {
-        setSelectedDuration(15);
+        setSelectedDuration(30);
       }
     } else {
-      setSelectedDuration(30);
+      if (selectedAppointment.requestedEndTime) {
+        const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
+        const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
+        const duration = endMinutes - startMinutes;
+        if (duration === 30 || duration === 60) {
+          setSelectedDuration(duration as 30 | 60);
+        } else {
+          setSelectedDuration(30);
+        }
+      } else {
+        setSelectedDuration(30);
+      }
     }
   }, [selectedAppointment]);
 
@@ -131,6 +143,7 @@ export default function RandevularPage() {
         date: r.date,
         requestedStartTime: r.requestedStartTime,
         requestedEndTime: r.requestedEndTime,
+        serviceType: r.serviceType,
         status: r.status,
         cancelledBy: r.cancelledBy,
         barberId: r.barberId,
@@ -237,6 +250,22 @@ export default function RandevularPage() {
       month: 'long',
       year: 'numeric',
     });
+  };
+
+  const getServiceTypeText = (serviceType: string | null, requestedStartTime: string, requestedEndTime: string | null): string => {
+    if (serviceType === 'sac') return 'Saç'
+    if (serviceType === 'sakal') return 'Sakal'
+    if (serviceType === 'sac_sakal') return 'Saç ve Sakal'
+    
+    if (!requestedEndTime) return 'Belirtilmedi'
+    
+    const startMinutes = parseTimeToMinutes(requestedStartTime)
+    const endMinutes = parseTimeToMinutes(requestedEndTime)
+    const duration = endMinutes - startMinutes
+    
+    if (duration === 30) return '30 dk'
+    if (duration === 60) return '60 dk'
+    return 'Belirtilmedi'
   };
 
   const isPastAppointment = (appointment: Appointment): boolean => {
@@ -373,6 +402,16 @@ export default function RandevularPage() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-muted-foreground">Hizmet:</span>
+                          <span className="text-xs font-medium text-primary">
+                            {getServiceTypeText(
+                              appointment.serviceType,
+                              appointment.requestedStartTime,
+                              appointment.requestedEndTime
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <User className="h-4 w-4" />
                           <span>{appointment.barberName}</span>
                         </div>
@@ -444,6 +483,16 @@ export default function RandevularPage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-muted-foreground">Hizmet:</span>
+                        <span className="text-foreground font-medium">
+                          {getServiceTypeText(
+                            selectedAppointment.serviceType,
+                            selectedAppointment.requestedStartTime,
+                            selectedAppointment.requestedEndTime
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <User className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">{selectedAppointment.barberName}</span>
                       </div>
@@ -463,7 +512,7 @@ export default function RandevularPage() {
                       </label>
                       <Select 
                         value={selectedDuration.toString()} 
-                        onValueChange={(value) => setSelectedDuration(parseInt(value) as 15 | 30 | 45 | 60)}
+                        onValueChange={(value) => setSelectedDuration(parseInt(value) as 30 | 60)}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -478,18 +527,13 @@ export default function RandevularPage() {
                               ));
                             }
                             
-                            const startMinutes = parseTimeToMinutes(selectedAppointment.requestedStartTime);
-                            const endMinutes = parseTimeToMinutes(selectedAppointment.requestedEndTime);
-                            const maxDuration = endMinutes - startMinutes;
-                            const options = [15, 30, 45, 60];
+                            const options = [30, 60];
                             
-                            return options
-                              .filter(duration => duration <= maxDuration)
-                              .map(duration => (
-                                <SelectItem key={duration} value={duration.toString()}>
-                                  {duration} dakika
-                                </SelectItem>
-                              ));
+                            return options.map(duration => (
+                              <SelectItem key={duration} value={duration.toString()}>
+                                {duration} dakika
+                              </SelectItem>
+                            ));
                           })()}
                         </SelectContent>
                       </Select>

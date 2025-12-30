@@ -146,6 +146,7 @@ export default function ManuelRandevuPage() {
         const buttons = await getCustomerTimeButtonsV2({
           barberId: selectedBarberId,
           date: dateStr,
+          durationMinutes: selectedDuration || 30,
         })
         setTimeButtons(buttons)
         setSelectedStart("")

@@ -173,6 +173,7 @@ model AppointmentRequest {
   date               String                   @db.VarChar(191)
   requestedStartTime String                   @db.VarChar(191)
   requestedEndTime   String?                  @db.VarChar(191)
+  serviceType        String?                  @db.VarChar(50)
   status             AppointmentRequestStatus @default(pending)
   cancelledBy        String?                  @db.VarChar(20)
   subscriptionId     String?

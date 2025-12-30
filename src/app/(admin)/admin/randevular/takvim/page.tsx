@@ -199,7 +199,18 @@ export default function TakvimPage() {
     const start = parseTimeToMinutes(normalizeTime(selectedAppointment.startTime));
     const end = parseTimeToMinutes(normalizeTime(selectedAppointment.endTime));
     const duration = end - start;
-    setSelectedDuration(duration >= 60 ? 60 : 30);
+    
+    if (duration === 60) {
+      setSelectedDuration(60);
+    } else if (duration === 30) {
+      setSelectedDuration(30);
+    } else {
+      if (selectedAppointment.serviceType === 'sac_sakal') {
+        setSelectedDuration(60);
+      } else {
+        setSelectedDuration(30);
+      }
+    }
   }, [selectedAppointment]);
 
   const loadData = async () => {
@@ -289,6 +300,20 @@ export default function TakvimPage() {
       setActionLoading(false);
     }
   };
+
+  const getServiceTypeText = (serviceType: string | null, startTime: string, endTime: string): string => {
+    if (serviceType === 'sac') return 'Saç'
+    if (serviceType === 'sakal') return 'Sakal'
+    if (serviceType === 'sac_sakal') return 'Saç ve Sakal'
+    
+    const startMinutes = parseTimeToMinutes(startTime)
+    const endMinutes = parseTimeToMinutes(endTime)
+    const duration = endMinutes - startMinutes
+    
+    if (duration === 30) return '30 dk'
+    if (duration === 60) return '60 dk'
+    return 'Belirtilmedi'
+  }
 
   const getStatusBadge = (status: CalendarAppointment['status'], subscriptionId?: string | null) => {
     if (subscriptionId) {
@@ -517,12 +542,11 @@ export default function TakvimPage() {
                             </div>
                             
                             <div className="space-y-1 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
-                                <span>
-                                  {`${normalizeTime(appointment.startTime)} - ${normalizeTime(appointment.endTime)}`}
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-primary">
+                                  {getServiceTypeText(appointment.serviceType, appointment.startTime, appointment.endTime)}
                                 </span>
-                            </div>
+                              </div>
                               <div className="flex items-center gap-2">
                                 <User className="h-4 w-4" />
                                 <span>{appointment.barberName}</span>
@@ -678,10 +702,10 @@ export default function TakvimPage() {
                                 <div className="text-xs font-semibold text-foreground truncate">
                                   {appointment.customerName}
                                 </div>
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {`${normalizeTime(appointment.startTime)} - ${normalizeTime(appointment.endTime)}`}
+                                <div className="text-[10px] text-primary font-medium mt-0.5 truncate">
+                                  {getServiceTypeText(appointment.serviceType, appointment.startTime, appointment.endTime)}
                                 </div>
-                                <div className="mt-1 flex-shrink-0">
+                                <div className="absolute bottom-1 right-1">
                                   {getStatusBadge(appointment.status, appointment.subscriptionId)}
                                 </div>
                               </div>
@@ -745,6 +769,12 @@ export default function TakvimPage() {
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <span className="text-foreground">
                           {`${normalizeTime(selectedAppointment.startTime)} - ${normalizeTime(selectedAppointment.endTime)}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-muted-foreground">Hizmet:</span>
+                        <span className="text-foreground font-medium">
+                          {getServiceTypeText(selectedAppointment.serviceType, selectedAppointment.startTime, selectedAppointment.endTime)}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">

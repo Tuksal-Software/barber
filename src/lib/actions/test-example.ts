@@ -27,16 +27,16 @@ export async function exampleUsage() {
   const availableAfterRequest = await getAvailableTimeSlotsV2({ barberId, date })
   console.log('Müsait slotlar:', availableAfterRequest)
 
-  console.log('\n4. Randevu talebi 15 dakika için onaylanıyor...')
+  console.log('\n4. Randevu talebi 30 dakika için onaylanıyor...')
   await approveAppointmentRequest({
     appointmentRequestId: requestId,
-    approvedDurationMinutes: 15,
+    approvedDurationMinutes: 30,
   })
   console.log('Randevu onaylandı')
 
   console.log('\n5. Onaydan sonra müsaitlik kontrolü...')
   const availableAfterApproval = await getAvailableTimeSlotsV2({ barberId, date })
   console.log('Müsait slotlar:', availableAfterApproval)
-  console.log('10:00-10:15 aralığı artık dolu olmalı')
+  console.log('10:00-10:30 aralığı artık dolu olmalı')
 }
 

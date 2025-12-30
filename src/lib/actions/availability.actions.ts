@@ -138,15 +138,20 @@ export interface CustomerTimeButton {
 export interface GetCustomerTimeButtonsParams {
   barberId: string
   date: string
+  durationMinutes: number
 }
 
 export async function getCustomerTimeButtonsV2(
   params: GetCustomerTimeButtonsParams
 ): Promise<CustomerTimeButton[]> {
-  const { barberId, date } = params
+  const { barberId, date, durationMinutes } = params
 
-  if (!barberId || !date) {
-    throw new Error('Berber ID ve tarih gereklidir')
+  if (!barberId || !date || !durationMinutes) {
+    throw new Error('Berber ID, tarih ve süre gereklidir')
+  }
+
+  if (durationMinutes !== 30 && durationMinutes !== 60) {
+    throw new Error('Süre 30 veya 60 dakika olmalıdır')
   }
 
   const dateObj = new Date(date)
@@ -234,11 +239,23 @@ export async function getCustomerTimeButtonsV2(
 
   const timeButtons = new Map<string, boolean>()
 
-  for (let hour = Math.floor(workStartMinutes / 60); hour <= Math.floor(workEndMinutes / 60); hour++) {
-    const timeMinutes = hour * 60
-    if (timeMinutes >= workStartMinutes && timeMinutes < workEndMinutes) {
-      const timeStr = minutesToTime(timeMinutes)
-      timeButtons.set(timeStr, false)
+  if (durationMinutes === 30) {
+    for (let hour = Math.floor(workStartMinutes / 60); hour <= Math.floor(workEndMinutes / 60); hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        const timeMinutes = hour * 60 + minute
+        if (timeMinutes >= workStartMinutes && timeMinutes < workEndMinutes) {
+          const timeStr = minutesToTime(timeMinutes)
+          timeButtons.set(timeStr, false)
+        }
+      }
+    }
+  } else if (durationMinutes === 60) {
+    for (let hour = Math.floor(workStartMinutes / 60); hour <= Math.floor(workEndMinutes / 60); hour++) {
+      const timeMinutes = hour * 60
+      if (timeMinutes >= workStartMinutes && timeMinutes < workEndMinutes) {
+        const timeStr = minutesToTime(timeMinutes)
+        timeButtons.set(timeStr, false)
+      }
     }
   }
 
@@ -271,37 +288,39 @@ export async function getCustomerTimeButtonsV2(
     allBlockedRanges.push({ start: overrideStart, end: overrideEnd })
   }
 
-  const gapButtons = new Set<string>()
+  if (durationMinutes === 30) {
+    const gapButtons = new Set<string>()
 
-  for (const slot of appointmentSlots) {
-    const slotStart = parseTimeToMinutes(slot.startTime)
-    const slotEnd = parseTimeToMinutes(slot.endTime)
-    const gapStart = slotEnd
-    const gapEnd = gapStart + 30
-    
-    if (gapStart < workEndMinutes) {
-      let hasOverlap = false
+    for (const slot of appointmentSlots) {
+      const slotStart = parseTimeToMinutes(slot.startTime)
+      const slotEnd = parseTimeToMinutes(slot.endTime)
+      const gapStart = slotEnd
+      const gapEnd = gapStart + 30
       
-      for (const otherSlot of appointmentSlots) {
-        const otherStart = parseTimeToMinutes(otherSlot.startTime)
-        const otherEnd = parseTimeToMinutes(otherSlot.endTime)
+      if (gapStart < workEndMinutes) {
+        let hasOverlap = false
         
-        if (otherStart < gapEnd && otherEnd > gapStart) {
-          hasOverlap = true
-          break
+        for (const otherSlot of appointmentSlots) {
+          const otherStart = parseTimeToMinutes(otherSlot.startTime)
+          const otherEnd = parseTimeToMinutes(otherSlot.endTime)
+          
+          if (otherStart < gapEnd && otherEnd > gapStart) {
+            hasOverlap = true
+            break
+          }
+        }
+        
+        if (!hasOverlap) {
+          const gapTimeStr = minutesToTime(gapStart)
+          gapButtons.add(gapTimeStr)
         }
       }
-      
-      if (!hasOverlap) {
-        const gapTimeStr = minutesToTime(gapStart)
-        gapButtons.add(gapTimeStr)
-      }
     }
-  }
 
-  for (const gapTime of gapButtons) {
-    if (!timeButtons.has(gapTime)) {
-      timeButtons.set(gapTime, false)
+    for (const gapTime of gapButtons) {
+      if (!timeButtons.has(gapTime)) {
+        timeButtons.set(gapTime, false)
+      }
     }
   }
 
@@ -315,7 +334,7 @@ export async function getCustomerTimeButtonsV2(
     }
 
     const buttonWindowStart = timeMinutes
-    const buttonWindowEnd = timeMinutes + 30
+    const buttonWindowEnd = timeMinutes + durationMinutes
 
     let isDisabled = false
 

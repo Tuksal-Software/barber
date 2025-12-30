@@ -9,6 +9,8 @@ export interface AppointmentCreatedPayload {
   barberId: string
   date: string
   requestedStartTime: string
+  requestedEndTime?: string
+  serviceType?: string | null
 }
 
 export interface AppointmentApprovedPayload {
@@ -17,6 +19,7 @@ export interface AppointmentApprovedPayload {
   date: string
   startTime: string
   endTime: string
+  serviceType?: string | null
 }
 
 export interface AdminAppointmentCreatedPayload {
@@ -72,12 +75,26 @@ const templates: SmsTemplateMap = {
   [SmsEvent.AppointmentCreated]: {
     customer: (payload: AppointmentCreatedPayload) =>
       `Merhaba ${payload.customerName}, randevu talebiniz alındı. Berber Onayı bekleniyor...`,
-    admin: (payload: AppointmentCreatedPayload) =>
-      `Yeni randevu talebi alındı. Müşteri: ${payload.customerName}, Tarih: ${formatDateForSms(payload.date)}, Saat: ${payload.requestedStartTime}`,
+    admin: (payload: AppointmentCreatedPayload) => {
+      const serviceTypeText = payload.serviceType === 'sac' ? 'Saç' 
+        : payload.serviceType === 'sakal' ? 'Sakal'
+        : payload.serviceType === 'sac_sakal' ? 'Saç ve Sakal'
+        : 'Belirtilmedi'
+      const timeRange = payload.requestedEndTime 
+        ? `${payload.requestedStartTime} - ${payload.requestedEndTime}`
+        : payload.requestedStartTime
+      return `Yeni randevu talebi alındı.\nMüşteri: ${payload.customerName}\nTarih: ${formatDateForSms(payload.date)}\nSaat: ${timeRange}\nHizmet: ${serviceTypeText}`
+    },
   },
   [SmsEvent.AppointmentApproved]: {
-    customer: (payload: AppointmentApprovedPayload) =>
-      `Merhaba ${payload.customerName}, randevunuz ONAYLANDI.\nTarih: ${formatDateForSms(payload.date)}\nSaat: ${payload.startTime} - ${payload.endTime}`,
+    customer: (payload: AppointmentApprovedPayload) => {
+      const serviceTypeText = payload.serviceType === 'sac' ? 'Saç' 
+        : payload.serviceType === 'sakal' ? 'Sakal'
+        : payload.serviceType === 'sac_sakal' ? 'Saç ve Sakal'
+        : ''
+      const serviceLine = serviceTypeText ? `\nHizmet: ${serviceTypeText}` : ''
+      return `Merhaba ${payload.customerName}, randevunuz ONAYLANDI.\nTarih: ${formatDateForSms(payload.date)}\nSaat: ${payload.startTime} - ${payload.endTime}${serviceLine}`
+    },
     admin: (_payload: AppointmentApprovedPayload) => '',
   },
   [SmsEvent.AppointmentCancelledPending]: {
