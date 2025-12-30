@@ -57,7 +57,7 @@ export async function getActiveBarbers(): Promise<BarberListItem[]> {
       image: true,
     },
     orderBy: {
-      name: 'asc',
+      createdAt: 'asc',
     },
   })
 
