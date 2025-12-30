@@ -12,7 +12,7 @@ import Image from "next/image"
 import { BottomBar } from "@/components/app/BottomBar"
 import { Stepper } from "@/components/app/Stepper"
 import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -181,6 +181,14 @@ export default function BookingPage() {
     if (serviceType === "saç") return "sac"
     if (serviceType === "saç_sakal") return "sac_sakal"
     return "sakal"
+  }
+
+  const getBarberInitials = (name: string): string => {
+    if (!name || name.trim().length === 0) return "?"
+    const parts = name.trim().split(" ").filter(p => p.length > 0)
+    if (parts.length === 0) return "?"
+    if (parts.length === 1) return parts[0][0].toUpperCase()
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   }
 
   useEffect(() => {
@@ -457,7 +465,7 @@ export default function BookingPage() {
     switch (step) {
       case 1:
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Berber Seçimi</h2>
             {loadingBarbers ? (
               <div className="flex items-center justify-center py-12">
@@ -470,39 +478,50 @@ export default function BookingPage() {
                 description="Şu anda aktif berber bulunmamaktadır"
               />
             ) : (
-              <div className="space-y-3">
-                {barbers.map((barber) => (
-                  <Card
-                    key={barber.id}
-                    className={cn(
-                      "cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl",
-                      selectedBarber?.id === barber.id &&
-                        "ring-2 ring-primary shadow-xl"
-                    )}
-                    onClick={() => !isPending && setSelectedBarber(barber)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <Avatar className="h-16 w-16">
-                          <AvatarFallback>
-                            {barber.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-foreground">{barber.name}</h3>
-                          </div>
-                          <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {barbers.map((barber) => {
+                  const isSelected = selectedBarber?.id === barber.id
+                  
+                  return (
+                    <Card
+                      key={barber.id}
+                      className={cn(
+                        "cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl overflow-hidden group",
+                        isSelected && "ring-2 ring-primary shadow-xl shadow-primary/20"
+                      )}
+                      onClick={() => !isPending && setSelectedBarber(barber)}
+                    >
+                      <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
+                        <div className="relative">
+                          <Avatar className={cn(
+                            "h-24 w-24 ring-2 ring-offset-2 ring-offset-background transition-all",
+                            isSelected ? "ring-primary" : "ring-transparent group-hover:ring-primary/50"
+                          )}>
+                            <AvatarImage
+                              src={barber.image || undefined}
+                              alt={barber.name}
+                            />
+                            <AvatarFallback className="text-xl font-semibold">
+                              {getBarberInitials(barber.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {isSelected && (
+                            <div className="absolute -top-1 -right-1 bg-primary rounded-full p-1 shadow-lg">
+                              <CheckCircle2 className="h-5 w-5 text-primary-foreground" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <h3 className="font-semibold text-foreground text-lg">{barber.name}</h3>
+                          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                             <Scissors className="h-4 w-4" />
+                            <span>Profesyonel</span>
                           </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             )}
             <div 

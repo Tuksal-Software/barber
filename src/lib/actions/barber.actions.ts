@@ -13,6 +13,7 @@ export interface BarberListItem {
   name: string
   slotDuration: number
   isActive: boolean
+  image: string | null
 }
 
 export interface BarberListForManagement {
@@ -53,6 +54,7 @@ export async function getActiveBarbers(): Promise<BarberListItem[]> {
       name: true,
       slotDuration: true,
       isActive: true,
+      image: true,
     },
     orderBy: {
       name: 'asc',
