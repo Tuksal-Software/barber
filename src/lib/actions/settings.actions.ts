@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { requireAdmin, getSession } from './auth.actions'
 import { getSetting, setSetting, getAllSettings } from '@/lib/settings/settings.service'
 import { defaultSettings } from '@/lib/settings/defaults'
-import { env } from '@/lib/config/env'
+import { publicEnv } from '@/lib/config/env.public'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { AuditAction } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
@@ -16,6 +16,7 @@ const updateSettingsSchema = z.object({
   smsSender: z.string().min(1),
   approvedCancelMinHours: z.number().int().min(1).max(48),
   timezone: z.literal('Europe/Istanbul'),
+  enableServiceSelection: z.boolean(),
 })
 
 export interface SettingsResponse {
@@ -25,6 +26,7 @@ export interface SettingsResponse {
   smsSender: string
   approvedCancelMinHours: number
   timezone: 'Europe/Istanbul'
+  enableServiceSelection: boolean
 }
 
 export async function getSettings(): Promise<SettingsResponse> {
@@ -32,11 +34,12 @@ export async function getSettings(): Promise<SettingsResponse> {
 
   const dbSettings = await getAllSettings()
 
-  const adminPhone = (dbSettings.adminPhone as string | null) ?? env.adminPhone ?? defaultSettings.adminPhone
+  const adminPhone = (dbSettings.adminPhone as string | null) ?? publicEnv.ADMIN_PHONE ?? defaultSettings.adminPhone
   const shopName = (dbSettings.shopName as string) ?? defaultSettings.shopName
   const sms = (dbSettings.sms as { enabled: boolean; sender: string }) ?? defaultSettings.sms
   const customerCancel = (dbSettings.customerCancel as { approvedMinHours: number }) ?? defaultSettings.customerCancel
   const timezone = ((dbSettings.timezone as string) ?? defaultSettings.timezone) as 'Europe/Istanbul'
+  const enableServiceSelection = (dbSettings.enableServiceSelection as boolean) ?? defaultSettings.enableServiceSelection
 
   return {
     adminPhone,
@@ -45,6 +48,7 @@ export async function getSettings(): Promise<SettingsResponse> {
     smsSender: sms.sender || defaultSettings.sms.sender,
     approvedCancelMinHours: customerCancel.approvedMinHours,
     timezone,
+    enableServiceSelection,
   }
 }
 
@@ -73,6 +77,7 @@ export async function updateSettings(
       approvedMinHours: validated.approvedCancelMinHours,
     }, session.userId)
     await setSetting('timezone', validated.timezone, session.userId)
+    await setSetting('enableServiceSelection', validated.enableServiceSelection, session.userId)
 
     try {
       await auditLog({
@@ -89,6 +94,7 @@ export async function updateSettings(
             sms: oldSettings.sms,
             customerCancel: oldSettings.customerCancel,
             timezone: oldSettings.timezone,
+            enableServiceSelection: oldSettings.enableServiceSelection,
           },
           newValues: {
             adminPhone: validated.adminPhone,
@@ -101,6 +107,7 @@ export async function updateSettings(
               approvedMinHours: validated.approvedCancelMinHours,
             },
             timezone: validated.timezone,
+            enableServiceSelection: validated.enableServiceSelection,
           },
         },
       })

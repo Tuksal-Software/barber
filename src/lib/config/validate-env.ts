@@ -1,8 +1,9 @@
-import { env } from './env'
+import { publicEnv } from './env.public'
+import { serverEnv } from './env.server'
 
 export function validateEnv() {
   try {
-    const _ = env
+    const _ = { ...publicEnv, ...serverEnv }
   } catch (error) {
     if (error instanceof Error) {
       console.error('Environment validation failed:', error.message)
@@ -19,7 +20,7 @@ export function validateProductionEnv() {
     return
   }
   
-  if (env.nodeEnv === 'production') {
+  if (publicEnv.NODE_ENV === 'production') {
     const jwtSecret = process.env.JWT_SECRET
     if (jwtSecret) {
       if (jwtSecret.length < 32) {

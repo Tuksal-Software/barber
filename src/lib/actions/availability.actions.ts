@@ -139,12 +139,13 @@ export interface GetCustomerTimeButtonsParams {
   barberId: string
   date: string
   durationMinutes: number
+  enableServiceSelection?: boolean
 }
 
 export async function getCustomerTimeButtonsV2(
   params: GetCustomerTimeButtonsParams
 ): Promise<CustomerTimeButton[]> {
-  const { barberId, date, durationMinutes } = params
+  const { barberId, date, durationMinutes, enableServiceSelection = true } = params
 
   if (!barberId || !date || !durationMinutes) {
     throw new Error('Berber ID, tarih ve süre gereklidir')
@@ -313,6 +314,41 @@ export async function getCustomerTimeButtonsV2(
         if (!hasOverlap) {
           const gapTimeStr = minutesToTime(gapStart)
           gapButtons.add(gapTimeStr)
+        }
+      }
+    }
+
+    for (const gapTime of gapButtons) {
+      if (!timeButtons.has(gapTime)) {
+        timeButtons.set(gapTime, false)
+      }
+    }
+  } else if (durationMinutes === 60 && !enableServiceSelection) {
+    const gapButtons = new Set<string>()
+
+    for (const slot of appointmentSlots) {
+      const slotStart = parseTimeToMinutes(slot.startTime)
+      const slotEnd = parseTimeToMinutes(slot.endTime)
+      const slotDuration = slotEnd - slotStart
+      
+      if (slotDuration === 30) {
+        const gapStart = slotEnd
+        const gapEnd = gapStart + 30
+        
+        if (gapStart >= workStartMinutes && gapEnd <= workEndMinutes) {
+          let hasOverlap = false
+          
+          for (const range of allBlockedRanges) {
+            if (range.start < gapEnd && range.end > gapStart) {
+              hasOverlap = true
+              break
+            }
+          }
+          
+          if (!hasOverlap) {
+            const gapTimeStr = minutesToTime(gapStart)
+            gapButtons.add(gapTimeStr)
+          }
         }
       }
     }

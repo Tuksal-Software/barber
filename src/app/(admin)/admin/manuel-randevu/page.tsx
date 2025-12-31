@@ -147,6 +147,7 @@ export default function ManuelRandevuPage() {
           barberId: selectedBarberId,
           date: dateStr,
           durationMinutes: selectedDuration || 30,
+          enableServiceSelection: true,
         })
         setTimeButtons(buttons)
         setSelectedStart("")

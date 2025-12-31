@@ -182,7 +182,7 @@ export async function createAppointmentRequest(
       date,
       requestedStartTime,
       requestedEndTime: finalEndTime,
-      serviceType: serviceType || null,
+      ...(serviceType ? { serviceType } : {}),
       status: 'pending',
     },
   })

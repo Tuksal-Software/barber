@@ -2,7 +2,6 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/actions/auth.actions'
-import { env } from '@/lib/config/env'
 
 export interface SmsLogItem {
   id: string

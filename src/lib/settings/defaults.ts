@@ -9,5 +9,6 @@ export const defaultSettings = {
     approvedMinHours: 2,
   },
   timezone: 'Europe/Istanbul',
+  enableServiceSelection: true,
 } as const
 

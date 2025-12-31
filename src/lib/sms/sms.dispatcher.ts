@@ -1,7 +1,6 @@
 import { SmsEvent } from './sms.events'
 import { getSmsTemplate, type SmsRole, type AppointmentCreatedPayload, type AppointmentApprovedPayload, type AppointmentCancelledPendingPayload, type SubscriptionCreatedPayload, type SubscriptionCancelledPayload, type AdminAppointmentCreatedPayload } from './sms.templates'
 import { sendSms } from './sms.service'
-import { env } from '@/lib/config/env'
 import { prisma } from '@/lib/prisma'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { getAdminPhoneSetting, getSmsSenderSetting } from '@/lib/settings/settings-helpers'

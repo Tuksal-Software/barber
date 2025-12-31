@@ -1,5 +1,5 @@
 import type { SmsProvider } from './sms.provider'
-import { env } from '@/lib/config/env'
+import { publicEnv } from '@/lib/config/env.public'
 import { getSmsSenderSetting } from '@/lib/settings/settings-helpers'
 
 function cleanPhoneNumber(phone: string): string | null {
@@ -35,7 +35,7 @@ export class VatanSmsProvider implements SmsProvider {
         return
       }
 
-      if (!env.smsApiId || !env.smsApiKey) {
+      if (!publicEnv.SMS_API_ID || !publicEnv.SMS_API_KEY) {
         console.error('[VatanSMS] SMS_API_ID or SMS_API_KEY is missing')
         return
       }
@@ -43,8 +43,8 @@ export class VatanSmsProvider implements SmsProvider {
       const sender = await getSmsSenderSetting()
 
       const payload = {
-        api_id: env.smsApiId,
-        api_key: env.smsApiKey,
+        api_id: publicEnv.SMS_API_ID,
+        api_key: publicEnv.SMS_API_KEY,
         sender: sender,
         message_type: 'turkce',
         message: message,

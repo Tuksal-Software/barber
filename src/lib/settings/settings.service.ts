@@ -3,8 +3,10 @@ import { defaultSettings } from './defaults'
 import { Prisma } from '@prisma/client'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { AuditAction } from '@prisma/client'
+import { unstable_noStore as noStore } from 'next/cache'
 
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
+  noStore()
   try {
     const setting = await prisma.appSetting.findUnique({
       where: { key },
@@ -136,6 +138,18 @@ export async function ensureDefaultSettings(): Promise<void> {
     settingsToCreate.push('timezone')
   }
 
+  if (!existingKeys.has('enableServiceSelection')) {
+    await prisma.appSetting.upsert({
+      where: { key: 'enableServiceSelection' },
+      create: {
+        key: 'enableServiceSelection',
+        value: defaultSettings.enableServiceSelection,
+      },
+      update: {},
+    })
+    settingsToCreate.push('enableServiceSelection')
+  }
+
   for (const key of settingsToCreate) {
     try {
       await auditLog({
@@ -151,6 +165,7 @@ export async function ensureDefaultSettings(): Promise<void> {
                  key === 'shopName' ? defaultSettings.shopName :
                  key === 'sms' ? defaultSettings.sms :
                  key === 'customerCancel' ? defaultSettings.customerCancel :
+                 key === 'enableServiceSelection' ? defaultSettings.enableServiceSelection :
                  defaultSettings.timezone,
         },
       })
