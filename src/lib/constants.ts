@@ -1,3 +1,5 @@
+import { AppointmentRequestStatus } from '@prisma/client'
+
 export interface Barber {
   id: string
   name: string
@@ -18,7 +20,7 @@ export interface Appointment {
   date: Date
   startTime: string
   endTime: string
-  status: "pending" | "approved" | "rejected" | "cancelled"
+  status: AppointmentRequestStatus
   notes?: string
   requestedDuration?: number
   confirmedDuration?: number

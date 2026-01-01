@@ -105,6 +105,7 @@ function getStatusPriority(status: CalendarAppointment['status']): number {
   switch (status) {
     case 'approved': return 3;
     case 'pending': return 2;
+    case 'done': return 2;
     case 'cancelled': return 1;
     case 'rejected': return 1;
     default: return 0;
@@ -168,6 +169,7 @@ function getBorderColor(status: CalendarAppointment['status'], subscriptionId?: 
   switch (status) {
     case 'approved': return 'border-green-500';
     case 'pending': return 'border-yellow-500';
+    case 'done': return 'border-gray-400';
     case 'cancelled': return 'border-red-500';
     case 'rejected': return 'border-red-500';
     default: return 'border-border';
@@ -326,6 +328,8 @@ export default function TakvimPage() {
         return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Onaylandı</Badge>;
       case 'pending':
         return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Onay bekliyor</Badge>;
+      case 'done':
+        return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Tamamlandı</Badge>;
       case 'cancelled':
         return <Badge className="bg-red-500/10 text-red-500 border-red-500/20">İptal</Badge>;
       case 'rejected':
@@ -513,11 +517,12 @@ export default function TakvimPage() {
                 ) : (
                   dayAppointments.map(({ appointment, cancelledCount }) => {
                     const borderColor = getBorderColor(appointment.status, appointment.subscriptionId);
+                    const isDone = appointment.status === 'done';
                     return (
                       <div
                         key={appointment.id}
-                        className={`p-4 border-2 ${borderColor} rounded-lg cursor-pointer hover:bg-muted/50 transition-colors bg-card relative`}
-                        onClick={() => handleAppointmentClick(appointment)}
+                        className={`p-4 border-2 ${borderColor} rounded-lg ${isDone ? 'cursor-not-allowed opacity-60 bg-muted/30' : 'cursor-pointer hover:bg-muted/50'} transition-colors bg-card relative`}
+                        onClick={() => !isDone && handleAppointmentClick(appointment)}
                       >
                         {appointment.status !== 'cancelled' && appointment.status !== 'rejected' && cancelledCount > 0 && (
                           <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
@@ -628,7 +633,7 @@ export default function TakvimPage() {
                       ).length;
                       
                       const visible = appointmentsInSlot.filter(
-                        a => a.status === 'approved' || a.status === 'pending'
+                        a => a.status === 'approved' || a.status === 'pending' || a.status === 'done'
                       );
                       
                       if (visible.length === 0) return;
@@ -641,6 +646,11 @@ export default function TakvimPage() {
                         const pending = visible.find(a => a.status === 'pending');
                         if (pending) {
                           primary = pending;
+                        } else {
+                          const done = visible.find(a => a.status === 'done');
+                          if (done) {
+                            primary = done;
+                          }
                         }
                       }
                       
@@ -673,16 +683,17 @@ export default function TakvimPage() {
                             const { rowStart, rowEnd } = getSlotSpan(appointment.startTime, appointment.endTime);
                             const borderColor = getBorderColor(appointment.status, appointment.subscriptionId);
                             
+                            const isDone = appointment.status === 'done';
                             return (
                               <div
                                 key={appointment.id}
-                                className={`mx-1 my-[2px] rounded-md p-2 cursor-pointer hover:opacity-80 transition-opacity bg-card border-2 ${borderColor} shadow-sm z-10 overflow-hidden relative`}
+                                className={`mx-1 my-[2px] rounded-md p-2 ${isDone ? 'cursor-not-allowed opacity-60 bg-muted/30' : 'cursor-pointer hover:opacity-80'} transition-opacity bg-card border-2 ${borderColor} shadow-sm z-10 overflow-hidden relative`}
                                 style={{
                                   gridRowStart: rowStart,
                                   gridRowEnd: rowEnd,
                                   minHeight: `${SLOT_HEIGHT}px`,
                                 }}
-                                onClick={() => handleAppointmentClick(appointment)}
+                                onClick={() => !isDone && handleAppointmentClick(appointment)}
                               >
                                 {cancelledCount > 0 && (
                                   <div className="absolute top-1 right-1 flex items-center gap-1 z-20">
@@ -784,7 +795,7 @@ export default function TakvimPage() {
                   </div>
                 </div>
 
-                {(selectedAppointment.status === 'pending' || selectedAppointment.status === 'approved' || selectedAppointment.status === 'rejected') && (
+                {selectedAppointment.status !== 'done' && selectedAppointment.status !== 'cancelled' && selectedAppointment.status !== 'rejected' && (
                   <div className="space-y-4 pt-4 border-t border-border">
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">

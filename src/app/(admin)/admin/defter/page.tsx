@@ -15,12 +15,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -414,10 +408,10 @@ export default function DefterPage() {
             </div>
             <div className="flex items-center gap-4">
               <Badge variant="secondary">
-                Ücreti Girilen: {summary.paidCount}
+                Ücreti Girilenler: {summary.paidCount}
               </Badge>
               <Badge variant="outline">
-                Girilmemiş: {summary.unpaidCount}
+                Bekleyen Ücretler: {summary.unpaidCount}
               </Badge>
             </div>
           </div>
@@ -461,26 +455,34 @@ export default function DefterPage() {
             <div className="text-center py-12 text-muted-foreground">Yükleniyor...</div>
           </CardContent>
         </Card>
+      ) : unpaid.length === 0 && paid.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-12 text-muted-foreground">
+              Henüz tamamlanmış randevu bulunmuyor.
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <Tabs defaultValue="unpaid" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="unpaid">
-              Ücret Girilecekler ({unpaid.length})
+              Bekleyen Ücretler ({unpaid.length})
             </TabsTrigger>
             <TabsTrigger value="paid">
-              Ücreti Girilmişler ({paid.length})
+              Ücreti Girilenler ({paid.length})
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="unpaid" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Ücret Girilecekler</CardTitle>
+                <CardTitle>Bekleyen Ücretler</CardTitle>
               </CardHeader>
               <CardContent>
                 {unpaid.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    Ücret girilecek randevu bulunamadı
+                    Bekleyen ücret bulunmuyor
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -573,82 +575,69 @@ export default function DefterPage() {
           <TabsContent value="paid" className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Ücreti Girilmişler</CardTitle>
+                <CardTitle>Ücreti Girilenler</CardTitle>
               </CardHeader>
               <CardContent>
                 {paid.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    Ücreti girilmiş randevu bulunamadı
+                    Ücreti girilen randevu bulunmuyor
                   </div>
                 ) : (
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="paid-list">
-                      <AccordionTrigger>
-                        <div className="flex items-center justify-between w-full pr-4">
-                          <span>
-                            Toplam Ciro: {formatCurrency(totalRevenue.toFixed(2))} • {paid.length} Kayıt
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Müşteri</TableHead>
-                                {isAdmin && <TableHead>Berber</TableHead>}
-                                <TableHead>Saat</TableHead>
-                                <TableHead>Ücret</TableHead>
-                                <TableHead>Not</TableHead>
-                                <TableHead className="text-right">İşlem</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {paid.map((item) => (
-                                <TableRow key={item.appointmentId} className="hover:bg-muted/50">
-                                  <TableCell className="font-medium">{item.customerName}</TableCell>
-                                  {isAdmin && <TableCell>{item.barberName}</TableCell>}
-                                  <TableCell>
-                                    {item.startTime}
-                                    {item.endTime ? ` - ${item.endTime}` : ""}
-                                  </TableCell>
-                                  <TableCell className="font-medium">
-                                    {formatCurrency(item.ledger.amount)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <span className="cursor-help">
-                                            {truncateText(item.ledger.description)}
-                                          </span>
-                                        </TooltipTrigger>
-                                        {item.ledger.description && item.ledger.description.length > 30 && (
-                                          <TooltipContent>
-                                            <p>{item.ledger.description}</p>
-                                          </TooltipContent>
-                                        )}
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleEdit(item)}
-                                    >
-                                      <Edit2 className="h-4 w-4 mr-1" />
-                                      Düzenle
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Müşteri</TableHead>
+                          {isAdmin && <TableHead>Berber</TableHead>}
+                          <TableHead>Saat</TableHead>
+                          <TableHead>Ücret</TableHead>
+                          <TableHead>Not</TableHead>
+                          <TableHead className="text-right">İşlem</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paid.map((item) => (
+                          <TableRow key={item.appointmentId} className="hover:bg-muted/50">
+                            <TableCell className="font-medium">{item.customerName}</TableCell>
+                            {isAdmin && <TableCell>{item.barberName}</TableCell>}
+                            <TableCell>
+                              {item.startTime}
+                              {item.endTime ? ` - ${item.endTime}` : ""}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {formatCurrency(item.ledger.amount)}
+                            </TableCell>
+                            <TableCell>
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help">
+                                      {truncateText(item.ledger.description)}
+                                    </span>
+                                  </TooltipTrigger>
+                                  {item.ledger.description && item.ledger.description.length > 30 && (
+                                    <TooltipContent>
+                                      <p>{item.ledger.description}</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              </TooltipProvider>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEdit(item)}
+                              >
+                                <Edit2 className="h-4 w-4 mr-1" />
+                                Düzenle
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>

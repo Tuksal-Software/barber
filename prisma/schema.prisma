@@ -17,6 +17,7 @@ enum AppointmentRequestStatus {
   approved
   rejected
   cancelled
+  done
 }
 
 enum AppointmentSlotStatus {
@@ -104,6 +105,7 @@ enum AuditAction {
   SUBSCRIPTION_CANCEL_BLOCKED
 
   ADMIN_APPOINTMENT_CREATED
+  APPOINTMENT_MARKED_DONE
 }
 
 model Barber {
@@ -115,18 +117,18 @@ model Barber {
   experience   Int      @default(0)
   rating       Decimal  @default(5.00) @db.Decimal(3, 2)
   specialties  String?  @db.Text
-  image       String?  @db.VarChar(500)
+  image        String?  @db.VarChar(500)
   slotDuration Int      @default(30)
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now()) @db.DateTime(0)
   updatedAt    DateTime @updatedAt @db.DateTime(0)
 
-  workingHours        WorkingHour[]
+  workingHours         WorkingHour[]
   workingHourOverrides WorkingHourOverride[]
-  appointmentRequests AppointmentRequest[]
-  appointmentSlots    AppointmentSlot[]
-  ledgerEntries       LedgerEntry[]
-  subscriptions       Subscription[]
+  appointmentRequests  AppointmentRequest[]
+  appointmentSlots     AppointmentSlot[]
+  ledgerEntries        LedgerEntry[]
+  subscriptions        Subscription[]
 
   @@index([email])
   @@map("barbers")
@@ -219,7 +221,7 @@ model LedgerEntry {
   amount               Decimal  @db.Decimal(10, 2)
   createdAt            DateTime @default(now()) @db.DateTime(0)
 
-  barber             Barber            @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  barber             Barber              @relation(fields: [barberId], references: [id], onDelete: Cascade)
   appointmentRequest AppointmentRequest? @relation(fields: [appointmentRequestId], references: [id], onDelete: SetNull)
 
   @@index([barberId, date])
@@ -227,12 +229,12 @@ model LedgerEntry {
 }
 
 model Expense {
-  id          String   @id @default(cuid())
-  date        String   @db.VarChar(191)
-  amount      Decimal  @db.Decimal(10,2)
+  id          String          @id @default(cuid())
+  date        String          @db.VarChar(191)
+  amount      Decimal         @db.Decimal(10, 2)
   category    ExpenseCategory
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @db.DateTime(0)
+  description String?         @db.Text
+  createdAt   DateTime        @default(now()) @db.DateTime(0)
 
   @@index([date])
   @@map("expenses")
@@ -296,26 +298,26 @@ model AppSetting {
 }
 
 model Subscription {
-  id               String                   @id @default(cuid())
-  barberId         String
-  customerName     String                   @db.VarChar(255)
-  customerPhone    String                   @db.VarChar(20)
+  id            String @id @default(cuid())
+  barberId      String
+  customerName  String @db.VarChar(255)
+  customerPhone String @db.VarChar(20)
 
-  recurrenceType   SubscriptionRecurrenceType
-  dayOfWeek        Int
-  weekOfMonth      Int?
+  recurrenceType SubscriptionRecurrenceType
+  dayOfWeek      Int
+  weekOfMonth    Int?
 
-  startTime        String                   @db.VarChar(10)
+  startTime       String @db.VarChar(10)
   durationMinutes Int
 
-  startDate        String                   @db.VarChar(191)
-  endDate          String?                  @db.VarChar(191)
+  startDate String  @db.VarChar(191)
+  endDate   String? @db.VarChar(191)
 
-  isActive         Boolean                  @default(true)
-  createdAt        DateTime                 @default(now()) @db.DateTime(0)
-  updatedAt        DateTime                 @updatedAt @db.DateTime(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.DateTime(0)
+  updatedAt DateTime @updatedAt @db.DateTime(0)
 
-  barber             Barber              @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  barber              Barber               @relation(fields: [barberId], references: [id], onDelete: Cascade)
   appointmentRequests AppointmentRequest[]
 
   @@index([barberId])
@@ -325,10 +327,10 @@ model Subscription {
 }
 
 model SystemJobLog {
-  id        String   @id @default(cuid())
-  jobName   String   @db.VarChar(100)
-  ranAt     DateTime @default(now()) @db.DateTime(0)
-  meta      Json?
+  id      String   @id @default(cuid())
+  jobName String   @db.VarChar(100)
+  ranAt   DateTime @default(now()) @db.DateTime(0)
+  meta    Json?
 
   @@index([jobName])
   @@index([ranAt])

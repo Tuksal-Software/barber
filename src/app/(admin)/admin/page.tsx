@@ -29,6 +29,7 @@ const statusColors = {
   approved: "bg-blue-950 text-blue-300 border-blue-800",
   rejected: "bg-red-950 text-red-300 border-red-800",
   cancelled: "bg-muted text-muted-foreground border-border",
+  done: "bg-green-950 text-green-300 border-green-800",
 }
 
 const statusLabels = {
@@ -36,6 +37,7 @@ const statusLabels = {
   approved: "Onaylandı",
   rejected: "Reddedildi",
   cancelled: "İptal",
+  done: "Tamamlandı",
 }
 
 const getSmsEventLabel = (event: string): string => {

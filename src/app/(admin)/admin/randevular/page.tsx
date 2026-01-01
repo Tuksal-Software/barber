@@ -28,6 +28,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { BarberFilter } from "@/components/admin/BarberFilter";
+import { AppointmentRequestStatus } from '@prisma/client'
 
 interface Barber {
   id: string;
@@ -43,7 +44,7 @@ interface Appointment {
   requestedStartTime: string;
   requestedEndTime: string | null;
   serviceType: string | null;
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  status: AppointmentRequestStatus;
   cancelledBy: string | null;
   barberId: string;
   barberName: string;
@@ -53,7 +54,7 @@ interface Appointment {
   }>;
 }
 
-type StatusFilter = 'all' | 'pending' | 'approved' | 'cancelled';
+type StatusFilter = 'all' | AppointmentRequestStatus;
 
 export default function RandevularPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
@@ -241,6 +242,8 @@ export default function RandevularPage() {
         return <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs h-5 px-2">İptal</Badge>;
       case 'rejected':
         return <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20 text-xs h-5 px-2">Reddedildi</Badge>;
+      case 'done':
+        return <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-xs h-5 px-2">Tamamlandı</Badge>;
       default:
         return null;
     }
@@ -323,6 +326,7 @@ export default function RandevularPage() {
             <SelectItem value="all">Tüm Durumlar</SelectItem>
             <SelectItem value="pending">Bekleyen</SelectItem>
             <SelectItem value="approved">Onaylanan</SelectItem>
+            <SelectItem value="done">Tamamlandı</SelectItem>
             <SelectItem value="cancelled">İptal</SelectItem>
           </SelectContent>
         </Select>
@@ -489,7 +493,7 @@ export default function RandevularPage() {
                   </div>
                 </div>
 
-                {(selectedAppointment.status === 'pending' || selectedAppointment.status === 'approved' || selectedAppointment.status === 'rejected') && (
+                {selectedAppointment.status !== 'done' && selectedAppointment.status !== 'cancelled' && (
                   <div className="space-y-4 pt-4 border-t border-border">
                     <div>
                       <label className="text-sm font-medium text-foreground mb-2 block">

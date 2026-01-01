@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAuth } from '@/lib/actions/auth.actions'
 import { parseTimeToMinutes, minutesToTime } from '@/lib/time'
+import { AppointmentRequestStatus } from '@prisma/client'
 
 export interface AppointmentRequestListItem {
   id: string
@@ -15,7 +16,7 @@ export interface AppointmentRequestListItem {
   requestedStartTime: string
   requestedEndTime: string | null
   serviceType: string | null
-  status: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  status: AppointmentRequestStatus
   cancelledBy: string | null
   createdAt: Date
   appointmentSlots?: Array<{
@@ -188,7 +189,7 @@ export interface CalendarAppointment {
   startTime: string
   endTime: string
   serviceType: string | null
-  status: 'approved' | 'pending' | 'rejected' | 'cancelled'
+  status: AppointmentRequestStatus
   subscriptionId?: string | null
 }
 

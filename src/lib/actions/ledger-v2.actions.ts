@@ -5,7 +5,6 @@ import { requireAuth } from '@/lib/actions/auth.actions'
 import { Prisma } from '@prisma/client'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { AuditAction } from '@prisma/client'
-import { isAppointmentInPast } from '@/lib/time/appointmentDateTime'
 
 export interface GetLedgerCandidatesParams {
   barberId?: string
@@ -55,7 +54,9 @@ export async function getLedgerCandidates(
     finalBarberId = session.userId
   }
 
-  const where: Prisma.AppointmentRequestWhereInput = {}
+  const where: Prisma.AppointmentRequestWhereInput = {
+    status: 'done',
+  }
 
   if (finalBarberId) {
     where.barberId = finalBarberId
@@ -63,7 +64,14 @@ export async function getLedgerCandidates(
 
   const appointments = await prisma.appointmentRequest.findMany({
     where,
-    include: {
+    select: {
+      id: true,
+      status: true,
+      barberId: true,
+      customerName: true,
+      date: true,
+      requestedStartTime: true,
+      requestedEndTime: true,
       barber: {
         select: {
           id: true,
@@ -90,8 +98,8 @@ export async function getLedgerCandidates(
       },
     },
     orderBy: [
-      { date: 'desc' },
-      { requestedStartTime: 'desc' },
+      { date: 'asc' },
+      { requestedStartTime: 'asc' },
     ],
   })
 
@@ -102,10 +110,6 @@ export async function getLedgerCandidates(
     const startTimeStr = appointment.appointmentSlots[0]
       ? appointment.appointmentSlots[0].startTime.slice(0, 5)
       : appointment.requestedStartTime.slice(0, 5)
-
-    if (!isAppointmentInPast(appointment.date, startTimeStr)) {
-      continue
-    }
 
     const startTime = startTimeStr
     const endTime = appointment.appointmentSlots[0]
@@ -185,10 +189,10 @@ export async function upsertLedgerForAppointment(
       }
     }
 
-    if (appointmentRequest.status !== 'approved') {
+    if (appointmentRequest.status !== 'done') {
       return {
         success: false,
-        error: 'Sadece onaylanmış randevular için ücret girilebilir',
+        error: 'Sadece tamamlanmış randevular için ücret girilebilir',
       }
     }
 
@@ -352,7 +356,9 @@ export async function getLedgerSummary(
     finalBarberId = session.userId
   }
 
-  const where: Prisma.AppointmentRequestWhereInput = {}
+  const where: Prisma.AppointmentRequestWhereInput = {
+    status: 'done',
+  }
 
   if (finalBarberId) {
     where.barberId = finalBarberId
@@ -361,67 +367,30 @@ export async function getLedgerSummary(
   const [allAppointments, allPaidEntries] = await Promise.all([
     prisma.appointmentRequest.findMany({
       where,
-      include: {
-        appointmentSlots: {
-          take: 1,
-          orderBy: {
-            startTime: 'asc',
-          },
-          select: {
-            startTime: true,
-          },
-        },
+      select: {
+        id: true,
+        status: true,
       },
     }),
     prisma.ledgerEntry.findMany({
       where: {
         barberId: finalBarberId || undefined,
-      },
-      include: {
         appointmentRequest: {
-          select: {
-            date: true,
-            requestedStartTime: true,
-            appointmentSlots: {
-              take: 1,
-              orderBy: {
-                startTime: 'asc',
-              },
-              select: {
-                startTime: true,
-              },
-            },
-          },
+          status: 'done',
         },
       },
     }),
   ])
 
-  const pastAppointments = allAppointments.filter((appointment) => {
-    const startTimeStr = appointment.appointmentSlots[0]
-      ? appointment.appointmentSlots[0].startTime.slice(0, 5)
-      : appointment.requestedStartTime.slice(0, 5)
-    return isAppointmentInPast(appointment.date, startTimeStr)
-  })
-
-  const pastPaidEntries = allPaidEntries.filter((entry) => {
-    const appointment = entry.appointmentRequest
-    if (!appointment) return false
-    const startTimeStr = appointment.appointmentSlots && appointment.appointmentSlots.length > 0
-      ? appointment.appointmentSlots[0].startTime.slice(0, 5)
-      : appointment.requestedStartTime.slice(0, 5)
-    return isAppointmentInPast(appointment.date, startTimeStr)
-  })
-
-  const totalRevenue = pastPaidEntries.reduce(
+  const totalRevenue = allPaidEntries.reduce(
     (sum, entry) => sum + parseFloat(entry.amount.toString()),
     0
   )
 
   return {
     totalRevenue: totalRevenue.toFixed(2),
-    paidCount: pastPaidEntries.length,
-    unpaidCount: pastAppointments.length - pastPaidEntries.length,
+    paidCount: allPaidEntries.length,
+    unpaidCount: allAppointments.length - allPaidEntries.length,
   }
 }
 
