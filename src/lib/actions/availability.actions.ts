@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
+import { getNowTR } from '@/lib/time/appointmentDateTime'
 
 export interface AvailableTimeSlot {
   startTime: string
@@ -84,7 +85,7 @@ export async function getAvailableTimeSlotsV2(
   ])
 
   const availableSlots: AvailableTimeSlot[] = []
-  const now = new Date()
+  const now = getNowTR()
   const isToday = date === now.toISOString().split('T')[0]
   const currentMinutes = isToday ? now.getHours() * 60 + now.getMinutes() : -1
 
@@ -233,7 +234,7 @@ export async function getCustomerTimeButtonsV2(
     }),
   ])
 
-  const now = new Date()
+  const now = getNowTR()
   const isToday = date === now.toISOString().split('T')[0]
   const currentMinutes = isToday ? now.getHours() * 60 + now.getMinutes() : -1
   const minAllowedMinutes = currentMinutes + 120

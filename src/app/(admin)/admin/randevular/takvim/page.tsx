@@ -23,6 +23,7 @@ import { getActiveBarbers } from "@/lib/actions/barber.actions";
 import { getCalendarAppointments, CalendarAppointment } from "@/lib/actions/appointment-query.actions";
 import { approveAppointmentRequest, cancelAppointmentRequest } from "@/lib/actions/appointment.actions";
 import { parseTimeToMinutes, minutesToTime, overlaps } from "@/lib/time";
+import { getNowTR } from "@/lib/time/appointmentDateTime";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -344,7 +345,7 @@ export default function TakvimPage() {
   };
 
   const isPastAppointment = (appointment: CalendarAppointment): boolean => {
-    const now = new Date();
+    const now = getNowTR();
     const today = now.toISOString().split('T')[0];
     const appointmentDate = appointment.date;
     const isPastDate = appointmentDate < today;

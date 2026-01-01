@@ -210,6 +210,7 @@ async function main() {
     await prisma.systemJobLog.create({
       data: {
         jobName: 'appointment_reminders',
+        ranAt: getNowTR(),
         meta: {
           totalApproved: approvedAppointments.length,
           reminders2hSent,
