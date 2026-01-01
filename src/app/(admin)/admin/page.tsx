@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { getDashboardStats, getWeeklyAppointments, getAppointmentStatusStats } from "@/lib/actions/stats.actions"
 import { getRecentAppointments } from "@/lib/actions/appointment-query.actions"
 import { getFinanceSummary } from "@/lib/actions/dashboard-finance.actions"
-import { getTodayAuditSummary, getRecentAuditActivities } from "@/lib/actions/audit.actions"
+import { getTodayAuditSummary } from "@/lib/actions/audit.actions"
+import { getSmsLogs } from "@/lib/actions/sms-log.actions"
 import { format, parseISO, formatDistanceToNow } from "date-fns"
 import { tr } from "date-fns/locale/tr"
 import { WeeklyAppointmentsChart } from "@/components/app/WeeklyAppointmentsChart"
@@ -20,7 +21,8 @@ import { formatAppointmentTimeRange } from "@/lib/time"
 import type { DashboardStats, WeeklyAppointmentData, AppointmentStatusStats } from "@/lib/actions/stats.actions"
 import type { AppointmentRequestListItem } from "@/lib/actions/appointment-query.actions"
 import type { FinanceSummary } from "@/lib/actions/dashboard-finance.actions"
-import type { TodayAuditSummary, RecentAuditActivity } from "@/lib/actions/audit.actions"
+import type { TodayAuditSummary } from "@/lib/actions/audit.actions"
+import type { SmsLogItem } from "@/lib/actions/sms-log.actions"
 
 const statusColors = {
   pending: "bg-amber-950 text-amber-300 border-amber-800",
@@ -34,6 +36,21 @@ const statusLabels = {
   approved: "Onaylandı",
   rejected: "Reddedildi",
   cancelled: "İptal",
+}
+
+const getSmsEventLabel = (event: string): string => {
+  const eventMap: Record<string, string> = {
+    AppointmentCreated: 'Randevu Oluşturuldu',
+    AppointmentApproved: 'Randevu Onaylandı',
+    AppointmentCancelledPending: 'Bekleyen Randevu İptal Edildi',
+    AppointmentCancelledApproved: 'Onaylı Randevu İptal Edildi',
+    AppointmentReminder2h: 'Randevu Hatırlatması (2 Saat)',
+    AppointmentReminder1h: 'Randevu Hatırlatması (1 Saat)',
+    SubscriptionCreated: 'Abonelik Oluşturuldu',
+    SubscriptionCancelled: 'Abonelik İptal Edildi',
+    AdminAppointmentCreated: 'Yönetici Randevu Oluşturdu',
+  }
+  return eventMap[event] || event
 }
 
 export default function AdminDashboardPage() {
@@ -59,21 +76,21 @@ export default function AdminDashboardPage() {
     smsSent: 0,
     authActions: 0,
   })
-  const [recentAuditLogs, setRecentAuditLogs] = useState<RecentAuditActivity[]>([])
+  const [recentSmsLogs, setRecentSmsLogs] = useState<SmsLogItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true)
-        const [statsData, appointmentsData, weeklyData, statusStats, financeData, auditSummaryData, recentAuditData] = await Promise.all([
+        const [statsData, appointmentsData, weeklyData, statusStats, financeData, auditSummaryData, smsLogsData] = await Promise.all([
           getDashboardStats(),
           getRecentAppointments(5),
           getWeeklyAppointments(),
           getAppointmentStatusStats(),
           getFinanceSummary('all'),
           getTodayAuditSummary(),
-          getRecentAuditActivities(5),
+          getSmsLogs(5),
         ])
         setStats(statsData)
         setRecentAppointments(appointmentsData)
@@ -81,7 +98,7 @@ export default function AdminDashboardPage() {
         setStatusStats(statusStats)
         setFinanceSummary(financeData)
         setAuditSummary(auditSummaryData)
-        setRecentAuditLogs(recentAuditData)
+        setRecentSmsLogs(smsLogsData.logs)
       } catch (error) {
         console.error("Dashboard veri yükleme hatası:", error)
       } finally {
@@ -532,9 +549,9 @@ export default function AdminDashboardPage() {
             </Card>
             <Card className="bg-card border-border">
               <CardHeader>
-                <CardTitle className="text-foreground">Son Sistem Aktiviteleri</CardTitle>
+                <CardTitle className="text-foreground">Son SMS Kayıtları</CardTitle>
                 <CardDescription className="text-muted-foreground">
-                  En son gerçekleşen sistem işlemleri
+                  En son gönderilen SMS mesajları
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -542,75 +559,36 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
-                ) : recentAuditLogs.length > 0 ? (
+                ) : recentSmsLogs.length > 0 ? (
                   <div className="space-y-2">
-                    {recentAuditLogs.map((log) => {
-                      const getActorBadge = () => {
-                        switch (log.actorType) {
-                          case 'admin':
-                            return (
-                              <Badge className="bg-primary/10 text-primary border-primary/20 flex items-center gap-1 w-fit">
-                                <Shield className="h-3 w-3" />
-                                Admin
+                    {recentSmsLogs.map((log) => (
+                      <div key={log.id} className="flex items-start justify-between gap-4 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                              {getSmsEventLabel(log.event)}
+                            </Badge>
+                            {log.status === 'success' ? (
+                              <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+                                Başarılı
                               </Badge>
-                            )
-                          case 'customer':
-                            return (
-                              <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                                <User className="h-3 w-3" />
-                                Müşteri
+                            ) : (
+                              <Badge className="bg-red-500/10 text-red-500 border-red-500/20">
+                                Hatalı
                               </Badge>
-                            )
-                          case 'system':
-                            return (
-                              <Badge variant="outline" className="flex items-center gap-1 w-fit">
-                                <Server className="h-3 w-3" />
-                                Sistem
-                              </Badge>
-                            )
-                          default:
-                            return <Badge variant="outline">{log.actorType}</Badge>
-                        }
-                      }
-
-                      const getActionBadge = () => {
-                        if (log.action.startsWith('APPOINTMENT_')) {
-                          return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{log.action}</Badge>
-                        }
-                        if (log.action.startsWith('SMS_')) {
-                          return <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">{log.action}</Badge>
-                        }
-                        if (log.action.startsWith('AUTH_')) {
-                          return <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20">{log.action}</Badge>
-                        }
-                        if (log.action.startsWith('LEDGER_')) {
-                          return <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20">{log.action}</Badge>
-                        }
-                        if (log.action.startsWith('EXPENSE_')) {
-                          return <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">{log.action}</Badge>
-                        }
-                        return <Badge variant="outline">{log.action}</Badge>
-                      }
-
-                      return (
-                        <div key={log.id} className="flex items-start justify-between gap-4 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {getActionBadge()}
-                              {getActorBadge()}
-                            </div>
-                            <p className="text-sm text-foreground">{log.summary}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatDistanceToNow(new Date(log.createdAt), { addSuffix: true, locale: tr })}
-                            </p>
+                            )}
                           </div>
+                          <p className="text-sm text-foreground font-mono">{log.to}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(log.createdAt), 'dd MMMM yyyy HH:mm', { locale: tr })}
+                          </p>
                         </div>
-                      )
-                    })}
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-center text-muted-foreground py-8">
-                    Henüz aktivite yok
+                    Henüz SMS kaydı yok
                   </p>
                 )}
               </CardContent>

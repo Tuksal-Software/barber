@@ -15,6 +15,7 @@ export const dynamic = 'force-dynamic'
 
 export default function SmsLogPage() {
   const [logs, setLogs] = useState<SmsLogItem[]>([])
+  const [customerNameMap, setCustomerNameMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -25,11 +26,13 @@ export default function SmsLogPage() {
     setLoading(true)
     try {
       const data = await getSmsLogs(50)
-      setLogs(data)
+      setLogs(data.logs)
+      setCustomerNameMap(data.customerNameMap)
     } catch (error) {
       console.error("Error loading SMS logs:", error)
       toast.error("SMS logları yüklenirken hata oluştu")
       setLogs([])
+      setCustomerNameMap({})
     } finally {
       setLoading(false)
     }
@@ -48,6 +51,45 @@ export default function SmsLogPage() {
   const truncateMessage = (message: string, maxLength: number = 50) => {
     if (message.length <= maxLength) return message
     return message.substring(0, maxLength) + '...'
+  }
+
+  const getEventLabel = (event: string): string => {
+    const reminderEventRegex = /^(APPOINTMENT_REMINDER_HOUR_[12])_(.+)$/
+    const match = event.match(reminderEventRegex)
+    
+    if (match) {
+      const reminderType = match[1]
+      const appointmentRequestId = match[2]
+      const customerName = customerNameMap[appointmentRequestId]
+      
+      let baseLabel = ''
+      if (reminderType === 'APPOINTMENT_REMINDER_HOUR_2') {
+        baseLabel = 'Randevu Hatırlatma (2 Saat Kala)'
+      } else if (reminderType === 'APPOINTMENT_REMINDER_HOUR_1') {
+        baseLabel = 'Randevu Hatırlatma (1 Saat Kala)'
+      } else {
+        baseLabel = 'Randevu Hatırlatma'
+      }
+      
+      if (customerName) {
+        return `${baseLabel} – ${customerName}`
+      }
+      return baseLabel
+    }
+
+    const eventMap: Record<string, string> = {
+      AppointmentCreated: 'Yeni Randevu Talebi',
+      AppointmentApproved: 'Randevu Onaylandı',
+      AppointmentCancelledPending: 'Randevu İptal Edildi',
+      AppointmentCancelledApproved: 'Onaylı Randevu İptal Edildi',
+      AppointmentReminder2h: 'Randevu Hatırlatma (2 Saat)',
+      AppointmentReminder1h: 'Randevu Hatırlatma (1 Saat)',
+      SubscriptionCreated: 'Abonelik Oluşturuldu',
+      SubscriptionCancelled: 'Abonelik İptal Edildi',
+      AdminAppointmentCreated: 'Yönetici Randevu Oluşturdu',
+    }
+
+    return eventMap[event] || event
   }
 
   return (
@@ -94,7 +136,7 @@ export default function SmsLogPage() {
                         {formatDate(log.createdAt)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{log.event}</Badge>
+                        <Badge variant="outline">{getEventLabel(log.event)}</Badge>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         <div className="flex items-center gap-2">
