@@ -10,6 +10,7 @@ import { getSmsLogs } from "@/lib/actions/sms-log.actions"
 import type { SmsLogItem } from "@/lib/actions/sms-log.actions"
 import { toast } from "sonner"
 import { AlertCircle } from "lucide-react"
+import { formatDateTimeLongTR } from "@/lib/time/formatDate"
 
 export const dynamic = 'force-dynamic'
 
@@ -38,15 +39,6 @@ export default function SmsLogPage() {
     }
   }
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString('tr-TR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
 
   const truncateMessage = (message: string, maxLength: number = 50) => {
     if (message.length <= maxLength) return message
@@ -133,7 +125,7 @@ export default function SmsLogPage() {
                       className={log.isAdmin ? "bg-primary/10 hover:bg-primary/15" : ""}
                     >
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(log.createdAt)}
+                        {formatDateTimeLongTR(log.createdAt)}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">{getEventLabel(log.event)}</Badge>

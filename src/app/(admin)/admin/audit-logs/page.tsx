@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getAuditLogs } from "@/lib/actions/audit.actions"
 import type { AuditLogItem } from "@/lib/actions/audit.actions"
-import { formatDistanceToNow, format } from "date-fns"
+import { formatDistanceToNow } from "date-fns"
 import { tr } from "date-fns/locale/tr"
+import { formatDateTimeLongTR } from "@/lib/time/formatDate"
 import { User, Shield, Server, ChevronDown } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
@@ -113,16 +114,6 @@ export default function AuditLogsPage() {
     return entityMap[entityType] || entityType
   }
 
-  const formatDate = (date: Date) => {
-    const months = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
-    const d = new Date(date)
-    const day = d.getDate().toString().padStart(2, '0')
-    const month = months[d.getMonth()]
-    const year = d.getFullYear()
-    const hours = d.getHours().toString().padStart(2, '0')
-    const minutes = d.getMinutes().toString().padStart(2, '0')
-    return `${day} ${month} ${year} ${hours}:${minutes}`
-  }
 
   const formatRelativeDate = (date: Date) => {
     return formatDistanceToNow(new Date(date), { addSuffix: true, locale: tr })
@@ -347,7 +338,7 @@ export default function AuditLogsPage() {
                         <TableCell className="text-sm">
                           <div className="flex flex-col">
                             <span className="text-muted-foreground">{formatRelativeDate(log.createdAt)}</span>
-                            <span className="text-xs text-muted-foreground">{formatDate(log.createdAt)}</span>
+                            <span className="text-xs text-muted-foreground">{formatDateTimeLongTR(log.createdAt)}</span>
                           </div>
                         </TableCell>
                         <TableCell>

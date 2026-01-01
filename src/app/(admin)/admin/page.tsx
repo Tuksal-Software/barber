@@ -15,6 +15,7 @@ import { getTodayAuditSummary } from "@/lib/actions/audit.actions"
 import { getSmsLogs } from "@/lib/actions/sms-log.actions"
 import { format, parseISO, formatDistanceToNow } from "date-fns"
 import { tr } from "date-fns/locale/tr"
+import { formatDateTimeLongTR } from "@/lib/time/formatDate"
 import { WeeklyAppointmentsChart } from "@/components/app/WeeklyAppointmentsChart"
 import { Skeleton } from "@/components/ui/skeleton"
 import { formatAppointmentTimeRange } from "@/lib/time"
@@ -582,7 +583,7 @@ export default function AdminDashboardPage() {
                           </div>
                           <p className="text-sm text-foreground font-mono">{log.to}</p>
                           <p className="text-xs text-muted-foreground">
-                            {format(new Date(log.createdAt), 'dd MMMM yyyy HH:mm', { locale: tr })}
+                            {formatDateTimeLongTR(log.createdAt)}
                           </p>
                         </div>
                       </div>

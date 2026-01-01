@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import type { ExpenseItem } from "@/lib/actions/expense.actions"
+import { formatDateTimeLongTR } from "@/lib/time/formatDate"
 
 interface ExpenseTableProps {
   expenses: ExpenseItem[]
@@ -78,13 +79,7 @@ export function ExpenseTable({ expenses }: ExpenseTableProps) {
                 {expense.description || "-"}
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">
-                {new Date(expense.createdAt).toLocaleString("tr-TR", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatDateTimeLongTR(expense.createdAt)}
               </TableCell>
             </TableRow>
           ))}

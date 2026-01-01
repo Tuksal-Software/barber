@@ -9,8 +9,7 @@ import { getSystemJobLogs } from "@/lib/actions/system-job-log.actions"
 import type { SystemJobLogItem } from "@/lib/actions/system-job-log.actions"
 import { toast } from "sonner"
 import { CheckCircle2, User, Phone, Clock, Calendar } from "lucide-react"
-import { format } from "date-fns"
-import { tr } from "date-fns/locale/tr"
+import { formatDateTimeTR, formatDateLongTR } from "@/lib/time/formatDate"
 
 export const dynamic = 'force-dynamic'
 
@@ -39,15 +38,6 @@ export default function SystemJobsPage() {
     }
   }
 
-  const formatDate = (date: Date) => {
-    return format(new Date(date), 'dd.MM.yyyy HH:mm', { locale: tr })
-  }
-
-  const formatDateLong = (dateStr: string) => {
-    const [year, month, day] = dateStr.split('-')
-    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-    return format(date, 'dd MMMM yyyy', { locale: tr })
-  }
 
   return (
     <div className="space-y-6">
@@ -61,7 +51,7 @@ export default function SystemJobsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground">Son Hatırlatıcı Çalışması:</span>
-              <span className="font-medium text-foreground">{formatDate(latestJob.ranAt)}</span>
+              <span className="font-medium text-foreground">{formatDateTimeTR(latestJob.ranAt)}</span>
             </div>
           </CardContent>
         </Card>
@@ -95,7 +85,7 @@ export default function SystemJobsPage() {
                     <div className="flex flex-1 items-center justify-between gap-4">
                       <div className="flex flex-1 items-center gap-4">
                         <div className="text-sm font-medium text-muted-foreground">
-                          {formatDate(log.ranAt)}
+                          {formatDateTimeTR(log.ranAt)}
                         </div>
                         <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -142,12 +132,12 @@ export default function SystemJobsPage() {
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                       <Calendar className="h-3.5 w-3.5 shrink-0" />
                                       <span>
-                                        {formatDateLong(sms.appointmentDate)} - {sms.appointmentTime}
+                                        {formatDateLongTR(sms.appointmentDate)} - {sms.appointmentTime}
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                       <Clock className="h-3.5 w-3.5 shrink-0" />
-                                      <span>SMS gönderim zamanı: {formatDate(sms.sentAt)}</span>
+                                      <span>SMS gönderim zamanı: {formatDateTimeTR(sms.sentAt)}</span>
                                     </div>
                                   </div>
                                 </CardContent>
