@@ -14,6 +14,7 @@ import {
   ClockIcon,
   RepeatIcon,
   CalendarPlusIcon,
+  CogIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -85,21 +86,27 @@ const navItems = [
     disabled: false
   },
   {
+    title: "Berberler",
+    url: "/admin/berberler",
+    icon: UsersIcon,
+    disabled: false
+  },
+  {
     title: "SMS Logları",
     url: "/admin/sms-log",
     icon: MessageSquareIcon,
     disabled: false
   },
   {
-    title: "Audit Logs",
+    title: "Sistem Logları",
     url: "/admin/audit-logs",
     icon: ActivityIcon,
     disabled: false
   },
   {
-    title: "Berberler",
-    url: "/admin/berberler",
-    icon: UsersIcon,
+    title: "Hatırlatıcı Sms Logları",
+    url: "/admin/system-jobs",
+    icon: CogIcon,
     disabled: false
   },
   {

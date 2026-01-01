@@ -323,3 +323,14 @@ model Subscription {
   @@index([isActive])
   @@map("subscriptions")
 }
+
+model SystemJobLog {
+  id        String   @id @default(cuid())
+  jobName   String   @db.VarChar(100)
+  ranAt     DateTime @default(now()) @db.DateTime(0)
+  meta      Json?
+
+  @@index([jobName])
+  @@index([ranAt])
+  @@map("system_job_logs")
+}
