@@ -87,3 +87,21 @@ export async function getSmsLogs(limit: number = 50): Promise<SmsLogsResponse> {
   }
 }
 
+export async function getLastReminderJobRun(): Promise<Date | null> {
+  await requireAdmin()
+
+  const latestJob = await prisma.systemJobLog.findFirst({
+    where: {
+      jobName: 'appointment_reminders',
+    },
+    orderBy: {
+      ranAt: 'desc',
+    },
+    select: {
+      ranAt: true,
+    },
+  })
+
+  return latestJob?.ranAt || null
+}
+

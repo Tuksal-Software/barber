@@ -14,7 +14,6 @@ import {
   ClockIcon,
   RepeatIcon,
   CalendarPlusIcon,
-  CogIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -101,12 +100,6 @@ const navItems = [
     title: "Sistem Logları",
     url: "/admin/audit-logs",
     icon: ActivityIcon,
-    disabled: false
-  },
-  {
-    title: "Hatırlatıcı Sms Logları",
-    url: "/admin/system-jobs",
-    icon: CogIcon,
     disabled: false
   },
   {

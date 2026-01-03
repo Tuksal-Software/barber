@@ -6,11 +6,11 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { getSmsLogs } from "@/lib/actions/sms-log.actions"
+import { getSmsLogs, getLastReminderJobRun } from "@/lib/actions/sms-log.actions"
 import type { SmsLogItem } from "@/lib/actions/sms-log.actions"
 import { toast } from "sonner"
 import { AlertCircle } from "lucide-react"
-import { formatDateTimeLongTR } from "@/lib/time/formatDate"
+import { formatDateTimeLongTR, formatDateTimeUTC } from "@/lib/time/formatDate"
 
 export const dynamic = 'force-dynamic'
 
@@ -18,9 +18,11 @@ export default function SmsLogPage() {
   const [logs, setLogs] = useState<SmsLogItem[]>([])
   const [customerNameMap, setCustomerNameMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
+  const [lastReminderRun, setLastReminderRun] = useState<Date | null>(null)
 
   useEffect(() => {
     loadLogs()
+    loadLastReminderRun()
   }, [])
 
   const loadLogs = async () => {
@@ -36,6 +38,16 @@ export default function SmsLogPage() {
       setCustomerNameMap({})
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadLastReminderRun = async () => {
+    try {
+      const lastRun = await getLastReminderJobRun()
+      setLastReminderRun(lastRun)
+    } catch (error) {
+      console.error("Error loading last reminder run:", error)
+      setLastReminderRun(null)
     }
   }
 
@@ -93,7 +105,12 @@ export default function SmsLogPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>SMS Gönderim Geçmişi</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>SMS Gönderim Geçmişi</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Hatırlatıcı SMS sistemi son çalıştırma: {lastReminderRun ? formatDateTimeUTC(lastReminderRun) : '-'}
+            </p>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
