@@ -908,7 +908,7 @@ export default function BookingPage() {
                 </div>
               )}
               <div 
-                className="mt-4 text-sm text-red-600 hover:text-red-700 cursor-pointer text-center"
+                className="mt-4 text-md text-red-600 hover:text-red-700 cursor-pointer text-center"
                 onClick={handleCancelModalOpen}
               >
                 Randevumu İptal Et
@@ -918,49 +918,55 @@ export default function BookingPage() {
 
         case 2:
           return (
-            <div className="space-y-6 h-full flex flex-col min-h-0">
-              <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl flex flex-col flex-1 min-h-0 h-full max-h-[75vh] sm:max-h-[70vh]">
-                <CardContent className="p-6 flex flex-col flex-1 min-h-0">
-                  <div className="flex-shrink-0 mb-4">
-                    <Label className="mb-2 block">Tarih</Label>
-                    <HorizontalDatePicker
-                      selectedDate={selectedDate}
-                      onDateSelect={setSelectedDate}
-                    />
-                  </div>
+              <div className="space-y-6 h-full flex flex-col min-h-0">
+                  <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl flex flex-col flex-1 min-h-0 h-full max-h-[75vh] sm:max-h-[70vh]">
+                      <CardContent className="p-6 flex flex-col flex-1 min-h-0">
+                          <div className="flex-shrink-0 mb-4">
+                              <div className="flex items-center justify-between mb-2">
+                                  <Label className="block">Tarih</Label>
+                                  {selectedStart && (
+                                      <span className="text-xs text-red-400 text-muted-foreground"><u>Seçilen: {selectedStart}</u></span>
+                                  )}
+                              </div>
 
-                  <div className="flex flex-col flex-1 min-h-0">
-                    <div className="flex-shrink-0 mb-2">
-                      <Label className="block">Saat</Label>
-                      {selectedStart && (
-                        <div className="mt-2 mb-3 rounded-lg bg-primary/20 border border-primary/40 p-2">
-                          <p className="text-xs text-muted-foreground">
-                            Seçilen: {selectedStart}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    {loadingSlots ? (
-                      <div className="flex items-center justify-center py-8 flex-shrink-0">
-                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : timeButtons.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground text-sm flex-shrink-0">
-                        Bu tarih için müsait saat bulunmamaktadır
-                      </div>
-                    ) : (
-                      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
-                        <TimeRangePicker
-                          selectedStart={selectedStart}
-                          onStartSelect={setSelectedStart}
-                          timeButtons={timeButtons}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                              <HorizontalDatePicker
+                                  selectedDate={selectedDate}
+                                  onDateSelect={setSelectedDate}
+                              />
+                          </div>
+
+                          <div className="flex flex-col flex-1 min-h-0">
+                              <div className="flex-shrink-0 mb-2">
+                                  <Label className="block">Saat</Label>
+                                  {selectedStart && (
+                                      <div className="mt-2 mb-3 rounded-lg bg-primary/20 border border-primary/40 p-2">
+                                          <p className="text-xs text-muted-foreground">
+                                              Seçilen: {selectedStart}
+                                          </p>
+                                      </div>
+                                  )}
+                              </div>
+                              {loadingSlots ? (
+                                  <div className="flex items-center justify-center py-8 flex-shrink-0">
+                                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                  </div>
+                              ) : timeButtons.length === 0 ? (
+                                  <div className="text-center py-8 text-muted-foreground text-sm flex-shrink-0">
+                                      Bu tarih için müsait saat bulunmamaktadır
+                                  </div>
+                              ) : (
+                                  <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+                                      <TimeRangePicker
+                                          selectedStart={selectedStart}
+                                          onStartSelect={setSelectedStart}
+                                          timeButtons={timeButtons}
+                                      />
+                                  </div>
+                              )}
+                          </div>
+                      </CardContent>
+                  </Card>
+              </div>
           )
 
         case 3:
