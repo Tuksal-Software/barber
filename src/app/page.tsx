@@ -9,7 +9,7 @@ import { format } from "date-fns"
 import { tr } from "date-fns/locale/tr"
 import { Star, Scissors, Loader2, Clock, CheckCircle2, X } from "lucide-react"
 import Image from "next/image"
-import { BottomBar } from "@/components/app/BottomBar"
+import { motion, AnimatePresence } from "framer-motion"
 import { Stepper } from "@/components/app/Stepper"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -50,7 +50,6 @@ export default function BookingPage() {
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [showSuccess, setShowSuccess] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
   const [phoneValue, setPhoneValue] = useState("")
   const [showNameInput, setShowNameInput] = useState(false)
   const [loadingCustomer, setLoadingCustomer] = useState(false)
@@ -311,11 +310,7 @@ export default function BookingPage() {
 
   const handleNext = () => {
     if (step < maxStep && canProceed() && !isPending) {
-      setIsTransitioning(true)
-      setTimeout(() => {
-        setStep(step + 1)
-        setIsTransitioning(false)
-      }, 150)
+      setStep(step + 1)
     }
   }
 
@@ -330,11 +325,7 @@ export default function BookingPage() {
 
   const handleBack = () => {
     if (step > 1 && !isPending) {
-      setIsTransitioning(true)
-      setTimeout(() => {
-        setStep(step - 1)
-        setIsTransitioning(false)
-      }, 150)
+      setStep(step - 1)
     }
   }
 
@@ -483,13 +474,42 @@ export default function BookingPage() {
     const infoStep = enableServiceSelection ? 4 : 3
     const confirmStep = enableServiceSelection ? 5 : 4
     if (step === infoStep && !isPending) {
-      setIsTransitioning(true)
-      setTimeout(() => {
-        setStep(confirmStep)
-        setIsTransitioning(false)
-      }, 150)
+      setStep(confirmStep)
     }
   })
+
+  const getStepTitle = () => {
+    if (showSuccess) return null
+    if (enableServiceSelection) {
+      switch (step) {
+        case 1:
+          return "Berber Seçimi"
+        case 2:
+          return "Ürün Seçimi"
+        case 3:
+          return "Tarih ve Saat Aralığı Seç"
+        case 4:
+          return "Bilgiler"
+        case 5:
+          return "Onay"
+        default:
+          return null
+      }
+    } else {
+      switch (step) {
+        case 1:
+          return "Berber Seçimi"
+        case 2:
+          return "Tarih ve Saat Aralığı Seç"
+        case 3:
+          return "Bilgiler"
+        case 4:
+          return "Onay"
+        default:
+          return null
+      }
+    }
+  }
 
   const renderStep = () => {
     if (showSuccess) {
@@ -538,7 +558,6 @@ export default function BookingPage() {
         case 1:
           return (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Berber Seçimi</h2>
             {loadingBarbers ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -550,7 +569,7 @@ export default function BookingPage() {
                 description="Şu anda aktif berber bulunmamaktadır"
               />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="space-y-2">
                 {barbers.map((barber) => {
                   const isSelected = selectedBarber?.id === barber.id
                   
@@ -558,38 +577,39 @@ export default function BookingPage() {
                     <Card
                       key={barber.id}
                       className={cn(
-                        "cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl overflow-hidden group",
-                        isSelected && "ring-2 ring-primary shadow-xl shadow-primary/20"
+                        "cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl overflow-hidden group",
+                        isSelected && "ring-2 ring-primary shadow-xl shadow-primary/20 bg-muted/60"
                       )}
                       onClick={() => !isPending && setSelectedBarber(barber)}
                     >
-                      <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                        <div className="relative">
+                      <CardContent className="px-4 py-3 flex items-center gap-4">
+                        <div className="relative flex-shrink-0">
                           <Avatar className={cn(
-                            "h-24 w-24 ring-2 ring-offset-2 ring-offset-background transition-all",
-                            isSelected ? "ring-primary" : "ring-transparent group-hover:ring-primary/50"
+                            "h-14 w-14 transition-all",
+                            isSelected ? "ring-2 ring-primary" : "ring-2 ring-transparent group-hover:ring-primary/50"
                           )}>
                             <AvatarImage
                               src={barber.image || undefined}
                               alt={barber.name}
+                              className="object-cover"
                             />
-                            <AvatarFallback className="text-xl font-semibold">
+                            <AvatarFallback className="text-sm font-semibold">
                               {getBarberInitials(barber.name)}
                             </AvatarFallback>
                           </Avatar>
-                          {isSelected && (
-                            <div className="absolute -top-1 -right-1 bg-primary rounded-full p-1 shadow-lg">
-                              <CheckCircle2 className="h-5 w-5 text-primary-foreground" />
-                            </div>
-                          )}
                         </div>
-                        <div className="space-y-1">
-                          <h3 className="font-semibold text-foreground text-lg">{barber.name}</h3>
-                          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                            <Scissors className="h-4 w-4" />
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <h3 className="font-semibold text-foreground text-base truncate">{barber.name}</h3>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Scissors className="h-4 w-4 flex-shrink-0" />
                             <span>Profesyonel</span>
                           </div>
                         </div>
+                        {isSelected && (
+                          <div className="flex-shrink-0">
+                            <CheckCircle2 className="h-5 w-5 text-primary" />
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   )
@@ -608,7 +628,6 @@ export default function BookingPage() {
       case 2:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Ürün Seçimi</h2>
             <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
               <CardContent className="p-6">
                 <div className="space-y-3">
@@ -678,7 +697,6 @@ export default function BookingPage() {
       case 3:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Tarih ve Saat Aralığı Seç</h2>
             <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
               <CardContent className="p-6 space-y-4">
                 <div>
@@ -724,7 +742,6 @@ export default function BookingPage() {
       case 4:
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Bilgiler</h2>
             <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
               <CardContent className="p-6">
                 <form onSubmit={handleStepSubmit} className="space-y-4">
@@ -783,7 +800,6 @@ export default function BookingPage() {
         case 5:
           return (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Onay</h2>
               <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
                 <CardContent className="p-6 space-y-4">
                   <div>
@@ -831,7 +847,6 @@ export default function BookingPage() {
         case 1:
           return (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Berber Seçimi</h2>
               {loadingBarbers ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -843,7 +858,7 @@ export default function BookingPage() {
                   description="Şu anda aktif berber bulunmamaktadır"
                 />
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-2">
                   {barbers.map((barber) => {
                     const isSelected = selectedBarber?.id === barber.id
                     
@@ -851,38 +866,39 @@ export default function BookingPage() {
                       <Card
                         key={barber.id}
                         className={cn(
-                          "cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl overflow-hidden group",
-                          isSelected && "ring-2 ring-primary shadow-xl shadow-primary/20"
+                          "cursor-pointer transition-all hover:bg-muted/40 active:scale-[0.98] bg-card/80 backdrop-blur-md border-border/40 shadow-lg rounded-xl overflow-hidden group",
+                          isSelected && "ring-2 ring-primary shadow-xl shadow-primary/20 bg-muted/60"
                         )}
                         onClick={() => !isPending && setSelectedBarber(barber)}
                       >
-                        <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                          <div className="relative">
+                        <CardContent className="px-4 py-3 flex items-center gap-4">
+                          <div className="relative flex-shrink-0">
                             <Avatar className={cn(
-                              "h-24 w-24 ring-2 ring-offset-2 ring-offset-background transition-all",
-                              isSelected ? "ring-primary" : "ring-transparent group-hover:ring-primary/50"
+                              "h-14 w-14 transition-all",
+                              isSelected ? "ring-2 ring-primary" : "ring-2 ring-transparent group-hover:ring-primary/50"
                             )}>
                               <AvatarImage
                                 src={barber.image || undefined}
                                 alt={barber.name}
+                                className="object-cover"
                               />
-                              <AvatarFallback className="text-xl font-semibold">
+                              <AvatarFallback className="text-sm font-semibold">
                                 {getBarberInitials(barber.name)}
                               </AvatarFallback>
                             </Avatar>
-                            {isSelected && (
-                              <div className="absolute -top-1 -right-1 bg-primary rounded-full p-1 shadow-lg">
-                                <CheckCircle2 className="h-5 w-5 text-primary-foreground" />
-                              </div>
-                            )}
                           </div>
-                          <div className="space-y-1">
-                            <h3 className="font-semibold text-foreground text-lg">{barber.name}</h3>
-                            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                              <Scissors className="h-4 w-4" />
+                          <div className="flex-1 min-w-0 flex flex-col">
+                            <h3 className="font-semibold text-foreground text-base truncate">{barber.name}</h3>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Scissors className="h-4 w-4 flex-shrink-0" />
                               <span>Profesyonel</span>
                             </div>
                           </div>
+                          {isSelected && (
+                            <div className="flex-shrink-0">
+                              <CheckCircle2 className="h-5 w-5 text-primary" />
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     )
@@ -901,7 +917,6 @@ export default function BookingPage() {
         case 2:
           return (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Tarih ve Saat Aralığı Seç</h2>
               <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
                 <CardContent className="p-6 space-y-4">
                   <div>
@@ -947,7 +962,6 @@ export default function BookingPage() {
         case 3:
           return (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Bilgiler</h2>
               <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
                 <CardContent className="p-6">
                   <form onSubmit={handleStepSubmit} className="space-y-4">
@@ -1006,7 +1020,6 @@ export default function BookingPage() {
         case 4:
           return (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-foreground drop-shadow-md">Onay</h2>
               <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
                 <CardContent className="p-6 space-y-4">
                   <div>
@@ -1045,11 +1058,11 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col">
-      <div className="fixed inset-0 -z-10 bg-[url('/hero.jpg')] bg-cover bg-center bg-no-repeat bg-fixed" />
-      <div className="fixed inset-0 -z-10 bg-black/50 backdrop-blur-md" />
-      <div className="relative z-10 flex min-h-screen flex-col">
-        <div className="flex justify-center pt-6 pb-2">
+    <div className="relative h-screen overflow-hidden flex flex-col">
+      <div className="absolute inset-0 -z-10 bg-[url('/hero.jpg')] bg-cover bg-center bg-no-repeat" />
+      <div className="absolute inset-0 -z-10 bg-black/50 backdrop-blur-md" />
+      <div className="relative z-10 h-screen overflow-hidden flex flex-col">
+        <div className="flex-shrink-0 flex justify-center pt-6 pb-2">
           <Image
             src="/logo.png"
             alt="Logo"
@@ -1059,45 +1072,75 @@ export default function BookingPage() {
             priority
           />
         </div>
-        <div className="font-medium text-center">
+        <div className="flex-shrink-0 font-medium text-center pb-2">
           {shopName}
         </div>
-        <div className="flex-1 pb-32 pt-4">
-          <div className="mx-auto max-w-2xl px-4">
-            {!showSuccess && <Stepper steps={wizardSteps} currentStep={step} />}
-            <div
-              className={cn(
-                "mt-6 transition-opacity duration-200",
-                isTransitioning && "opacity-50 pointer-events-none",
-                showSuccess && "mt-0"
-              )}
-            >
-              {renderStep()}
+        {!showSuccess && (
+          <div className="flex-shrink-0 flex justify-center">
+            <div className="w-full max-w-2xl px-4">
+              <Stepper steps={wizardSteps} currentStep={step} />
+            </div>
+          </div>
+        )}
+        {!showSuccess && getStepTitle() && (
+          <div className="flex-shrink-0 px-4 pt-4">
+            <div className="mx-auto max-w-2xl">
+              <h2 className="text-xl font-semibold text-foreground drop-shadow-md">
+                {getStepTitle()}
+              </h2>
+            </div>
+          </div>
+        )}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-full overflow-y-auto">
+            <div className="mx-auto max-w-2xl px-4 py-4">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={step}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 4 }}
+                  transition={{ duration: 0.15, ease: "easeOut" }}
+                >
+                  {renderStep()}
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
         </div>
         {!showSuccess && (
-          <BottomBar
-            primaryLabel={
-              isPending
-                ? "Yükleniyor..."
-                : step === maxStep
-                ? "Onayla"
-                : (enableServiceSelection && step === 4) || (!enableServiceSelection && step === 3)
-                ? "Devam Et"
-                : "Devam Et"
-            }
-            primaryAction={
-              (enableServiceSelection && step === 4) || (!enableServiceSelection && step === 3)
-                ? handleStepSubmit
-                : step === maxStep
-                ? handleConfirm
-                : handleNext
-            }
-            primaryDisabled={!canProceed() || isPending || isTransitioning}
-            secondaryLabel={step > 1 ? "Geri" : undefined}
-            secondaryAction={step > 1 && !isPending && !isTransitioning ? handleBack : undefined}
-          />
+          <div className="flex-shrink-0 border-t bg-background p-4">
+            <div className="mx-auto flex max-w-2xl gap-3">
+              {step > 1 && !isPending && (
+                <Button
+                  variant="outline"
+                  onClick={handleBack}
+                  className="flex-1"
+                >
+                  Geri
+                </Button>
+              )}
+              <Button
+                onClick={
+                  (enableServiceSelection && step === 4) || (!enableServiceSelection && step === 3)
+                    ? handleStepSubmit
+                    : step === maxStep
+                    ? handleConfirm
+                    : handleNext
+                }
+                disabled={!canProceed() || isPending}
+                className={step > 1 && !isPending ? "flex-1" : "w-full"}
+              >
+                {isPending
+                  ? "Yükleniyor..."
+                  : step === maxStep
+                  ? "Onayla"
+                  : (enableServiceSelection && step === 4) || (!enableServiceSelection && step === 3)
+                  ? "Devam Et"
+                  : "Devam Et"}
+              </Button>
+            </div>
+          </div>
         )}
         <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
           <DialogContent>
