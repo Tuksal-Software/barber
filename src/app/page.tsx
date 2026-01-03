@@ -1062,9 +1062,18 @@ export default function BookingPage() {
   }
 
   return (
-    <div className="relative h-screen overflow-hidden flex flex-col">
-      <div className="absolute inset-0 -z-10 bg-[url('/hero.jpg')] bg-cover bg-center bg-no-repeat" />
-      <div className="absolute inset-0 -z-10 bg-black/50 backdrop-blur-md" />
+    <div className="relative min-h-screen flex flex-col">
+        <div
+            className="
+            fixed inset-0 -z-10
+            bg-[url('/hero.jpg')] bg-cover bg-center bg-no-repeat
+            before:absolute before:inset-0 before:bg-black/50
+            will-change-transform
+            translate-z-0
+            blur-[3px]
+            scale-[1.02]
+          "
+        />
       <div className="relative z-10 h-screen overflow-hidden flex flex-col">
         <div className="flex-shrink-0 flex justify-center pt-6 pb-2">
           <Image
