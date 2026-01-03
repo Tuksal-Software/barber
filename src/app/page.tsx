@@ -696,10 +696,10 @@ export default function BookingPage() {
 
       case 3:
         return (
-          <div className="space-y-6">
-            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
-              <CardContent className="p-6 space-y-4">
-                <div>
+          <div className="space-y-6 h-full flex flex-col min-h-0">
+            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl flex flex-col flex-1 min-h-0 h-full">
+              <CardContent className="p-6 flex flex-col flex-1 min-h-0">
+                <div className="flex-shrink-0 mb-4">
                   <Label className="mb-2 block">Tarih</Label>
                   <HorizontalDatePicker
                     selectedDate={selectedDate}
@@ -707,31 +707,33 @@ export default function BookingPage() {
                   />
                 </div>
 
-                <div>
-                  <Label className="mb-2 block">Saat</Label>
+                <div className="flex flex-col flex-1 min-h-0">
+                  <div className="flex-shrink-0 mb-2">
+                    <Label className="block">Saat</Label>
+                    {selectedStart && (
+                      <div className="mt-2 mb-3 rounded-lg bg-primary/20 border border-primary/40 p-2">
+                        <p className="text-xs text-muted-foreground">
+                          Seçilen: {selectedStart}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                   {loadingSlots ? (
-                    <div className="flex items-center justify-center py-8">
+                    <div className="flex items-center justify-center py-8 flex-shrink-0">
                       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
                   ) : timeButtons.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground text-sm">
+                    <div className="text-center py-8 text-muted-foreground text-sm flex-shrink-0">
                       Bu tarih için müsait saat bulunmamaktadır
                     </div>
                   ) : (
-                    <>
+                    <div className="flex-1 min-h-0 overflow-y-auto pr-1">
                       <TimeRangePicker
                         selectedStart={selectedStart}
                         onStartSelect={setSelectedStart}
                         timeButtons={timeButtons}
                       />
-                      {selectedStart && (
-                        <div className="mt-3 rounded-lg bg-primary/20 border border-primary/40 p-3">
-                          <p className="text-sm font-medium text-primary">
-                            Seçilen: {selectedStart}
-                          </p>
-                        </div>
-                      )}
-                    </>
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -916,10 +918,10 @@ export default function BookingPage() {
 
         case 2:
           return (
-            <div className="space-y-6">
-              <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl">
-                <CardContent className="p-6 space-y-4">
-                  <div>
+            <div className="space-y-6 h-full flex flex-col min-h-0">
+              <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl flex flex-col flex-1 min-h-0 h-full">
+                <CardContent className="p-6 flex flex-col flex-1 min-h-0">
+                  <div className="flex-shrink-0 mb-4">
                     <Label className="mb-2 block">Tarih</Label>
                     <HorizontalDatePicker
                       selectedDate={selectedDate}
@@ -927,31 +929,33 @@ export default function BookingPage() {
                     />
                   </div>
 
-                  <div>
-                    <Label className="mb-2 block">Saat</Label>
+                  <div className="flex flex-col flex-1 min-h-0">
+                    <div className="flex-shrink-0 mb-2">
+                      <Label className="block">Saat</Label>
+                      {selectedStart && (
+                        <div className="mt-2 mb-3 rounded-lg bg-primary/20 border border-primary/40 p-2">
+                          <p className="text-xs text-muted-foreground">
+                            Seçilen: {selectedStart}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                     {loadingSlots ? (
-                      <div className="flex items-center justify-center py-8">
+                      <div className="flex items-center justify-center py-8 flex-shrink-0">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                       </div>
                     ) : timeButtons.length === 0 ? (
-                      <div className="text-center py-8 text-muted-foreground text-sm">
+                      <div className="text-center py-8 text-muted-foreground text-sm flex-shrink-0">
                         Bu tarih için müsait saat bulunmamaktadır
                       </div>
                     ) : (
-                      <>
+                      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
                         <TimeRangePicker
                           selectedStart={selectedStart}
                           onStartSelect={setSelectedStart}
                           timeButtons={timeButtons}
                         />
-                        {selectedStart && (
-                          <div className="mt-3 rounded-lg bg-primary/20 border border-primary/40 p-3">
-                            <p className="text-sm font-medium text-primary">
-                              Seçilen: {selectedStart}
-                            </p>
-                          </div>
-                        )}
-                      </>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -1066,8 +1070,8 @@ export default function BookingPage() {
           <Image
             src="/logo.png"
             alt="Logo"
-            width={180}
-            height={60}
+            width={120}
+            height={40}
             className="h-auto max-w-[160px] opacity-95"
             priority
           />
@@ -1092,8 +1096,8 @@ export default function BookingPage() {
           </div>
         )}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full overflow-y-auto">
-            <div className="mx-auto max-w-2xl px-4 py-4">
+          <div className="h-full overflow-hidden">
+            <div className="mx-auto max-w-2xl px-4 py-4 h-full flex flex-col min-h-0">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={step}
@@ -1101,6 +1105,7 @@ export default function BookingPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 4 }}
                   transition={{ duration: 0.15, ease: "easeOut" }}
+                  className="h-full flex flex-col min-h-0"
                 >
                   {renderStep()}
                 </motion.div>

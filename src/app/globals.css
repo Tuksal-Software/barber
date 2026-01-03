@@ -83,6 +83,9 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  .scrollbar-stable {
+    scrollbar-gutter: stable;
+  }
 }
 
 @keyframes fadeIn {
