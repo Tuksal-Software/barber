@@ -11,7 +11,7 @@ interface StepperProps {
 
 export function Stepper({ steps, currentStep, className }: StepperProps) {
     return (
-        <div className={cn("flex justify-center px-4 py-6", className)}>
+        <div className={cn("flex justify-center px-4 py-2 sm:py-6", className)}>
             <div className="flex items-center gap-4">
                 {steps.map((step, index) => {
                     const stepNumber = index + 1

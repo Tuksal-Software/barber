@@ -697,7 +697,7 @@ export default function BookingPage() {
       case 3:
         return (
           <div className="space-y-6 h-full flex flex-col min-h-0">
-            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl flex flex-col flex-1 min-h-0 h-full">
+            <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl flex flex-col flex-1 min-h-0 h-full max-h-[75vh] sm:max-h-[70vh]">
               <CardContent className="p-6 flex flex-col flex-1 min-h-0">
                 <div className="flex-shrink-0 mb-4">
                   <Label className="mb-2 block">Tarih</Label>
@@ -919,7 +919,7 @@ export default function BookingPage() {
         case 2:
           return (
             <div className="space-y-6 h-full flex flex-col min-h-0">
-              <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl flex flex-col flex-1 min-h-0 h-full">
+              <Card className="bg-card/80 backdrop-blur-md border-border/40 shadow-xl rounded-xl flex flex-col flex-1 min-h-0 h-full max-h-[75vh] sm:max-h-[70vh]">
                 <CardContent className="p-6 flex flex-col flex-1 min-h-0">
                   <div className="flex-shrink-0 mb-4">
                     <Label className="mb-2 block">Tarih</Label>
@@ -1075,17 +1075,17 @@ export default function BookingPage() {
           "
         />
       <div className="relative z-10 h-screen overflow-hidden flex flex-col">
-        <div className="flex-shrink-0 flex justify-center pt-6 pb-2">
+        <div className="flex-shrink-0 flex justify-center pt-4 pb-1 sm:pt-6 sm:pb-2">
           <Image
             src="/logo.png"
             alt="Logo"
             width={120}
             height={40}
-            className="h-auto max-w-[160px] opacity-95"
+            className="h-auto max-w-[140px] sm:max-w-[160px] opacity-95"
             priority
           />
         </div>
-        <div className="flex-shrink-0 font-medium text-center pb-2">
+        <div className="flex-shrink-0 font-medium text-center text-sm sm:text-base mb-1 sm:mb-2 pb-2">
           {shopName}
         </div>
         {!showSuccess && (
@@ -1096,9 +1096,9 @@ export default function BookingPage() {
           </div>
         )}
         {!showSuccess && getStepTitle() && (
-          <div className="flex-shrink-0 px-4 pt-4">
+          <div className="flex-shrink-0 px-4 pt-2 sm:pt-4">
             <div className="mx-auto max-w-2xl">
-              <h2 className="text-xl font-semibold text-foreground drop-shadow-md">
+              <h2 className="text-lg sm:text-xl font-semibold text-foreground drop-shadow-md">
                 {getStepTitle()}
               </h2>
             </div>
