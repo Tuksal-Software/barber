@@ -938,13 +938,6 @@ export default function BookingPage() {
                           <div className="flex flex-col flex-1 min-h-0">
                               <div className="flex-shrink-0 mb-2">
                                   <Label className="block">Saat</Label>
-                                  {selectedStart && (
-                                      <div className="mt-2 mb-3 rounded-lg bg-primary/20 border border-primary/40 p-2">
-                                          <p className="text-xs text-muted-foreground">
-                                              Seçilen: {selectedStart}
-                                          </p>
-                                      </div>
-                                  )}
                               </div>
                               {loadingSlots ? (
                                   <div className="flex items-center justify-center py-8 flex-shrink-0">
