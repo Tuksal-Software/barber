@@ -14,6 +14,7 @@ import {
   ClockIcon,
   RepeatIcon,
   CalendarPlusIcon,
+  RefreshCwIcon,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -103,6 +104,13 @@ const navItems = [
     group: "defter"
   },
   {
+    title: "Sabit Giderler",
+    url: "/admin/giderler/sabit",
+    icon: RefreshCwIcon,
+    disabled: false,
+    group: "defter"
+  },
+  {
     title: "SMS Logları",
     url: "/admin/sms-log",
     icon: MessageSquareIcon,
@@ -173,7 +181,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
 
   const navItemsWithActive = navItems.map((item) => ({
     ...item,
-    isActive: pathname === item.url || (item.url === "/admin/randevular" && pathname.startsWith("/admin/randevular") && pathname !== "/admin/randevular/takvim"),
+    isActive: pathname === item.url || (item.url === "/admin/randevular" && pathname.startsWith("/admin/randevular") && pathname !== "/admin/randevular/takvim") || (item.url === "/admin/giderler/sabit" && pathname.startsWith("/admin/giderler/sabit")),
   }))
 
   const groupedItems = navItemsWithActive
