@@ -200,6 +200,27 @@ export default function BookingPage() {
     fetchEnableServiceSelection()
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    const urlParams = new URLSearchParams(window.location.search)
+    const cancelParam = urlParams.get('cancel')
+    const phoneParam = urlParams.get('phone')
+    
+    if (cancelParam === '1') {
+      setShowCancelModal(true)
+      setCancelStep(1)
+      
+      if (phoneParam) {
+        const decodedPhone = decodeURIComponent(phoneParam)
+        const normalized = normalizeCancelPhone(decodedPhone)
+        if (normalized.match(/^\+90[5][0-9]{9}$/)) {
+          setCancelPhone(normalized)
+        }
+      }
+    }
+  }, [])
+
   const getDurationFromServiceType = (serviceType: "saç" | "sakal" | "saç_sakal" | null): number | null => {
     if (!serviceType) return null
     if (serviceType === "saç_sakal") return 60

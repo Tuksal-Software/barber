@@ -21,6 +21,7 @@ export default function SettingsPage() {
     approvedCancelMinHours: 2,
     timezone: 'Europe/Istanbul',
     enableServiceSelection: true,
+    appointmentCancelReminderHours: null,
   })
 
   useEffect(() => {
@@ -177,26 +178,75 @@ export default function SettingsPage() {
               <h3 className="text-lg font-semibold mb-1">Kurallar</h3>
               <p className="text-sm text-muted-foreground mb-5">Randevu iptal kuralları</p>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="approvedCancelMinHours" className="text-xs font-medium">
-                  Onaylı randevu iptal süresi
-                </Label>
-                <Input
-                  id="approvedCancelMinHours"
-                  type="number"
-                  min={1}
-                  max={48}
-                  value={settings.approvedCancelMinHours}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      approvedCancelMinHours: parseInt(e.target.value) || 2,
-                    })
-                  }
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Müşteriler onaylı randevularını kaç saat öncesine kadar iptal edebilir.
-                </p>
+              <div className="space-y-5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="approvedCancelMinHours" className="text-xs font-medium">
+                    Onaylı randevu iptal süresi
+                  </Label>
+                  <Input
+                    id="approvedCancelMinHours"
+                    type="number"
+                    min={1}
+                    max={48}
+                    value={settings.approvedCancelMinHours}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        approvedCancelMinHours: parseInt(e.target.value) || 2,
+                      })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Müşteriler onaylı randevularını kaç saat öncesine kadar iptal edebilir.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-6 py-3 rounded-md hover:bg-muted/30 transition-colors">
+                    <div className="space-y-0.5 flex-1">
+                      <Label className="text-sm font-medium">Ek Hatırlatma SMS'i Gönder</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Müşterilere randevuya belirli saat kala ek hatırlatma SMS'i gönderin. SMS içinde iptal linki bulunur.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.appointmentCancelReminderHours !== null}
+                      onCheckedChange={(checked) =>
+                        setSettings({
+                          ...settings,
+                          appointmentCancelReminderHours: checked ? 6 : null,
+                        })
+                      }
+                    />
+                  </div>
+
+                  {settings.appointmentCancelReminderHours !== null && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="appointmentCancelReminderHours" className="text-xs font-medium">
+                        Randevuya kaç saat kala?
+                      </Label>
+                      <Input
+                        id="appointmentCancelReminderHours"
+                        type="number"
+                        min={3}
+                        max={24}
+                        value={settings.appointmentCancelReminderHours}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value)
+                          if (value >= 3 && value <= 24) {
+                            setSettings({
+                              ...settings,
+                              appointmentCancelReminderHours: value,
+                            })
+                          }
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Randevuya kaç saat kala ek hatırlatma SMS'i gönderilsin? (3-24 saat arası)
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -13,7 +13,7 @@ export function createAppointmentDateTimeTR(date: string, time: string): Date {
     throw new Error(`Geçersiz tarih veya saat: ${date} ${time}`)
   }
   
-  return new Date(year, month - 1, day, hours, minutes, 0, 0)
+  return new Date(Date.UTC(year, month - 1, day, hours - 3, minutes, 0, 0))
 }
 
 export function createAppointmentDateTime(date: string, time: string): Date {

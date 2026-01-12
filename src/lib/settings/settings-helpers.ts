@@ -21,3 +21,7 @@ export async function getEnableServiceSelectionSetting(): Promise<boolean> {
   return await getSetting<boolean>('enableServiceSelection', defaultSettings.enableServiceSelection)
 }
 
+export async function getAppointmentCancelReminderHoursSetting(): Promise<number | null> {
+  return await getSetting<number | null>('appointmentCancelReminderHours', defaultSettings.appointmentCancelReminderHours)
+}
+

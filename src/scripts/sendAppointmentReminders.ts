@@ -1,13 +1,14 @@
 import { prisma } from '@/lib/prisma'
 import { getNowTR, createAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
-import { getAdminPhoneSetting } from '@/lib/settings/settings-helpers'
+import { getAdminPhoneSetting, getAppointmentCancelReminderHoursSetting } from '@/lib/settings/settings-helpers'
 import { format } from 'date-fns'
 import { tr } from 'date-fns/locale/tr'
 
 const REMINDER_TYPES = {
   HOUR_2: 'APPOINTMENT_REMINDER_HOUR_2',
   HOUR_1: 'APPOINTMENT_REMINDER_HOUR_1',
+  CUSTOM_CANCEL: 'APPOINTMENT_REMINDER_CUSTOM',
 } as const
 
 type ReminderType = typeof REMINDER_TYPES[keyof typeof REMINDER_TYPES]
@@ -20,24 +21,42 @@ function formatTimeTR(date: Date): string {
   return format(date, 'HH:mm', { locale: tr })
 }
 
+function getSiteUrl(): string {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://example.com'
+  return siteUrl.replace(/\/$/, '')
+}
+
 function createReminderMessage(
   reminderType: ReminderType,
   customerName: string,
   date: string,
-  startTime: string
+  startTime: string,
+  customerPhone?: string,
+  hoursUntil?: number
 ): string {
   if (reminderType === REMINDER_TYPES.HOUR_2) {
     return `Merhaba ${customerName},
 ${date} tarihinde ${startTime} saatindeki randevunuzu hatırlatmak isteriz.
 Randevunuza 2 saat kaldı.`
-  } else {
+  } else if (reminderType === REMINDER_TYPES.HOUR_1) {
     return `Merhaba ${customerName},
 ${date} tarihinde ${startTime} saatindeki randevunuza 1 saat kaldı.
 Hizmetin aksamaması için lütfen randevudan 10 dk önce geliniz.`
+  } else if (reminderType === REMINDER_TYPES.CUSTOM_CANCEL) {
+    const siteUrl = getSiteUrl()
+    const encodedPhone = customerPhone ? encodeURIComponent(customerPhone) : ''
+    const cancelLink = `${siteUrl}/?cancel=1&phone=${encodedPhone}`
+    return `Randevunuza ${hoursUntil} saat kaldı.
+
+İptal için: ${cancelLink}`
   }
+  return ''
 }
 
 function getReminderEvent(appointmentRequestId: string, reminderType: ReminderType): string {
+  if (reminderType === REMINDER_TYPES.CUSTOM_CANCEL) {
+    return `APPOINTMENT_REMINDER_CUSTOM_${appointmentRequestId}`
+  }
   return `${reminderType}_${appointmentRequestId}`
 }
 
@@ -57,9 +76,10 @@ async function sendReminderSms(
   customerName: string,
   date: string,
   startTime: string,
-  reminderType: ReminderType
+  reminderType: ReminderType,
+  hoursUntil?: number
 ): Promise<void> {
-  const message = createReminderMessage(reminderType, customerName, date, startTime)
+  const message = createReminderMessage(reminderType, customerName, date, startTime, customerPhone, hoursUntil)
   
   try {
     await sendSms(customerPhone, message)
@@ -127,10 +147,15 @@ async function main() {
   
   console.log(`[Appointment Reminders] Toplam ${approvedAppointments.length} onaylanmış randevu bulundu`)
   
+  const customReminderHours = await getAppointmentCancelReminderHoursSetting()
+  console.log(`[Appointment Reminders] Custom reminder saatleri: ${customReminderHours || 'kapalı'}`)
+  
   let reminders2hSent = 0
   let reminders1hSent = 0
+  let remindersCustomSent = 0
   let reminders2hSkipped = 0
   let reminders1hSkipped = 0
+  let remindersCustomSkipped = 0
   let errors = 0
   
   for (const appointment of approvedAppointments) {
@@ -192,6 +217,39 @@ async function main() {
           console.log(`[Appointment Reminders] 1 saat hatırlatması gönderildi: ${appointment.id} - ${appointment.customerPhone}`)
         }
       }
+      
+      if (customReminderHours !== null && customReminderHours >= 3 && customReminderHours <= 24) {
+        const targetTime = new Date(appointmentDateTime.getTime() - customReminderHours * 60 * 60 * 1000)
+        const diffMs = Math.abs(now.getTime() - targetTime.getTime())
+        const diffMinutes = diffMs / (1000 * 60)
+        
+        console.log(`[Appointment Reminders] Debug - ${appointment.id}:`)
+        console.log(`  now (ISO): ${now.toISOString()}`)
+        console.log(`  appointmentDateTime (ISO): ${appointmentDateTime.toISOString()}`)
+        console.log(`  targetTime (ISO): ${targetTime.toISOString()}`)
+        console.log(`  diffMinutes: ${diffMinutes}`)
+        
+        if (isWithinReminderWindow(appointmentDateTime, now, customReminderHours, 5)) {
+          const alreadySent = await checkIfReminderSent(appointment.id, REMINDER_TYPES.CUSTOM_CANCEL)
+          
+          if (alreadySent) {
+            remindersCustomSkipped++
+            console.log(`[Appointment Reminders] Custom hatırlatma zaten gönderilmiş: ${appointment.id}`)
+          } else {
+            await sendReminderSms(
+              appointment.id,
+              appointment.customerPhone,
+              appointment.customerName,
+              formattedDate,
+              formattedTime,
+              REMINDER_TYPES.CUSTOM_CANCEL,
+              customReminderHours
+            )
+            remindersCustomSent++
+            console.log(`[Appointment Reminders] Custom hatırlatma gönderildi: ${appointment.id} - ${appointment.customerPhone} (${customReminderHours} saat kala)`)
+          }
+        }
+      }
     } catch (error) {
       errors++
       console.error(`[Appointment Reminders] Hata (${appointment.id}):`, error)
@@ -203,8 +261,12 @@ async function main() {
   console.log(`  - 2 saat hatırlatması atlandı (duplicate): ${reminders2hSkipped}`)
   console.log(`  - 1 saat hatırlatması gönderildi: ${reminders1hSent}`)
   console.log(`  - 1 saat hatırlatması atlandı (duplicate): ${reminders1hSkipped}`)
+  if (customReminderHours !== null) {
+    console.log(`  - Custom hatırlatma gönderildi: ${remindersCustomSent}`)
+    console.log(`  - Custom hatırlatma atlandı (duplicate): ${remindersCustomSkipped}`)
+  }
   console.log(`  - Hata sayısı: ${errors}`)
-  console.log(`  - Toplam SMS gönderildi: ${reminders2hSent + reminders1hSent}`)
+  console.log(`  - Toplam SMS gönderildi: ${reminders2hSent + reminders1hSent + remindersCustomSent}`)
   
   try {
     await prisma.systemJobLog.create({
@@ -215,9 +277,12 @@ async function main() {
           totalApproved: approvedAppointments.length,
           reminders2hSent,
           reminders1hSent,
+          remindersCustomSent,
           reminders2hSkipped,
           reminders1hSkipped,
+          remindersCustomSkipped,
           errors,
+          customReminderHours,
         },
       },
     })

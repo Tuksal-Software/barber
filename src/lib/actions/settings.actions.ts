@@ -17,6 +17,7 @@ const updateSettingsSchema = z.object({
   approvedCancelMinHours: z.number().int().min(1).max(48),
   timezone: z.literal('Europe/Istanbul'),
   enableServiceSelection: z.boolean(),
+  appointmentCancelReminderHours: z.number().int().min(3).max(24).nullable(),
 })
 
 export interface SettingsResponse {
@@ -27,6 +28,7 @@ export interface SettingsResponse {
   approvedCancelMinHours: number
   timezone: 'Europe/Istanbul'
   enableServiceSelection: boolean
+  appointmentCancelReminderHours: number | null
 }
 
 export async function getSettings(): Promise<SettingsResponse> {
@@ -40,6 +42,7 @@ export async function getSettings(): Promise<SettingsResponse> {
   const customerCancel = (dbSettings.customerCancel as { approvedMinHours: number }) ?? defaultSettings.customerCancel
   const timezone = ((dbSettings.timezone as string) ?? defaultSettings.timezone) as 'Europe/Istanbul'
   const enableServiceSelection = (dbSettings.enableServiceSelection as boolean) ?? defaultSettings.enableServiceSelection
+  const appointmentCancelReminderHours = (dbSettings.appointmentCancelReminderHours as number | null) ?? defaultSettings.appointmentCancelReminderHours
 
   return {
     adminPhone,
@@ -49,6 +52,7 @@ export async function getSettings(): Promise<SettingsResponse> {
     approvedCancelMinHours: customerCancel.approvedMinHours,
     timezone,
     enableServiceSelection,
+    appointmentCancelReminderHours,
   }
 }
 
@@ -78,6 +82,7 @@ export async function updateSettings(
     }, session.userId)
     await setSetting('timezone', validated.timezone, session.userId)
     await setSetting('enableServiceSelection', validated.enableServiceSelection, session.userId)
+    await setSetting('appointmentCancelReminderHours', validated.appointmentCancelReminderHours, session.userId)
 
     try {
       await auditLog({
@@ -95,6 +100,7 @@ export async function updateSettings(
             customerCancel: oldSettings.customerCancel,
             timezone: oldSettings.timezone,
             enableServiceSelection: oldSettings.enableServiceSelection,
+            appointmentCancelReminderHours: oldSettings.appointmentCancelReminderHours,
           },
           newValues: {
             adminPhone: validated.adminPhone,
@@ -108,6 +114,7 @@ export async function updateSettings(
             },
             timezone: validated.timezone,
             enableServiceSelection: validated.enableServiceSelection,
+            appointmentCancelReminderHours: validated.appointmentCancelReminderHours,
           },
         },
       })

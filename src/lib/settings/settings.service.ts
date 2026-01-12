@@ -150,6 +150,18 @@ export async function ensureDefaultSettings(): Promise<void> {
     settingsToCreate.push('enableServiceSelection')
   }
 
+  if (!existingKeys.has('appointmentCancelReminderHours')) {
+    await prisma.appSetting.upsert({
+      where: { key: 'appointmentCancelReminderHours' },
+      create: {
+        key: 'appointmentCancelReminderHours',
+        value: defaultSettings.appointmentCancelReminderHours === null ? Prisma.JsonNull : defaultSettings.appointmentCancelReminderHours,
+      },
+      update: {},
+    })
+    settingsToCreate.push('appointmentCancelReminderHours')
+  }
+
   for (const key of settingsToCreate) {
     try {
       await auditLog({
@@ -166,6 +178,7 @@ export async function ensureDefaultSettings(): Promise<void> {
                  key === 'sms' ? defaultSettings.sms :
                  key === 'customerCancel' ? defaultSettings.customerCancel :
                  key === 'enableServiceSelection' ? defaultSettings.enableServiceSelection :
+                 key === 'appointmentCancelReminderHours' ? defaultSettings.appointmentCancelReminderHours :
                  defaultSettings.timezone,
         },
       })

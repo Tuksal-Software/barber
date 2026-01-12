@@ -10,5 +10,6 @@ export const defaultSettings = {
   },
   timezone: 'Europe/Istanbul',
   enableServiceSelection: true,
+  appointmentCancelReminderHours: null as number | null,
 } as const
 
