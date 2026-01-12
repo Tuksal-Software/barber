@@ -237,7 +237,6 @@ export async function getCustomerTimeButtonsV2(
   const now = getNowTR()
   const isToday = date === now.toISOString().split('T')[0]
   const currentMinutes = isToday ? now.getHours() * 60 + now.getMinutes() : -1
-  const minAllowedMinutes = currentMinutes + 120
 
   const timeButtons = new Map<string, boolean>()
 
@@ -366,7 +365,7 @@ export async function getCustomerTimeButtonsV2(
   for (const [timeStr, _] of timeButtons) {
     const timeMinutes = parseTimeToMinutes(timeStr)
     
-    if (isToday && timeMinutes < minAllowedMinutes) {
+    if (isToday && timeMinutes < currentMinutes) {
       continue
     }
 
