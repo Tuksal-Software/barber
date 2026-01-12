@@ -2,6 +2,13 @@ export function getNowTR(): Date {
   return new Date()
 }
 
+export function parseAppointmentDateTimeTR(
+  date: string,
+  time: string
+): Date {
+  return new Date(`${date}T${time}:00+03:00`)
+}
+
 export function createAppointmentDateTimeTR(date: string, time: string): Date {
   const [year, month, day] = date.split('-').map(Number)
   const [hours, minutes] = time.split(':').map(Number)

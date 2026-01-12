@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { getNowTR, createAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
+import { getNowTR, parseAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
 import { getAdminPhoneSetting, getAppointmentCancelReminderHoursSetting } from '@/lib/settings/settings-helpers'
 import { format } from 'date-fns'
@@ -115,18 +115,21 @@ function isWithinReminderWindow(
   appointmentDateTime: Date,
   now: Date,
   hoursBefore: number,
-  toleranceMinutes: number = 5
+  toleranceMinutes = 5
 ): boolean {
-  const targetTime = new Date(appointmentDateTime.getTime() - hoursBefore * 60 * 60 * 1000)
-  const diffMs = Math.abs(now.getTime() - targetTime.getTime())
+  const targetTime =
+    appointmentDateTime.getTime() - hoursBefore * 60 * 60 * 1000
+
+  const diffMs = Math.abs(now.getTime() - targetTime)
   const diffMinutes = diffMs / (1000 * 60)
+
   return diffMinutes <= toleranceMinutes
 }
 
 async function main() {
   console.log('[Appointment Reminders] Script başlatılıyor...')
   
-  const now = getNowTR()
+  const now = new Date()
   console.log(`[Appointment Reminders] Şu anki zaman (TR): ${format(now, 'dd.MM.yyyy HH:mm:ss')}`)
   
   const adminPhone = await getAdminPhoneSetting()
@@ -169,7 +172,7 @@ async function main() {
     }
     
     try {
-      const appointmentDateTime = createAppointmentDateTimeTR(appointment.date, appointment.requestedStartTime)
+      const appointmentDateTime = parseAppointmentDateTimeTR(appointment.date, appointment.requestedStartTime)
       
       if (appointmentDateTime.getTime() <= now.getTime()) {
         continue
@@ -219,13 +222,18 @@ async function main() {
       }
       
       if (customReminderHours !== null && customReminderHours >= 3 && customReminderHours <= 24) {
-        console.log('[DEBUG CUSTOM]', {
-          id: appointment.id,
+        const targetTime = new Date(
+          appointmentDateTime.getTime() - customReminderHours * 60 * 60 * 1000
+        )
+        const diffMs = Math.abs(now.getTime() - targetTime.getTime())
+        const diffMinutes = diffMs / (1000 * 60)
+        
+        console.log('[DEBUG REMINDER]', {
+          appointmentId: appointment.id,
           now: now.toISOString(),
           appointmentDateTime: appointmentDateTime.toISOString(),
-          hoursBefore: customReminderHours,
-          targetTime: new Date(appointmentDateTime.getTime() - customReminderHours * 3600_000).toISOString(),
-          diffMinutes: (new Date(appointmentDateTime.getTime() - customReminderHours * 3600_000).getTime() - now.getTime()) / 60000,
+          targetTime: targetTime.toISOString(),
+          diffMinutes,
         })
         
         if (isWithinReminderWindow(appointmentDateTime, now, customReminderHours, 5)) {
