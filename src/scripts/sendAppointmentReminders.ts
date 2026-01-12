@@ -22,7 +22,7 @@ function formatTimeTR(date: Date): string {
 }
 
 function getSiteUrl(): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://example.com'
+  const siteUrl = process.env.SITE_URL || 'https://example.com'
   return siteUrl.replace(/\/$/, '')
 }
 
@@ -219,15 +219,14 @@ async function main() {
       }
       
       if (customReminderHours !== null && customReminderHours >= 3 && customReminderHours <= 24) {
-        const targetTime = new Date(appointmentDateTime.getTime() - customReminderHours * 60 * 60 * 1000)
-        const diffMs = Math.abs(now.getTime() - targetTime.getTime())
-        const diffMinutes = diffMs / (1000 * 60)
-        
-        console.log(`[Appointment Reminders] Debug - ${appointment.id}:`)
-        console.log(`  now (ISO): ${now.toISOString()}`)
-        console.log(`  appointmentDateTime (ISO): ${appointmentDateTime.toISOString()}`)
-        console.log(`  targetTime (ISO): ${targetTime.toISOString()}`)
-        console.log(`  diffMinutes: ${diffMinutes}`)
+        console.log('[DEBUG CUSTOM]', {
+          id: appointment.id,
+          now: now.toISOString(),
+          appointmentDateTime: appointmentDateTime.toISOString(),
+          hoursBefore: customReminderHours,
+          targetTime: new Date(appointmentDateTime.getTime() - customReminderHours * 3600_000).toISOString(),
+          diffMinutes: (new Date(appointmentDateTime.getTime() - customReminderHours * 3600_000).getTime() - now.getTime()) / 60000,
+        })
         
         if (isWithinReminderWindow(appointmentDateTime, now, customReminderHours, 5)) {
           const alreadySent = await checkIfReminderSent(appointment.id, REMINDER_TYPES.CUSTOM_CANCEL)

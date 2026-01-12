@@ -1,8 +1,5 @@
 export function getNowTR(): Date {
-  const now = new Date()
-  const trOffset = 3 * 60 * 60 * 1000
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60 * 1000)
-  return new Date(utc + trOffset)
+  return new Date()
 }
 
 export function createAppointmentDateTimeTR(date: string, time: string): Date {
