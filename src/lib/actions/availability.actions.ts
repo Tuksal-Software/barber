@@ -237,6 +237,7 @@ export async function getCustomerTimeButtonsV2(
   const now = getNowTR()
   const isToday = date === now.toISOString().split('T')[0]
   const currentMinutes = isToday ? now.getHours() * 60 + now.getMinutes() : -1
+  const minAllowedMinutes = currentMinutes
 
   const timeButtons = new Map<string, boolean>()
 
@@ -264,7 +265,7 @@ export async function getCustomerTimeButtonsV2(
 
   for (const request of pendingOrApprovedRequests) {
     const requestStartMinutes = parseTimeToMinutes(request.requestedStartTime)
-    
+
     if (request.appointmentSlots.length > 0) {
       for (const slot of request.appointmentSlots) {
         const slotStart = parseTimeToMinutes(slot.startTime)
@@ -297,20 +298,20 @@ export async function getCustomerTimeButtonsV2(
       const slotEnd = parseTimeToMinutes(slot.endTime)
       const gapStart = slotEnd
       const gapEnd = gapStart + 30
-      
+
       if (gapStart < workEndMinutes) {
         let hasOverlap = false
-        
+
         for (const otherSlot of appointmentSlots) {
           const otherStart = parseTimeToMinutes(otherSlot.startTime)
           const otherEnd = parseTimeToMinutes(otherSlot.endTime)
-          
+
           if (otherStart < gapEnd && otherEnd > gapStart) {
             hasOverlap = true
             break
           }
         }
-        
+
         if (!hasOverlap) {
           const gapTimeStr = minutesToTime(gapStart)
           gapButtons.add(gapTimeStr)
@@ -330,21 +331,21 @@ export async function getCustomerTimeButtonsV2(
       const slotStart = parseTimeToMinutes(slot.startTime)
       const slotEnd = parseTimeToMinutes(slot.endTime)
       const slotDuration = slotEnd - slotStart
-      
+
       if (slotDuration === 30) {
         const gapStart = slotEnd
         const gapEnd = gapStart + 30
-        
+
         if (gapStart >= workStartMinutes && gapEnd <= workEndMinutes) {
           let hasOverlap = false
-          
+
           for (const range of allBlockedRanges) {
             if (range.start < gapEnd && range.end > gapStart) {
               hasOverlap = true
               break
             }
           }
-          
+
           if (!hasOverlap) {
             const gapTimeStr = minutesToTime(gapStart)
             gapButtons.add(gapTimeStr)
@@ -364,8 +365,8 @@ export async function getCustomerTimeButtonsV2(
 
   for (const [timeStr, _] of timeButtons) {
     const timeMinutes = parseTimeToMinutes(timeStr)
-    
-    if (isToday && timeMinutes < currentMinutes) {
+
+    if (isToday && timeMinutes < minAllowedMinutes) {
       continue
     }
 
