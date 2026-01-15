@@ -1,12 +1,13 @@
 import { prisma } from '@/lib/prisma'
-import { getNowTR, createAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
+import { createAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
+import { getNowUTC } from '@/lib/time'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { AuditAction } from '@prisma/client'
 
 async function main() {
   console.log('[Mark Past Appointments Done] Script başlatılıyor...')
   
-  const now = getNowTR()
+  const now = getNowUTC()
   console.log(`[Mark Past Appointments Done] Şu anki zaman (TR): ${now.toISOString()}`)
   
   const approvedAppointments = await prisma.appointmentRequest.findMany({
@@ -87,7 +88,7 @@ async function main() {
     await prisma.systemJobLog.create({
       data: {
         jobName: 'mark_past_appointments_done',
-        ranAt: getNowTR(),
+        ranAt: now,
         meta: {
           totalApproved: approvedAppointments.length,
           markedCount,

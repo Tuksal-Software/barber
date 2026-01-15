@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { AuditAction } from '@prisma/client'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { sendSms } from '@/lib/sms/sms.service'
-import { createAppointmentDateTimeTR, getNowTR, isAppointmentInPast, getHoursUntilAppointment } from '@/lib/time/appointmentDateTime'
+import { createAppointmentDateTimeTR, isAppointmentInPast, getHoursUntilAppointment } from '@/lib/time/appointmentDateTime'
+import { getNowUTC } from '@/lib/time'
 import { formatDateTimeForSms } from '@/lib/time/formatDate'
 import { getSetting } from '@/lib/settings/settings.service'
 import { defaultSettings } from '@/lib/settings/defaults'
@@ -60,7 +61,7 @@ export async function requestCancelOtp(phone: string): Promise<{ success: boolea
       },
     })
 
-    const nowTR = getNowTR()
+    const nowTR = getNowUTC()
     let appointment = null
 
     for (const apt of allAppointments) {
@@ -140,7 +141,7 @@ export async function requestCancelOtp(phone: string): Promise<{ success: boolea
 
     if (appointment.status === 'pending') {
       const otp = generateOtp()
-      const nowTR = getNowTR()
+      const nowTR = getNowUTC()
       const expiresAt = new Date(nowTR.getTime() + 10 * 60 * 1000)
 
       await prisma.customerCancelOtp.create({
@@ -257,7 +258,7 @@ export async function requestCancelOtp(phone: string): Promise<{ success: boolea
       }
 
       const otp = generateOtp()
-      const nowTR = getNowTR()
+      const nowTR = getNowUTC()
       const expiresAt = new Date(nowTR.getTime() + 10 * 60 * 1000)
 
       await prisma.customerCancelOtp.create({
@@ -360,7 +361,7 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
       return { success: false, error: 'Geçerli bir telefon numarası girin' }
     }
 
-    const nowTR = getNowTR()
+    const nowTR = getNowUTC()
     const otpRecord = await prisma.customerCancelOtp.findFirst({
       where: {
         phone: normalizedPhone,
@@ -433,7 +434,7 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
         },
       })
 
-      const nowTR = getNowTR()
+      const nowTR = getNowUTC()
       const nearestSubscriptionAppointment = subscriptionAppointments.find(apt => {
         const appointmentDateTime = createAppointmentDateTimeTR(apt.date, apt.requestedStartTime)
         return appointmentDateTime.getTime() > nowTR.getTime()

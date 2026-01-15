@@ -2,8 +2,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { AuditAction, Prisma } from '@prisma/client'
-import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
-import { createAppointmentDateTimeTR, getNowTR } from '@/lib/time/appointmentDateTime'
+import { parseTimeToMinutes, minutesToTime, overlaps, getNowUTC } from '@/lib/time'
+import { createAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
 import { requireAdmin, getSession } from '@/lib/actions/auth.actions'
 import { dispatchSms, sendSmsForEvent } from '@/lib/sms/sms.dispatcher'
@@ -140,7 +140,7 @@ export async function createAppointmentRequest(
     },
   })
 
-  const nowTR = getNowTR()
+  const nowTR = getNowUTC()
   const futureAppointment = activeAppointments.find((appointment: { date: string; requestedStartTime: string }) => {
     const appointmentDateTime = createAppointmentDateTimeTR(appointment.date, appointment.requestedStartTime)
     return appointmentDateTime.getTime() > nowTR.getTime()
@@ -389,7 +389,7 @@ export async function cancelAppointmentRequest(
       ? appointmentRequest.appointmentSlots[0].startTime
       : appointmentRequest.requestedStartTime
     const appointmentDateTime = createAppointmentDateTimeTR(appointmentRequest.date, appointmentStartTime)
-    const nowTR = getNowTR()
+    const nowTR = getNowUTC()
 
     if (appointmentDateTime.getTime() <= nowTR.getTime()) {
       try {

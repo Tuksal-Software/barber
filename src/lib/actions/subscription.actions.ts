@@ -3,7 +3,8 @@
 import { prisma } from '@/lib/prisma'
 import { AuditAction, Prisma, SubscriptionRecurrenceType } from '@prisma/client'
 import { parseTimeToMinutes, minutesToTime, overlaps } from '@/lib/time'
-import { createAppointmentDateTimeTR, getNowTR } from '@/lib/time/appointmentDateTime'
+import { createAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
+import { getNowUTC } from '@/lib/time'
 import { requireAdmin } from '@/lib/actions/auth.actions'
 import { dispatchSms } from '@/lib/sms/sms.dispatcher'
 import { SmsEvent } from '@/lib/sms/sms.events'
@@ -274,7 +275,7 @@ export async function createSubscription(
   const endMinutes = startMinutes + durationMinutes
   const endTime = minutesToTime(endMinutes)
   
-  const nowTR = getNowTR()
+  const nowTR = getNowUTC()
   const startDateObj = parseISO(startDate)
   const endDateObj = endDate ? parseISO(endDate) : null
   
@@ -473,7 +474,7 @@ export async function cancelSubscription(
     throw new Error('Abonman bulunamadı')
   }
   
-  const nowTR = getNowTR()
+  const nowTR = getNowUTC()
   
   const futureAppointmentIds: string[] = []
   
@@ -567,7 +568,7 @@ export async function generateSubscriptionAppointments(
     throw new Error('Pasif abonman için randevu oluşturulamaz')
   }
   
-  const nowTR = getNowTR()
+  const nowTR = getNowUTC()
   const nowTRStr = format(nowTR, 'yyyy-MM-dd')
   
   const existingAppointments = await prisma.appointmentRequest.findMany({
