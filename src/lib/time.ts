@@ -1,3 +1,7 @@
+export function getNowUTC(): Date {
+  return new Date()
+}
+
 export function parseTimeToMinutes(time: string): number {
   if (time == null || time === undefined) {
     throw new Error('Saat bilgisi yok')

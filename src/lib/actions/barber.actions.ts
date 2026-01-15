@@ -5,7 +5,8 @@ import { requireAdmin } from '@/lib/actions/auth.actions'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { AuditAction } from '@prisma/client'
 import bcrypt from 'bcryptjs'
-import { createAppointmentDateTimeTR, getNowTR } from '@/lib/time/appointmentDateTime'
+import { createAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
+import { getNowUTC } from '@/lib/time'
 import { Prisma } from '@prisma/client'
 
 export interface BarberListItem {
@@ -308,7 +309,7 @@ export async function checkBarberFutureAppointments(
 ): Promise<{ hasFutureAppointments: boolean; count: number }> {
   await requireAdmin()
 
-  const nowTR = getNowTR()
+  const nowTR = getNowUTC()
 
   const activeAppointments = await prisma.appointmentRequest.findMany({
     where: {
@@ -375,7 +376,7 @@ export async function deactivateBarber(
       }
     }
 
-    const nowTR = getNowTR()
+    const nowTR = getNowUTC()
 
     const activeAppointments = await prisma.appointmentRequest.findMany({
       where: {

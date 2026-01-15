@@ -47,11 +47,13 @@ export function formatDateTimeForSms(dateString: string, timeString: string): st
 
 export function formatDateTimeUTC(date: Date | string): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date
-  const day = dateObj.getUTCDate().toString().padStart(2, '0')
-  const month = (dateObj.getUTCMonth() + 1).toString().padStart(2, '0')
-  const year = dateObj.getUTCFullYear()
-  const hours = dateObj.getUTCHours().toString().padStart(2, '0')
-  const minutes = dateObj.getUTCMinutes().toString().padStart(2, '0')
+  const istOffset = 3 * 60 * 60 * 1000
+  const istDate = new Date(dateObj.getTime() + istOffset)
+  const day = istDate.getUTCDate().toString().padStart(2, '0')
+  const month = (istDate.getUTCMonth() + 1).toString().padStart(2, '0')
+  const year = istDate.getUTCFullYear()
+  const hours = istDate.getUTCHours().toString().padStart(2, '0')
+  const minutes = istDate.getUTCMinutes().toString().padStart(2, '0')
   return `${day}.${month}.${year} ${hours}:${minutes}`
 }
 

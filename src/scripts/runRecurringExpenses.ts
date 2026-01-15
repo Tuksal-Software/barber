@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { getNowTR } from '@/lib/time/appointmentDateTime'
+import { getNowUTC } from '@/lib/time'
 import { auditLog } from '@/lib/audit/audit.logger'
 import { AuditAction } from '@prisma/client'
 import { addDays, addWeeks, addMonths, format, parseISO } from 'date-fns'
@@ -22,7 +22,7 @@ function calculateNextRunAt(
 async function main() {
   console.log('[Recurring Expenses] Script başlatılıyor...')
   
-  const now = getNowTR()
+  const now = getNowUTC()
   console.log(`[Recurring Expenses] Şu anki zaman (TR): ${now.toISOString()}`)
   
   const recurringExpenses = await prisma.recurringExpense.findMany({
@@ -119,7 +119,7 @@ async function main() {
     await prisma.systemJobLog.create({
       data: {
         jobName: 'recurring_expenses_runner',
-        ranAt: getNowTR(),
+        ranAt: now,
         meta: {
           processedCount,
           expenseCreatedCount,

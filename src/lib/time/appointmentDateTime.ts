@@ -1,7 +1,3 @@
-export function getNowTR(): Date {
-  return new Date()
-}
-
 export function parseAppointmentDateTimeTR(
   date: string,
   time: string
@@ -33,20 +29,20 @@ export function createAppointmentDateTime(date: string, time: string): Date {
 
 export function isAppointmentInPast(date: string, time: string): boolean {
   const appointmentDateTime = createAppointmentDateTimeTR(date, time)
-  const nowTR = getNowTR()
-  return appointmentDateTime.getTime() <= nowTR.getTime()
+  const nowUTC = new Date()
+  return appointmentDateTime.getTime() <= nowUTC.getTime()
 }
 
 export function isAppointmentInFuture(date: string, time: string): boolean {
   const appointmentDateTime = createAppointmentDateTimeTR(date, time)
-  const nowTR = getNowTR()
-  return appointmentDateTime.getTime() > nowTR.getTime()
+  const nowUTC = new Date()
+  return appointmentDateTime.getTime() > nowUTC.getTime()
 }
 
 export function getHoursUntilAppointment(date: string, time: string): number {
   const appointmentDateTime = createAppointmentDateTimeTR(date, time)
-  const nowTR = getNowTR()
-  const diffMs = appointmentDateTime.getTime() - nowTR.getTime()
+  const nowUTC = new Date()
+  const diffMs = appointmentDateTime.getTime() - nowUTC.getTime()
   return diffMs / (1000 * 60 * 60)
 }
 
