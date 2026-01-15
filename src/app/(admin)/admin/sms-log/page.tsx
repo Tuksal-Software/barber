@@ -58,12 +58,13 @@ export default function SmsLogPage() {
   }
 
   const getEventLabel = (event: string): string => {
-    const reminderEventRegex = /^(APPOINTMENT_REMINDER_HOUR_[12])_(.+)$/
+    const reminderEventRegex = /^(APPOINTMENT_REMINDER_HOUR_[12]|APPOINTMENT_REMINDER_CUSTOM_(\d+)H)_(.+)$/
     const match = event.match(reminderEventRegex)
     
     if (match) {
       const reminderType = match[1]
-      const appointmentRequestId = match[2]
+      const hoursUntil = match[2]
+      const appointmentRequestId = match[3]
       const customerName = customerNameMap[appointmentRequestId]
       
       let baseLabel = ''
@@ -71,6 +72,8 @@ export default function SmsLogPage() {
         baseLabel = 'Randevu Hatırlatma (2 Saat Kala)'
       } else if (reminderType === 'APPOINTMENT_REMINDER_HOUR_1') {
         baseLabel = 'Randevu Hatırlatma (1 Saat Kala)'
+      } else if (reminderType?.startsWith('APPOINTMENT_REMINDER_CUSTOM_')) {
+        baseLabel = `Randevu Hatırlatma (${hoursUntil} Saat Kala)`
       } else {
         baseLabel = 'Randevu Hatırlatma'
       }
@@ -145,7 +148,7 @@ export default function SmsLogPage() {
                         {formatDateTimeLongTR(log.createdAt)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">{getEventLabel(log.event)}</Badge>
+                        <Badge variant="outline">{log.eventLabel || getEventLabel(log.event)}</Badge>
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         <div className="flex items-center gap-2">

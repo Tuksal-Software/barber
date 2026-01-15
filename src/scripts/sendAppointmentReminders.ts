@@ -1,9 +1,8 @@
 import { prisma } from '@/lib/prisma'
-import { getNowTR, parseAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
+import { parseAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
 import { getAdminPhoneSetting, getAppointmentCancelReminderHoursSetting } from '@/lib/settings/settings-helpers'
 import { format } from 'date-fns'
-import { tr } from 'date-fns/locale/tr'
 
 const REMINDER_TYPES = {
   HOUR_2: 'APPOINTMENT_REMINDER_HOUR_2',
@@ -13,12 +12,9 @@ const REMINDER_TYPES = {
 
 type ReminderType = typeof REMINDER_TYPES[keyof typeof REMINDER_TYPES]
 
-function formatDateTR(date: Date): string {
-  return format(date, 'dd.MM.yyyy', { locale: tr })
-}
-
-function formatTimeTR(date: Date): string {
-  return format(date, 'HH:mm', { locale: tr })
+function formatDateFromDB(dateString: string): string {
+  const [year, month, day] = dateString.split('-')
+  return `${day}.${month}.${year}`
 }
 
 function getSiteUrl(): string {
@@ -46,22 +42,49 @@ Hizmetin aksamaması için lütfen randevudan 10 dk önce geliniz.`
     const siteUrl = getSiteUrl()
     const encodedPhone = customerPhone ? encodeURIComponent(customerPhone) : ''
     const cancelLink = `${siteUrl}/?cancel=1&phone=${encodedPhone}`
-    return `Randevunuza ${hoursUntil} saat kaldı.
+    return `Merhaba ${customerName},
 
-İptal için: ${cancelLink}`
+${date} tarihinde ${startTime} saatindeki randevunuza ${hoursUntil} saat kaldı.
+
+Randevunuzu iptal etmek isterseniz aşağıdaki bağlantıyı kullanabilirsiniz:
+${cancelLink}`
   }
   return ''
 }
 
-function getReminderEvent(appointmentRequestId: string, reminderType: ReminderType): string {
+function getReminderEvent(
+  appointmentRequestId: string,
+  reminderType: ReminderType,
+  hoursUntil?: number
+): string {
   if (reminderType === REMINDER_TYPES.CUSTOM_CANCEL) {
-    return `APPOINTMENT_REMINDER_CUSTOM_${appointmentRequestId}`
+    return `APPOINTMENT_REMINDER_CUSTOM_${hoursUntil}H_${appointmentRequestId}`
   }
   return `${reminderType}_${appointmentRequestId}`
 }
 
-async function checkIfReminderSent(appointmentRequestId: string, reminderType: ReminderType): Promise<boolean> {
-  const event = getReminderEvent(appointmentRequestId, reminderType)
+function getReadableReminderEvent(
+  reminderType: ReminderType,
+  customerName: string,
+  hoursUntil?: number
+): string {
+  if (reminderType === REMINDER_TYPES.HOUR_1) {
+    return `Randevu Hatırlatma (1 Saat Kala) – ${customerName}`
+  }
+
+  if (reminderType === REMINDER_TYPES.HOUR_2) {
+    return `Randevu Hatırlatma (2 Saat Kala) – ${customerName}`
+  }
+
+  return `Randevu Hatırlatma (${hoursUntil} Saat Kala) – ${customerName}`
+}
+
+async function checkIfReminderSent(
+  appointmentRequestId: string,
+  reminderType: ReminderType,
+  hoursUntil?: number
+): Promise<boolean> {
+  const event = getReminderEvent(appointmentRequestId, reminderType, hoursUntil)
   const existingLog = await prisma.smsLog.findFirst({
     where: {
       event,
@@ -84,24 +107,28 @@ async function sendReminderSms(
   try {
     await sendSms(customerPhone, message)
     
-    const event = getReminderEvent(appointmentRequestId, reminderType)
+    const event = getReminderEvent(appointmentRequestId, reminderType, hoursUntil)
+    const eventLabel = getReadableReminderEvent(reminderType, customerName, hoursUntil)
     await prisma.smsLog.create({
       data: {
         to: customerPhone,
         message,
         event,
+        eventLabel,
         provider: 'vatansms',
         status: 'success',
         error: null,
       },
     })
   } catch (error) {
-    const event = getReminderEvent(appointmentRequestId, reminderType)
+    const event = getReminderEvent(appointmentRequestId, reminderType, hoursUntil)
+    const eventLabel = getReadableReminderEvent(reminderType, customerName, hoursUntil)
     await prisma.smsLog.create({
       data: {
         to: customerPhone,
         message,
         event,
+        eventLabel,
         provider: 'vatansms',
         status: 'error',
         error: error instanceof Error ? error.message : String(error),
@@ -178,8 +205,8 @@ async function main() {
         continue
       }
       
-      const formattedDate = formatDateTR(appointmentDateTime)
-      const formattedTime = formatTimeTR(appointmentDateTime)
+      const formattedDate = formatDateFromDB(appointment.date)
+      const dbTime = appointment.requestedStartTime
       
       if (isWithinReminderWindow(appointmentDateTime, now, 2, 5)) {
         const alreadySent = await checkIfReminderSent(appointment.id, REMINDER_TYPES.HOUR_2)
@@ -193,7 +220,7 @@ async function main() {
             appointment.customerPhone,
             appointment.customerName,
             formattedDate,
-            formattedTime,
+            dbTime,
             REMINDER_TYPES.HOUR_2
           )
           reminders2hSent++
@@ -213,7 +240,7 @@ async function main() {
             appointment.customerPhone,
             appointment.customerName,
             formattedDate,
-            formattedTime,
+            dbTime,
             REMINDER_TYPES.HOUR_1
           )
           reminders1hSent++
@@ -237,7 +264,7 @@ async function main() {
         })
         
         if (isWithinReminderWindow(appointmentDateTime, now, customReminderHours, 5)) {
-          const alreadySent = await checkIfReminderSent(appointment.id, REMINDER_TYPES.CUSTOM_CANCEL)
+          const alreadySent = await checkIfReminderSent(appointment.id, REMINDER_TYPES.CUSTOM_CANCEL, customReminderHours)
           
           if (alreadySent) {
             remindersCustomSkipped++
@@ -248,7 +275,7 @@ async function main() {
               appointment.customerPhone,
               appointment.customerName,
               formattedDate,
-              formattedTime,
+              dbTime,
               REMINDER_TYPES.CUSTOM_CANCEL,
               customReminderHours
             )
@@ -279,7 +306,7 @@ async function main() {
     await prisma.systemJobLog.create({
       data: {
         jobName: 'appointment_reminders',
-        ranAt: getNowTR(),
+        ranAt: new Date(),
         meta: {
           totalApproved: approvedAppointments.length,
           reminders2hSent,

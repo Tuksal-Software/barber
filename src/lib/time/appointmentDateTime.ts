@@ -6,7 +6,14 @@ export function parseAppointmentDateTimeTR(
   date: string,
   time: string
 ): Date {
-  return new Date(`${date}T${time}:00+03:00`)
+  const [y, m, d] = date.split('-').map(Number)
+  const [h, min] = time.split(':').map(Number)
+
+  // TR saatini UTC'ye çevir
+  const utcMs = Date.UTC(y, m - 1, d, h - 3, min, 0, 0)
+
+  // Server Date objesi
+  return new Date(utcMs)
 }
 
 export function createAppointmentDateTimeTR(date: string, time: string): Date {

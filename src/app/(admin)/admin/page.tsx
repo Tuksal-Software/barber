@@ -569,7 +569,7 @@ export default function AdminDashboardPage() {
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                              {getSmsEventLabel(log.event)}
+                              {log.eventLabel || getSmsEventLabel(log.event)}
                             </Badge>
                             {log.status === 'success' ? (
                               <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
