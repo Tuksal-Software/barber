@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { getNowTR, parseAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
+import { parseAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
 import { getAdminPhoneSetting, getAppointmentCancelReminderHoursSetting } from '@/lib/settings/settings-helpers'
 import { format } from 'date-fns'
@@ -17,8 +17,9 @@ function formatDateTR(date: Date): string {
   return format(date, 'dd.MM.yyyy', { locale: tr })
 }
 
-function formatTimeTR(date: Date): string {
-  return format(date, 'HH:mm', { locale: tr })
+function formatTimeTRFromUTC(date: Date): string {
+  const trMs = date.getTime() + 3 * 60 * 60 * 1000
+  return format(new Date(trMs), 'HH:mm', { locale: tr })
 }
 
 function getSiteUrl(): string {
@@ -179,7 +180,7 @@ async function main() {
       }
       
       const formattedDate = formatDateTR(appointmentDateTime)
-      const formattedTime = formatTimeTR(appointmentDateTime)
+      const formattedTime = formatTimeTRFromUTC(appointmentDateTime)
       
       if (isWithinReminderWindow(appointmentDateTime, now, 2, 5)) {
         const alreadySent = await checkIfReminderSent(appointment.id, REMINDER_TYPES.HOUR_2)
@@ -279,7 +280,7 @@ async function main() {
     await prisma.systemJobLog.create({
       data: {
         jobName: 'appointment_reminders',
-        ranAt: getNowTR(),
+        ranAt: new Date(),
         meta: {
           totalApproved: approvedAppointments.length,
           reminders2hSent,
