@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { parseAppointmentDateTimeTR } from '@/lib/time/appointmentDateTime'
+import { parseAppointmentDateTimeTR, getNowTR } from '@/lib/time/appointmentDateTime'
 import { sendSms } from '@/lib/sms/sms.service'
 import { getAdminPhoneSetting, getAppointmentCancelReminderHoursSetting } from '@/lib/settings/settings-helpers'
 import { format } from 'date-fns'
@@ -156,7 +156,7 @@ function isWithinReminderWindow(
 async function main() {
   console.log('[Appointment Reminders] Script başlatılıyor...')
   
-  const now = new Date()
+  const now = getNowTR()
   console.log(`[Appointment Reminders] Şu anki zaman (TR): ${format(now, 'dd.MM.yyyy HH:mm:ss')}`)
   
   const adminPhone = await getAdminPhoneSetting()
@@ -306,7 +306,7 @@ async function main() {
     await prisma.systemJobLog.create({
       data: {
         jobName: 'appointment_reminders',
-        ranAt: new Date(),
+        ranAt: now,
         meta: {
           totalApproved: approvedAppointments.length,
           reminders2hSent,
