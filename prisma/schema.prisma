@@ -280,6 +280,7 @@ model SmsLog {
   to        String   @db.VarChar(50)
   message   String   @db.Text
   event     String   @db.VarChar(100)
+  eventLabel String? @db.VarChar(255)
   provider  String   @db.VarChar(50)
   status    String   @db.VarChar(20)
   error     String?  @db.Text

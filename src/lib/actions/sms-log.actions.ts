@@ -8,6 +8,7 @@ export interface SmsLogItem {
   to: string
   message: string
   event: string
+  eventLabel: string | null
   provider: string
   status: string
   error: string | null
@@ -33,6 +34,7 @@ export async function getSmsLogs(limit: number = 50): Promise<SmsLogsResponse> {
       to: true,
       message: true,
       event: true,
+      eventLabel: true,
       provider: true,
       status: true,
       error: true,
@@ -48,7 +50,7 @@ export async function getSmsLogs(limit: number = 50): Promise<SmsLogsResponse> {
     isAdmin: adminPhone ? log.to === adminPhone : false,
   }))
 
-  const reminderEventRegex = /^(APPOINTMENT_REMINDER_HOUR_[12])_(.+)$/
+  const reminderEventRegex = /^(APPOINTMENT_REMINDER_HOUR_[12]|APPOINTMENT_REMINDER_CUSTOM_\d+H)_(.+)$/
   const appointmentRequestIds: string[] = []
 
   logs.forEach((log) => {
