@@ -26,7 +26,7 @@ export function HorizontalDatePicker({
   const isScrollingRef = useRef(false)
   
   const dates = useMemo(() => {
-    return Array.from({ length: 61 }, (_, i) => addDays(today, i))
+    return Array.from({ length: 14 }, (_, i) => addDays(today, i))
   }, [today])
 
   const isDateDisabled = (date: Date): boolean => {
@@ -105,7 +105,7 @@ export function HorizontalDatePicker({
 
       <div 
         ref={scrollContainerRef}
-        className="overflow-x-auto pb-2 scrollbar-hide"
+        className="overflow-x-auto pb-2 max-w-full scrollbar-hide"
         style={{ 
           scrollSnapType: "x mandatory",
           scrollBehavior: "smooth",
@@ -133,7 +133,7 @@ export function HorizontalDatePicker({
                 style={{ scrollSnapAlign: "start" }}
               >
                 <Button
-                  variant={selected ? "default" : "outline"}
+                  variant="outline"
                   size="sm"
                   disabled={disabled}
                   onClick={() => !disabled && onDateSelect(date)}
@@ -141,27 +141,28 @@ export function HorizontalDatePicker({
                     "w-14 h-16 flex flex-col items-center justify-center gap-0.5 overflow-hidden",
                     "transition-all duration-200",
                     disabled && "opacity-50 cursor-not-allowed",
-                    selected && !disabled && "ring-2 ring-primary ring-offset-2 shadow-lg shadow-primary/30",
-                    !disabled && !selected && "hover:bg-accent"
+                    selected && !disabled 
+                      ? "bg-blue-600 text-white border-2 border-blue-600 shadow-sm" 
+                      : "bg-white hover:bg-slate-100 text-slate-900 border-2 border-slate-200",
+                    isSameDay(date, today) && !selected && !disabled && "bg-blue-100 text-blue-700 border-blue-300"
                   )}
                 >
                   <span className={cn(
                     "text-[11px] font-medium leading-none",
-                    selected ? "text-primary-foreground/80" : "text-muted-foreground"
+                    selected ? "text-white/80" : disabled ? "text-slate-400" : isSameDay(date, today) && !selected ? "text-blue-700" : "text-slate-600"
                   )}>
                     {dayName}
                   </span>
                   <span className={cn(
                     "text-[10px] leading-none whitespace-nowrap",
-                    selected ? "text-primary-foreground/60" : "text-muted-foreground/80",
+                    selected ? "text-white/60" : disabled ? "text-slate-400/80" : isSameDay(date, today) && !selected ? "text-blue-600" : "text-slate-500",
                     disabled && "opacity-50"
                   )}>
                     {monthName}
                   </span>
                   <span className={cn(
                     "text-[15px] font-semibold leading-none",
-                    selected && "text-primary-foreground",
-                    !selected && "text-foreground"
+                    selected ? "text-white" : disabled ? "text-slate-400" : isSameDay(date, today) && !selected ? "text-blue-700" : "text-slate-900"
                   )}>
                     {dayNumber}
                   </span>

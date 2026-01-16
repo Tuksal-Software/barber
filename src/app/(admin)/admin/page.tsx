@@ -2,36 +2,45 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Calendar, Users, CheckCircle, Clock, Loader2, ArrowRight, XCircle, TrendingUp, TrendingDown, DollarSign, Activity, BookOpen, Receipt, Shield, User, Server } from "lucide-react"
-import { StatCard } from "@/components/app/StatCard"
+import {
+  Calendar,
+  Users,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  Activity,
+  ArrowRight,
+  CalendarDays,
+  Hourglass,
+  CheckCheck,
+  CircleCheck,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  BarChart3,
+  PieChart,
+  MessageSquare,
+  Shield,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { getDashboardStats, getWeeklyAppointments, getAppointmentStatusStats } from "@/lib/actions/stats.actions"
 import { getRecentAppointments } from "@/lib/actions/appointment-query.actions"
 import { getFinanceSummary } from "@/lib/actions/dashboard-finance.actions"
 import { getTodayAuditSummary } from "@/lib/actions/audit.actions"
-import { getSmsLogs } from "@/lib/actions/sms-log.actions"
-import { format, parseISO, formatDistanceToNow } from "date-fns"
+import { format } from "date-fns"
 import { tr } from "date-fns/locale/tr"
-import { formatDateTimeLongTR } from "@/lib/time/formatDate"
 import { WeeklyAppointmentsChart } from "@/components/app/WeeklyAppointmentsChart"
-import { Skeleton } from "@/components/ui/skeleton"
 import { formatAppointmentTimeRange } from "@/lib/time"
+import { cn } from "@/lib/utils"
 import type { DashboardStats, WeeklyAppointmentData, AppointmentStatusStats } from "@/lib/actions/stats.actions"
 import type { AppointmentRequestListItem } from "@/lib/actions/appointment-query.actions"
 import type { FinanceSummary } from "@/lib/actions/dashboard-finance.actions"
 import type { TodayAuditSummary } from "@/lib/actions/audit.actions"
-import type { SmsLogItem } from "@/lib/actions/sms-log.actions"
-
-const statusColors = {
-  pending: "bg-amber-950 text-amber-300 border-amber-800",
-  approved: "bg-blue-950 text-blue-300 border-blue-800",
-  rejected: "bg-red-950 text-red-300 border-red-800",
-  cancelled: "bg-muted text-muted-foreground border-border",
-  done: "bg-green-950 text-green-300 border-green-800",
-}
 
 const statusLabels = {
   pending: "Bekliyor",
@@ -39,21 +48,6 @@ const statusLabels = {
   rejected: "Reddedildi",
   cancelled: "İptal",
   done: "Tamamlandı",
-}
-
-const getSmsEventLabel = (event: string): string => {
-  const eventMap: Record<string, string> = {
-    AppointmentCreated: 'Randevu Oluşturuldu',
-    AppointmentApproved: 'Randevu Onaylandı',
-    AppointmentCancelledPending: 'Bekleyen Randevu İptal Edildi',
-    AppointmentCancelledApproved: 'Onaylı Randevu İptal Edildi',
-    AppointmentReminder2h: 'Randevu Hatırlatması (2 Saat)',
-    AppointmentReminder1h: 'Randevu Hatırlatması (1 Saat)',
-    SubscriptionCreated: 'Abonelik Oluşturuldu',
-    SubscriptionCancelled: 'Abonelik İptal Edildi',
-    AdminAppointmentCreated: 'Yönetici Randevu Oluşturdu',
-  }
-  return eventMap[event] || event
 }
 
 export default function AdminDashboardPage() {
@@ -69,8 +63,6 @@ export default function AdminDashboardPage() {
   const [weeklyData, setWeeklyData] = useState<WeeklyAppointmentData[]>([])
   const [statusStats, setStatusStats] = useState<AppointmentStatusStats>({ approved: 0, cancelled: 0 })
   const [financeSummary, setFinanceSummary] = useState<FinanceSummary>({ totalRevenue: 0, totalExpense: 0, netProfit: 0 })
-  const [financeRange, setFinanceRange] = useState<'day' | 'week' | 'month' | 'all'>('all')
-  const [financeLoading, setFinanceLoading] = useState(false)
   const [auditSummary, setAuditSummary] = useState<TodayAuditSummary>({
     totalEvents: 0,
     appointmentActions: 0,
@@ -79,21 +71,19 @@ export default function AdminDashboardPage() {
     smsSent: 0,
     authActions: 0,
   })
-  const [recentSmsLogs, setRecentSmsLogs] = useState<SmsLogItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true)
-        const [statsData, appointmentsData, weeklyData, statusStats, financeData, auditSummaryData, smsLogsData] = await Promise.all([
+        const [statsData, appointmentsData, weeklyData, statusStats, financeData, auditSummaryData] = await Promise.all([
           getDashboardStats(),
           getRecentAppointments(5),
           getWeeklyAppointments(),
           getAppointmentStatusStats(),
           getFinanceSummary('all'),
           getTodayAuditSummary(),
-          getSmsLogs(5),
         ])
         setStats(statsData)
         setRecentAppointments(appointmentsData)
@@ -101,7 +91,6 @@ export default function AdminDashboardPage() {
         setStatusStats(statusStats)
         setFinanceSummary(financeData)
         setAuditSummary(auditSummaryData)
-        setRecentSmsLogs(smsLogsData.logs)
       } catch (error) {
         console.error("Dashboard veri yükleme hatası:", error)
       } finally {
@@ -111,494 +100,403 @@ export default function AdminDashboardPage() {
     fetchData()
   }, [])
 
-  useEffect(() => {
-    async function fetchFinance() {
-      try {
-        setFinanceLoading(true)
-        const financeData = await getFinanceSummary(financeRange)
-        setFinanceSummary(financeData)
-      } catch (error) {
-        console.error("Finance veri yükleme hatası:", error)
-      } finally {
-        setFinanceLoading(false)
-      }
+  const formatDate = (dateStr: string) => {
+    try {
+      return format(new Date(dateStr), 'd MMM', { locale: tr })
+    } catch {
+      return dateStr
     }
-    fetchFinance()
-  }, [financeRange])
+  }
 
-  const handleFinanceRangeChange = (range: 'day' | 'week' | 'month' | 'all') => {
-    setFinanceRange(range)
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <Badge className="bg-green-100 text-green-700 border-green-200 font-normal">Onaylandı</Badge>
+      case 'pending':
+        return <Badge className="bg-amber-100 text-amber-700 border-amber-200 font-normal">Bekliyor</Badge>
+      case 'done':
+        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-normal">Tamamlandı</Badge>
+      case 'cancelled':
+        return <Badge className="bg-red-100 text-red-700 border-red-200 font-normal">İptal</Badge>
+      case 'rejected':
+        return <Badge className="bg-slate-100 text-slate-700 border-slate-200 font-normal">Reddedildi</Badge>
+      default:
+        return null
+    }
+  }
+
+  if (loading) {
+    return (
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-64 bg-slate-100" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Skeleton className="h-40 bg-slate-100" />
+            <Skeleton className="h-40 bg-slate-100" />
+            <Skeleton className="h-40 bg-slate-100" />
+            <Skeleton className="h-40 bg-slate-100" />
+          </div>
+          <div className="grid gap-4 md:grid-cols-7">
+            <Skeleton className="h-96 col-span-4 bg-slate-100" />
+            <Skeleton className="h-96 col-span-3 bg-slate-100" />
+          </div>
+        </div>
+    )
   }
 
   return (
-    <div className="flex-1 space-y-4">
-      <div className="flex items-center justify-between space-y-2">
+      <div className="space-y-6">
+        {/* Header */}
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h2>
-          <p className="text-muted-foreground">
-            Randevu sisteminizin genel bakışı
+          <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+          <p className="text-sm text-slate-600 mt-1">
+            İşletmenizin genel görünümü ve önemli metrikleri
           </p>
         </div>
-      </div>
-      <div className="space-y-4">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Bugünkü Randevular
-                  </CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.approvedToday}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Bugün onaylanan randevular
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Bekleyen Randevular
-                  </CardTitle>
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.pending}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Onay bekleyen randevular
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Onaylanan Randevular
-                  </CardTitle>
-                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.approvedTotal}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Toplam onaylanan randevu
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Aktif Berberler
-                  </CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.activeBarbers}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Sistemdeki aktif berber sayısı
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Abonman Müşteriler
-                  </CardTitle>
-                  <User className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{stats.subscriptionCustomers}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Aktif abonman müşteri sayısı
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Bugün Yapılan İşlemler
-                  </CardTitle>
-                  <Activity className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{auditSummary.totalEvents}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Bugünkü toplam aktivite
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Bugün Randevu İşlemleri
-                  </CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{auditSummary.appointmentActions}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Randevu ile ilgili işlemler
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Bugün Defter İşlemleri
-                  </CardTitle>
-                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{auditSummary.ledgerActions}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Defter kayıt işlemleri
-                  </p>
-                </CardContent>
-              </Card>
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">
-                    Bugün Gider İşlemleri
-                  </CardTitle>
-                  <Receipt className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{auditSummary.expenseActions}</div>
-                  <p className="text-xs text-muted-foreground">
-                    Gider kayıt işlemleri
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <CardTitle className="text-foreground">Finansal Özet</CardTitle>
-                    <CardDescription className="text-muted-foreground">
-                      Gelir, gider ve net kâr analizi
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={financeRange === 'day' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFinanceRangeChange('day')}
-                    >
-                      Günlük
-                    </Button>
-                    <Button
-                      variant={financeRange === 'week' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFinanceRangeChange('week')}
-                    >
-                      Haftalık
-                    </Button>
-                    <Button
-                      variant={financeRange === 'month' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFinanceRangeChange('month')}
-                    >
-                      Aylık
-                    </Button>
-                    <Button
-                      variant={financeRange === 'all' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleFinanceRangeChange('all')}
-                    >
-                      Tümü
-                    </Button>
-                  </div>
+
+        {/* Hero Stats - 4 Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Bugünkü Randevular */}
+          <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 shadow-sm">
+            <CardHeader className="relative pb-2">
+              <CardDescription className="text-blue-700">Bugünkü Randevular</CardDescription>
+              <CardTitle className="text-3xl font-bold tabular-nums text-blue-900">
+                {stats.approvedToday}
+              </CardTitle>
+              <div className="absolute right-4 top-4">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <CalendarDays className="h-5 w-5 text-blue-600" />
                 </div>
-              </CardHeader>
-              <CardContent>
-                {financeLoading ? (
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Card className="bg-card border-border">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-4 w-4 rounded" />
-                      </CardHeader>
-                      <CardContent>
-                        <Skeleton className="h-8 w-32 mb-2" />
-                        <Skeleton className="h-3 w-20" />
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-card border-border">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-4 w-4 rounded" />
-                      </CardHeader>
-                      <CardContent>
-                        <Skeleton className="h-8 w-32 mb-2" />
-                        <Skeleton className="h-3 w-20" />
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-card border-border">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-4 w-4 rounded" />
-                      </CardHeader>
-                      <CardContent>
-                        <Skeleton className="h-8 w-32 mb-2" />
-                        <Skeleton className="h-3 w-20" />
-                      </CardContent>
-                    </Card>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <Card className="bg-card border-border">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-foreground">
-                          Toplam Gelir
-                        </CardTitle>
-                        <TrendingUp className="h-4 w-4 text-green-500" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-foreground">
-                          {new Intl.NumberFormat("tr-TR", {
-                            style: "currency",
-                            currency: "TRY",
-                          }).format(financeSummary.totalRevenue)}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Randevu ücretleri
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-card border-border">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-foreground">
-                          Toplam Gider
-                        </CardTitle>
-                        <TrendingDown className="h-4 w-4 text-red-500" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold text-foreground">
-                          {new Intl.NumberFormat("tr-TR", {
-                            style: "currency",
-                            currency: "TRY",
-                          }).format(financeSummary.totalExpense)}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Dükkan giderleri
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="bg-card border-border">
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium text-foreground">
-                          Net Kâr
-                        </CardTitle>
-                        <DollarSign className={`h-4 w-4 ${financeSummary.netProfit >= 0 ? 'text-green-500' : 'text-red-500'}`} />
-                      </CardHeader>
-                      <CardContent>
-                        <div className={`text-2xl font-bold ${financeSummary.netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {new Intl.NumberFormat("tr-TR", {
-                            style: "currency",
-                            currency: "TRY",
-                          }).format(financeSummary.netProfit)}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {financeSummary.netProfit >= 0 ? 'Kâr' : 'Zarar'}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-              <div className="col-span-4">
-                <WeeklyAppointmentsChart data={weeklyData} />
               </div>
-              <Card className="col-span-4 md:col-span-2 lg:col-span-3 bg-card border-border">
-                <CardHeader>
-                  <CardTitle className="text-foreground">Randevu Durumları</CardTitle>
-                  <CardDescription className="text-muted-foreground">
-                    Onaylanan ve İptal Edilen
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 p-4">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-foreground">Onaylanan</p>
-                          <p className="text-2xl font-bold text-foreground">{statusStats.approved}</p>
-                        </div>
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-primary/20 bg-primary/10">
-                          <CheckCircle className="h-6 w-6 text-primary" />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 p-4">
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-foreground">İptal Edilen</p>
-                          <p className="text-2xl font-bold text-foreground">{statusStats.cancelled}</p>
-                        </div>
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-destructive/20 bg-destructive/10">
-                          <XCircle className="h-6 w-6 text-destructive" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1 text-sm pt-4">
+              <div className="flex gap-2 font-medium text-blue-800">
+                <TrendingUp className="h-4 w-4" />
+                Bugün onaylanan
+              </div>
+              <div className="text-blue-600 text-xs">
+                Aktif randevularınız
+              </div>
+            </CardFooter>
+          </Card>
+
+          {/* Card 2: Bekleyen Randevular */}
+          <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200 shadow-sm">
+            <CardHeader className="relative pb-2">
+              <CardDescription className="text-amber-700">Bekleyen Randevular</CardDescription>
+              <CardTitle className="text-3xl font-bold tabular-nums text-amber-900">
+                {stats.pending}
+              </CardTitle>
+              <div className="absolute right-4 top-4">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <Hourglass className="h-5 w-5 text-amber-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1 text-sm pt-4">
+              <div className="flex gap-2 font-medium text-amber-800">
+                <Clock className="h-4 w-4" />
+                Onay bekliyor
+              </div>
+              <div className="text-amber-600 text-xs">
+                Hemen kontrol edin
+              </div>
+            </CardFooter>
+          </Card>
+
+          {/* Card 3: Toplam Onaylı */}
+          <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200 shadow-sm">
+            <CardHeader className="relative pb-2">
+              <CardDescription className="text-green-700">Toplam Onaylı</CardDescription>
+              <CardTitle className="text-3xl font-bold tabular-nums text-green-900">
+                {stats.approvedTotal}
+              </CardTitle>
+              <div className="absolute right-4 top-4">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <CheckCheck className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1 text-sm pt-4">
+              <div className="flex gap-2 font-medium text-green-800">
+                <TrendingUp className="h-4 w-4" />
+                Tüm zamanlar
+              </div>
+              <div className="text-green-600 text-xs">
+                Onaylanmış randevular
+              </div>
+            </CardFooter>
+          </Card>
+
+          {/* Card 4: Aktif Berberler */}
+          <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200 shadow-sm">
+            <CardHeader className="relative pb-2">
+              <CardDescription className="text-purple-700">Aktif Berberler</CardDescription>
+              <CardTitle className="text-3xl font-bold tabular-nums text-purple-900">
+                {stats.activeBarbers}
+              </CardTitle>
+              <div className="absolute right-4 top-4">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Users className="h-5 w-5 text-purple-600" />
+                </div>
+              </div>
+            </CardHeader>
+            <CardFooter className="flex-col items-start gap-1 text-sm pt-4">
+              <div className="flex gap-2 font-medium text-purple-800">
+                <Activity className="h-4 w-4" />
+                Sistemde aktif
+              </div>
+              <div className="text-purple-600 text-xs">
+                Çalışan berber sayısı
+              </div>
+            </CardFooter>
+          </Card>
+        </div>
+
+        {/* Chart + Finance Section */}
+        <div className="grid gap-4 md:grid-cols-7">
+          {/* Weekly Chart */}
+          <div className="col-span-4">
+            <WeeklyAppointmentsChart data={weeklyData} />
+          </div>
+
+          {/* Finance + Stats */}
+          <div className="col-span-3 space-y-4">
+            {/* Finance Card */}
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader className="border-b border-slate-200 pb-4">
+                <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-foreground">Son Randevular</CardTitle>
-                    <CardDescription className="text-muted-foreground">
-                      En son oluşturulan 5 randevu
-                    </CardDescription>
+                    <CardTitle className="text-slate-900">Finansal Özet</CardTitle>
+                    <CardDescription className="text-slate-600">Tüm zamanlar</CardDescription>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push("/admin/randevular")}
-                    className="w-full sm:w-auto"
-                  >
-                    Tümünü Gör
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
+                  <div className="p-2 bg-emerald-100 rounded-lg">
+                    <Wallet className="h-5 w-5 text-emerald-600" />
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <CardContent className="pt-6 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Gelir</span>
+                    <div className="flex items-center gap-1 text-emerald-600 font-semibold">
+                      <ArrowUpRight className="h-3 w-3" />
+                      {new Intl.NumberFormat("tr-TR", {
+                        style: "currency",
+                        currency: "TRY",
+                      }).format(financeSummary.totalRevenue)}
+                    </div>
                   </div>
-                ) : recentAppointments.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-border hover:bg-muted/50">
-                          <TableHead className="text-foreground">Müşteri</TableHead>
-                          <TableHead className="text-foreground hidden sm:table-cell">Berber</TableHead>
-                          <TableHead className="text-foreground">Tarih</TableHead>
-                          <TableHead className="text-foreground hidden md:table-cell">Saat</TableHead>
-                          <TableHead className="text-foreground">Durum</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {recentAppointments.map((appointment) => (
-                          <TableRow
-                            key={appointment.id}
-                            className="border-border hover:bg-muted/50 cursor-pointer"
-                            onClick={() => router.push("/admin/randevular")}
-                          >
-                            <TableCell className="font-medium text-foreground">
-                              <div className="flex flex-col">
-                                <span>{appointment.customerName}</span>
-                                <span className="text-xs text-muted-foreground sm:hidden">{appointment.barberName}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground hidden sm:table-cell">
-                              {appointment.barberName}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              <div className="flex flex-col">
-                                <span>{typeof appointment.date === 'string' ? format(new Date(appointment.date + 'T00:00:00'), "d MMM yyyy", { locale: tr }) : format(appointment.date, "d MMM yyyy", { locale: tr })}</span>
-                                <span className="text-xs md:hidden">
-                                  {formatAppointmentTimeRange(
-                                    appointment.requestedStartTime,
-                                    appointment.requestedEndTime,
-                                    appointment.appointmentSlots
-                                  )}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground hidden md:table-cell">
-                              {formatAppointmentTimeRange(
-                                appointment.requestedStartTime,
-                                appointment.requestedEndTime,
-                                appointment.appointmentSlots
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className={`font-semibold border-2 ${statusColors[appointment.status] || statusColors.pending}`}
-                              >
-                                {statusLabels[appointment.status] || statusLabels.pending}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Gider</span>
+                    <div className="flex items-center gap-1 text-red-600 font-semibold">
+                      <ArrowDownRight className="h-3 w-3" />
+                      {new Intl.NumberFormat("tr-TR", {
+                        style: "currency",
+                        currency: "TRY",
+                      }).format(financeSummary.totalExpense)}
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-center text-muted-foreground py-8">
-                    Henüz randevu yok
-                  </p>
-                )}
+                  <div className="h-px bg-slate-200 my-2" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700">Net Kâr/Zarar</span>
+                    <div className={cn(
+                        "text-lg font-bold",
+                        financeSummary.netProfit >= 0 ? "text-emerald-600" : "text-red-600"
+                    )}>
+                      {new Intl.NumberFormat("tr-TR", {
+                        style: "currency",
+                        currency: "TRY",
+                      }).format(financeSummary.netProfit)}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="text-foreground">Son SMS Kayıtları</CardTitle>
-                <CardDescription className="text-muted-foreground">
-                  En son gönderilen SMS mesajları
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+
+            {/* Quick Stats */}
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader className="border-b border-slate-200 pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-slate-900">Randevu İstatistikleri</CardTitle>
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <PieChart className="h-5 w-5 text-blue-600" />
                   </div>
-                ) : recentSmsLogs.length > 0 ? (
-                  <div className="space-y-2">
-                    {recentSmsLogs.map((log) => (
-                      <div key={log.id} className="flex items-start justify-between gap-4 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors">
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
-                              {log.eventLabel || getSmsEventLabel(log.event)}
-                            </Badge>
-                            {log.status === 'success' ? (
-                              <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
-                                Başarılı
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-red-500/10 text-red-500 border-red-500/20">
-                                Hatalı
-                              </Badge>
-                            )}
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full" />
+                    <span className="text-sm text-slate-600">Onaylanan</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900">{statusStats.approved}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full" />
+                    <span className="text-sm text-slate-600">İptal Edilen</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900">{statusStats.cancelled}</span>
+                </div>
+                <div className="h-px bg-slate-200 my-2" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-700">Toplam</span>
+                  <span className="text-lg font-bold text-slate-900">
+                  {statusStats.approved + statusStats.cancelled}
+                </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Recent Activity + Quick Actions */}
+        <div className="grid gap-4 md:grid-cols-7">
+          {/* Recent Appointments */}
+          <Card className="col-span-4 bg-white border-slate-200 shadow-sm">
+            <CardHeader className="border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-slate-900">Son Randevular</CardTitle>
+                  <CardDescription className="text-slate-600">En son 5 randevu talebi</CardDescription>
+                </div>
+                <Button
+                    size="sm"
+                    onClick={() => router.push('/admin/randevular')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Tümünü Gör
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {recentAppointments.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    Henüz randevu yok
+                  </div>
+              ) : (
+                  <div className="space-y-3">
+                    {recentAppointments.map((apt) => (
+                        <div
+                            key={apt.id}
+                            className="flex items-center justify-between p-3 rounded-lg border-2 border-slate-200 hover:border-slate-300 transition-colors cursor-pointer"
+                            onClick={() => router.push('/admin/randevular')}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-slate-900">{apt.customerName}</span>
+                              {getStatusBadge(apt.status)}
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-slate-600">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                {formatDate(apt.date)}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {formatAppointmentTimeRange(apt.requestedStartTime, apt.requestedEndTime, apt.appointmentSlots)}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Users className="h-3 w-3" />
+                                {apt.barberName}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-sm text-foreground font-mono">{log.to}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatDateTimeLongTR(log.createdAt)}
-                          </p>
+                          <ArrowRight className="h-4 w-4 text-slate-400" />
                         </div>
-                      </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-center text-muted-foreground py-8">
-                    Henüz SMS kaydı yok
-                  </p>
-                )}
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions + Activity */}
+          <div className="col-span-3 space-y-4">
+            {/* Quick Actions */}
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader className="border-b border-slate-200 pb-4">
+                <CardTitle className="text-slate-900">Hızlı Erişim</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-2">
+                <Button
+                    className="w-full justify-start bg-white border-2 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-blue-500"
+                    onClick={() => router.push('/admin/randevular')}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Randevular
+                </Button>
+                <Button
+                    className="w-full justify-start bg-white border-2 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-blue-500"
+                    onClick={() => router.push('/admin/randevular/takvim')}
+                >
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  Takvim
+                </Button>
+                <Button
+                    className="w-full justify-start bg-white border-2 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-blue-500"
+                    onClick={() => router.push('/admin/defter')}
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Defter
+                </Button>
+                <Button
+                    className="w-full justify-start bg-white border-2 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-blue-500"
+                    onClick={() => router.push('/admin/berberler')}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Berberler
+                </Button>
               </CardContent>
             </Card>
-          </>
-        )}
+
+            {/* Today Activity */}
+            <Card className="bg-white border-slate-200 shadow-sm">
+              <CardHeader className="border-b border-slate-200 pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-slate-900">Bugünkü Aktivite</CardTitle>
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Activity className="h-5 w-5 text-green-600" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-blue-100 rounded">
+                      <Calendar className="h-3 w-3 text-blue-600" />
+                    </div>
+                    <span className="text-sm text-slate-600">Randevu İşlemleri</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900">{auditSummary.appointmentActions}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-emerald-100 rounded">
+                      <DollarSign className="h-3 w-3 text-emerald-600" />
+                    </div>
+                    <span className="text-sm text-slate-600">Defter Kayıtları</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900">{auditSummary.ledgerActions}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-amber-100 rounded">
+                      <MessageSquare className="h-3 w-3 text-amber-600" />
+                    </div>
+                    <span className="text-sm text-slate-600">SMS Gönderimi</span>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900">{auditSummary.smsSent}</span>
+                </div>
+                <div className="h-px bg-slate-200 my-2" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-700">Toplam İşlem</span>
+                  <span className="text-lg font-bold text-slate-900">{auditSummary.totalEvents}</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
-    </div>
   )
 }

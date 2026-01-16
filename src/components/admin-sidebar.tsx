@@ -15,6 +15,7 @@ import {
   RepeatIcon,
   CalendarPlusIcon,
   RefreshCwIcon,
+  Scissors,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -38,107 +39,95 @@ import {
 } from "@/components/ui/sidebar"
 import { logout } from "@/lib/actions/auth.actions"
 import { getSessionClient } from "@/lib/actions/auth-client.actions"
+import { getShopName } from "@/lib/actions/settings.actions"
 
 const navItems = [
   {
     title: "Dashboard",
     url: "/admin",
     icon: LayoutDashboardIcon,
-    disabled: false,
-    group: "ana"
+    group: "main"
   },
   {
     title: "Randevular",
     url: "/admin/randevular",
     icon: CalendarIcon,
-    disabled: false,
-    group: "ana"
+    group: "main"
   },
   {
     title: "Takvim",
     url: "/admin/randevular/takvim",
     icon: CalendarDaysIcon,
-    disabled: false,
-    group: "ana"
+    group: "main"
   },
   {
     title: "Berberler",
     url: "/admin/berberler",
     icon: UsersIcon,
-    disabled: false,
-    group: "isletme"
+    group: "business"
   },
   {
     title: "Çalışma Saatleri",
     url: "/admin/working-hours",
     icon: ClockIcon,
-    disabled: false,
-    group: "isletme"
+    group: "business"
   },
   {
     title: "Abonmanlar",
     url: "/admin/abonmanlar",
     icon: RepeatIcon,
-    disabled: false,
-    group: "isletme"
+    group: "business"
   },
   {
     title: "Manuel Randevu",
     url: "/admin/manuel-randevu",
     icon: CalendarPlusIcon,
-    disabled: false,
-    group: "isletme"
+    group: "business"
   },
   {
     title: "Defter",
     url: "/admin/defter",
     icon: BookOpenIcon,
-    disabled: false,
-    group: "defter"
+    group: "finance"
   },
   {
     title: "Giderler",
     url: "/admin/giderler",
     icon: ReceiptIcon,
-    disabled: false,
-    group: "defter"
+    group: "finance"
   },
   {
     title: "Sabit Giderler",
     url: "/admin/giderler/sabit",
     icon: RefreshCwIcon,
-    disabled: false,
-    group: "defter"
+    group: "finance"
   },
   {
     title: "SMS Logları",
     url: "/admin/sms-log",
     icon: MessageSquareIcon,
-    disabled: false,
-    group: "loglar"
+    group: "logs"
   },
   {
     title: "Sistem Logları",
     url: "/admin/audit-logs",
     icon: ActivityIcon,
-    disabled: false,
-    group: "loglar"
+    group: "logs"
   },
   {
     title: "Ayarlar",
     url: "/admin/settings",
     icon: SettingsIcon,
-    disabled: false,
-    group: "ayarlar"
+    group: "settings"
   },
 ]
 
 const groupLabels: Record<string, string> = {
-  ana: "Ana",
-  isletme: "İşletme",
-  defter: "Defter & Finans",
-  loglar: "Loglar & Kayıtlar",
-  ayarlar: "Ayarlar"
+  main: "Platform",
+  business: "İşletme",
+  finance: "Defter & Finans",
+  logs: "Loglar & Kayıtlar",
+  settings: "Ayarlar"
 }
 
 export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -146,6 +135,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [user, setUser] = React.useState<{ name: string; email: string; avatar: string } | null>(null)
+  const [shopName, setShopName] = React.useState<string>("Barberiax")
   const { isMobile, setOpenMobile } = useSidebar()
 
   React.useEffect(() => {
@@ -163,10 +153,12 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   }, [])
 
   React.useEffect(() => {
-    if (isMobile) {
-      setOpenMobile(false)
+    async function loadShopName() {
+      const name = await getShopName()
+      setShopName(name)
     }
-  }, [pathname, isMobile, setOpenMobile])
+    loadShopName()
+  }, [])
 
   const handleLogout = () => {
     if (isPending) return
@@ -181,29 +173,30 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
 
   const navItemsWithActive = navItems.map((item) => ({
     ...item,
-    isActive: pathname === item.url || (item.url === "/admin/randevular" && pathname.startsWith("/admin/randevular") && pathname !== "/admin/randevular/takvim") || (item.url === "/admin/giderler/sabit" && pathname.startsWith("/admin/giderler/sabit")),
+    isActive: pathname === item.url || 
+      (item.url === "/admin/randevular" && pathname.startsWith("/admin/randevular") && pathname !== "/admin/randevular/takvim") || 
+      (item.url === "/admin/giderler/sabit" && pathname.startsWith("/admin/giderler/sabit")),
   }))
 
-  const groupedItems = navItemsWithActive
-    .filter(item => !item.disabled)
-    .reduce((acc, item) => {
-      if (!acc[item.group]) {
-        acc[item.group] = []
-      }
-      acc[item.group].push(item)
-      return acc
-    }, {} as Record<string, typeof navItemsWithActive>)
+  const groupedItems = navItemsWithActive.reduce((acc, item) => {
+    if (!acc[item.group]) {
+      acc[item.group] = []
+    }
+    acc[item.group].push(item)
+    return acc
+  }, {} as Record<string, typeof navItemsWithActive>)
 
-  const groupOrder = ["ana", "isletme", "defter", "loglar", "ayarlar"]
+  const groupOrder = ["main", "business", "finance", "logs", "settings"]
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
+              size="lg"
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
+              className="data-[slot=sidebar-menu-button]:bg-sidebar"
             >
               <Link 
                 href="/admin"
@@ -213,7 +206,13 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   }
                 }}
               >
-                <span className="text-base font-semibold">Berber Paneli</span>
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Scissors className="size-4" />
+                </div>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">{shopName}</span>
+                  <span className="truncate text-xs">Burak Şirin</span>
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -226,7 +225,7 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
 
           return (
             <SidebarGroup key={groupKey}>
-              <SidebarGroupLabel className="text-xs text-muted-foreground uppercase tracking-wide">
+              <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/60 uppercase px-2">
                 {groupLabels[groupKey]}
               </SidebarGroupLabel>
               <SidebarGroupContent>

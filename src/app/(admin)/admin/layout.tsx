@@ -12,6 +12,6 @@ export default async function AdminLayout({
   } catch (error) {
     redirect('/admin/login')
   }
-  
+
   return <AdminShell>{children}</AdminShell>
 }

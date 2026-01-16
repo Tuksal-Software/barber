@@ -7,12 +7,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
 import { getAuditLogs } from "@/lib/actions/audit.actions"
 import type { AuditLogItem } from "@/lib/actions/audit.actions"
-import { formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow, format } from "date-fns"
 import { tr } from "date-fns/locale/tr"
 import { formatDateTimeLongTR } from "@/lib/time/formatDate"
-import { User, Shield, Server, ChevronDown } from "lucide-react"
+import { User, Shield, Server, ChevronDown, Filter, Search, X } from "lucide-react"
+import { DateRangePicker } from "@/components/ui/date-picker"
+import { cn } from "@/lib/utils"
 
 export const dynamic = 'force-dynamic'
 
@@ -20,18 +23,18 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
+  const [fromDate, setFromDate] = useState<Date>()
+  const [toDate, setToDate] = useState<Date>()
   const [filters, setFilters] = useState({
     actorType: 'all' as string,
     action: 'all' as string,
     entityType: 'all' as string,
-    fromDate: '',
-    toDate: '',
     search: '',
   })
 
   useEffect(() => {
     loadLogs()
-  }, [filters])
+  }, [filters, fromDate, toDate])
 
   const loadLogs = async () => {
     setLoading(true)
@@ -40,8 +43,8 @@ export default function AuditLogsPage() {
         actorType: filters.actorType !== 'all' ? filters.actorType as 'customer' | 'admin' | 'system' : undefined,
         action: filters.action !== 'all' ? filters.action : undefined,
         entityType: filters.entityType !== 'all' ? filters.entityType as 'appointment' | 'ledger' | 'expense' | 'sms' | 'auth' | 'ui' | 'other' : undefined,
-        fromDate: filters.fromDate || undefined,
-        toDate: filters.toDate || undefined,
+        fromDate: fromDate ? format(fromDate, 'yyyy-MM-dd') : undefined,
+        toDate: toDate ? format(toDate, 'yyyy-MM-dd') : undefined,
         search: filters.search || undefined,
         limit: 100,
       })
@@ -52,6 +55,17 @@ export default function AuditLogsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      actorType: 'all',
+      action: 'all',
+      entityType: 'all',
+      search: '',
+    })
+    setFromDate(undefined)
+    setToDate(undefined)
   }
 
   const getActionLabel = (action: string): string => {
@@ -123,48 +137,75 @@ export default function AuditLogsPage() {
     switch (actorType) {
       case 'admin':
         return (
-          <Badge className="bg-primary/10 text-primary border-primary/20 flex items-center gap-1">
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
             <Shield className="h-3 w-3" />
             Yönetici
           </Badge>
         )
       case 'customer':
         return (
-          <Badge variant="secondary" className="flex items-center gap-1">
+          <Badge className="bg-purple-50 text-purple-700 border-purple-200 flex items-center gap-1">
             <User className="h-3 w-3" />
             Müşteri
           </Badge>
         )
       case 'system':
         return (
-          <Badge variant="outline" className="flex items-center gap-1">
+          <Badge className="bg-slate-100 text-slate-700 border-slate-200 flex items-center gap-1">
             <Server className="h-3 w-3" />
             Sistem
           </Badge>
         )
       default:
-        return <Badge variant="outline">{actorType}</Badge>
+        return (
+          <Badge variant="outline" className="border-slate-200 text-slate-700">
+            {actorType}
+          </Badge>
+        )
     }
   }
 
   const getActionBadge = (action: string) => {
-    const label = getActionLabel(action)
-    if (action.startsWith('APPOINTMENT_')) {
-      return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{label}</Badge>
+    if (action.includes('CREATED')) {
+      return (
+        <Badge className="bg-green-50 text-green-700 border-green-200 text-xs">
+          Oluşturuldu
+        </Badge>
+      )
     }
-    if (action.startsWith('SMS_')) {
-      return <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">{label}</Badge>
+    if (action.includes('UPDATED') || action.includes('APPROVED')) {
+      return (
+        <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+          Güncellendi
+        </Badge>
+      )
     }
-    if (action.startsWith('AUTH_') || action.startsWith('UI_') || action.startsWith('CUSTOMER_CANCEL_')) {
-      return <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20">{label}</Badge>
+    if (action.includes('DELETED') || action.includes('CANCELLED')) {
+      return (
+        <Badge className="bg-red-50 text-red-700 border-red-200 text-xs">
+          İptal/Silindi
+        </Badge>
+      )
     }
-    if (action.startsWith('SETTINGS_') || action.startsWith('WORKING_HOUR_') || action.startsWith('SUBSCRIPTION_')) {
-      return <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20">{label}</Badge>
+    if (action.includes('SMS_SENT')) {
+      return (
+        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+          SMS Gönderildi
+        </Badge>
+      )
     }
-    if (action.startsWith('LEDGER_') || action.startsWith('EXPENSE_')) {
-      return <Badge variant="outline" className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">{label}</Badge>
+    if (action.includes('SMS_FAILED')) {
+      return (
+        <Badge className="bg-red-50 text-red-700 border-red-200 text-xs">
+          SMS Başarısız
+        </Badge>
+      )
     }
-    return <Badge variant="outline">{label}</Badge>
+    return (
+      <Badge variant="outline" className="border-slate-200 text-slate-700 text-xs">
+        İşlem
+      </Badge>
+    )
   }
 
   const formatMetadata = (metadata: any): React.ReactElement[] => {
@@ -187,8 +228,8 @@ export default function AuditLogsPage() {
           } else {
             items.push(
               <div key={fullKey} className="flex gap-2">
-                <span className="font-medium text-foreground">{fullKey}:</span>
-                <span className="text-muted-foreground">{processValue(fullKey, value)}</span>
+                <span className="font-medium text-slate-900">{fullKey}:</span>
+                <span className="text-slate-600">{processValue(fullKey, value)}</span>
               </div>
             )
           }
@@ -197,164 +238,208 @@ export default function AuditLogsPage() {
       processObject(metadata)
       return items
     } catch {
-      return [<div key="error" className="text-muted-foreground">{String(metadata)}</div>]
+      return [<div key="error" className="text-slate-600">{String(metadata)}</div>]
     }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold text-foreground">Denetim Kayıtları</h1>
-        <p className="text-muted-foreground">Sistem genelinde gerçekleşen tüm işlemleri burada görüntüleyebilirsiniz.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Sistem Logları</h1>
+          <p className="text-sm text-slate-600 mt-1">
+            Sistemdeki tüm işlemleri görüntüleyin ve filtreleyin
+          </p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtreler</CardTitle>
+      <Card className="bg-white border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="h-5 w-5 text-slate-500" />
+              <CardTitle className="text-slate-900">Filtreler</CardTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Temizle
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">İşlemi Yapan</label>
-              <Select value={filters.actorType} onValueChange={(value) => setFilters({ ...filters, actorType: value })}>
-                <SelectTrigger>
+        <CardContent className="pt-6">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Kullanıcı Tipi</label>
+              <Select 
+                value={filters.actorType} 
+                onValueChange={(value) => setFilters({ ...filters, actorType: value })}
+              >
+                <SelectTrigger className="border-slate-300 bg-white text-slate-900 hover:bg-slate-50 focus:ring-2 focus:ring-blue-500">
                   <SelectValue placeholder="Tümü" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tümü</SelectItem>
-                  <SelectItem value="customer">Müşteri</SelectItem>
-                  <SelectItem value="admin">Yönetici</SelectItem>
-                  <SelectItem value="system">Sistem</SelectItem>
+                <SelectContent className="bg-white border-slate-200">
+                  <SelectItem value="all" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Tümü</SelectItem>
+                  <SelectItem value="admin" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Yönetici</SelectItem>
+                  <SelectItem value="customer" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Müşteri</SelectItem>
+                  <SelectItem value="system" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Sistem</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">İşlem Türü</label>
-              <Select value={filters.action} onValueChange={(value) => setFilters({ ...filters, action: value })}>
-                <SelectTrigger>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">İşlem Türü</label>
+              <Select 
+                value={filters.action} 
+                onValueChange={(value) => setFilters({ ...filters, action: value })}
+              >
+                <SelectTrigger className="border-slate-300 bg-white text-slate-900 hover:bg-slate-50 focus:ring-2 focus:ring-blue-500">
                   <SelectValue placeholder="Tümü" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tümü</SelectItem>
-                  <SelectItem value="UI_PHONE_ENTERED">Telefon Numarası Girildi</SelectItem>
-                  <SelectItem value="UI_NAME_ENTERED">İsim Girildi</SelectItem>
-                  <SelectItem value="UI_FORM_ABANDONED">Form Terk Edildi</SelectItem>
-                  <SelectItem value="APPOINTMENT_CREATED">Randevu Oluşturuldu</SelectItem>
-                  <SelectItem value="APPOINTMENT_APPROVED">Randevu Onaylandı</SelectItem>
-                  <SelectItem value="APPOINTMENT_CANCELLED">Randevu İptal Edildi</SelectItem>
-                  <SelectItem value="SMS_SENT">SMS Gönderildi</SelectItem>
-                  <SelectItem value="SMS_FAILED">SMS Başarısız</SelectItem>
-                  <SelectItem value="AUTH_LOGIN">Yönetici Giriş Yaptı</SelectItem>
-                  <SelectItem value="AUTH_LOGOUT">Yönetici Çıkış Yaptı</SelectItem>
-                  <SelectItem value="SETTINGS_UPDATED">Ayarlar Güncellendi</SelectItem>
-                  <SelectItem value="ADMIN_APPOINTMENT_CREATED">Yönetici Randevu Oluşturdu</SelectItem>
+                <SelectContent className="bg-white border-slate-200 max-h-[300px]">
+                  <SelectItem value="all" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Tümü</SelectItem>
+                  <SelectItem value="APPOINTMENT_CREATED" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Randevu Oluşturuldu</SelectItem>
+                  <SelectItem value="APPOINTMENT_APPROVED" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Randevu Onaylandı</SelectItem>
+                  <SelectItem value="APPOINTMENT_CANCELLED" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Randevu İptal Edildi</SelectItem>
+                  <SelectItem value="SMS_SENT" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">SMS Gönderildi</SelectItem>
+                  <SelectItem value="SMS_FAILED" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">SMS Başarısız</SelectItem>
+                  <SelectItem value="AUTH_LOGIN" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Yönetici Giriş Yaptı</SelectItem>
+                  <SelectItem value="AUTH_LOGOUT" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Yönetici Çıkış Yaptı</SelectItem>
+                  <SelectItem value="SETTINGS_UPDATED" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Ayarlar Güncellendi</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Etkilenen Alan</label>
-              <Select value={filters.entityType} onValueChange={(value) => setFilters({ ...filters, entityType: value })}>
-                <SelectTrigger>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Etkilenen Alan</label>
+              <Select 
+                value={filters.entityType} 
+                onValueChange={(value) => setFilters({ ...filters, entityType: value })}
+              >
+                <SelectTrigger className="border-slate-300 bg-white text-slate-900 hover:bg-slate-50 focus:ring-2 focus:ring-blue-500">
                   <SelectValue placeholder="Tümü" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Tümü</SelectItem>
-                  <SelectItem value="appointment">Randevu</SelectItem>
-                  <SelectItem value="ledger">Defter</SelectItem>
-                  <SelectItem value="expense">Gider</SelectItem>
-                  <SelectItem value="sms">SMS</SelectItem>
-                  <SelectItem value="auth">Kimlik Doğrulama</SelectItem>
-                  <SelectItem value="ui">Arayüz</SelectItem>
-                  <SelectItem value="settings">Ayarlar</SelectItem>
-                  <SelectItem value="other">Diğer</SelectItem>
+                <SelectContent className="bg-white border-slate-200">
+                  <SelectItem value="all" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Tümü</SelectItem>
+                  <SelectItem value="appointment" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Randevu</SelectItem>
+                  <SelectItem value="ledger" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Defter</SelectItem>
+                  <SelectItem value="expense" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Gider</SelectItem>
+                  <SelectItem value="sms" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">SMS</SelectItem>
+                  <SelectItem value="auth" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Kimlik Doğrulama</SelectItem>
+                  <SelectItem value="ui" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Arayüz</SelectItem>
+                  <SelectItem value="settings" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Ayarlar</SelectItem>
+                  <SelectItem value="other" className="text-slate-900 focus:bg-slate-100 focus:text-slate-900">Diğer</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Başlangıç Tarihi</label>
-              <Input
-                type="date"
-                value={filters.fromDate}
-                onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium text-slate-700">Tarih Aralığı</label>
+              <DateRangePicker
+                from={fromDate}
+                to={toDate}
+                onFromSelect={setFromDate}
+                onToSelect={setToDate}
+                fromPlaceholder="Başlangıç tarihi"
+                toPlaceholder="Bitiş tarihi"
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Bitiş Tarihi</label>
-              <Input
-                type="date"
-                value={filters.toDate}
-                onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Arama</label>
-              <Input
-                placeholder="Özet veya detaylarda ara..."
-                value={filters.search}
-                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Arama</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Özet veya detaylarda ara..."
+                  value={filters.search}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  className="pl-9 border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Denetim Kayıtları</CardTitle>
+      <Card className="bg-white border-slate-200 shadow-sm">
+        <CardHeader className="border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-slate-900">Denetim Kayıtları</CardTitle>
+            <Badge variant="secondary" className="bg-slate-100 text-slate-700">
+              {logs.length} kayıt
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
-            <div className="space-y-3">
+            <div className="p-6 space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
+                <Skeleton key={i} className="h-16 w-full bg-slate-100" />
               ))}
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Denetim kaydı bulunamadı
+            <div className="text-center py-12">
+              <div className="text-slate-400 mb-2">
+                <Search className="h-12 w-12 mx-auto" />
+              </div>
+              <p className="text-slate-600 font-medium">Denetim kaydı bulunamadı</p>
+              <p className="text-slate-500 text-sm mt-1">
+                Filtrelerinizi değiştirerek tekrar deneyin
+              </p>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Zaman</TableHead>
-                    <TableHead>Kullanıcı</TableHead>
-                    <TableHead>İşlem</TableHead>
-                    <TableHead>Alan</TableHead>
-                    <TableHead>Açıklama</TableHead>
-                    <TableHead>Detay</TableHead>
+                  <TableRow className="border-slate-200 bg-slate-50/50 hover:bg-slate-50/50">
+                    <TableHead className="text-slate-700 font-semibold">Zaman</TableHead>
+                    <TableHead className="text-slate-700 font-semibold">Kullanıcı</TableHead>
+                    <TableHead className="text-slate-700 font-semibold">İşlem</TableHead>
+                    <TableHead className="text-slate-700 font-semibold">Alan</TableHead>
+                    <TableHead className="text-slate-700 font-semibold">Açıklama</TableHead>
+                    <TableHead className="text-slate-700 font-semibold">Detay</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
-                    <>
-                      <TableRow key={log.id} className={log.actorType === 'admin' ? 'bg-primary/5' : ''}>
+                    <React.Fragment key={log.id}>
+                      <TableRow className={cn(
+                        "border-slate-100 hover:bg-slate-50 transition-colors",
+                        log.actorType === 'admin' && "bg-blue-50/30"
+                      )}>
                         <TableCell className="text-sm">
-                          <div className="flex flex-col">
-                            <span className="text-muted-foreground">{formatRelativeDate(log.createdAt)}</span>
-                            <span className="text-xs text-muted-foreground">{formatDateTimeLongTR(log.createdAt)}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-700 font-medium">
+                              {formatRelativeDate(log.createdAt)}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {formatDateTimeLongTR(log.createdAt)}
+                            </span>
                           </div>
                         </TableCell>
+                        <TableCell>{getActorBadge(log.actorType)}</TableCell>
+                        <TableCell>{getActionBadge(log.action)}</TableCell>
                         <TableCell>
-                          {getActorBadge(log.actorType)}
-                        </TableCell>
-                        <TableCell>
-                          {getActionBadge(log.action)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{getEntityLabel(log.entityType)}</Badge>
+                          <Badge 
+                            variant="outline" 
+                            className="border-slate-200 text-slate-700 bg-white"
+                          >
+                            {getEntityLabel(log.entityType)}
+                          </Badge>
                         </TableCell>
                         <TableCell className="max-w-md">
-                          <span className="text-sm">{getActionLabel(log.action)}</span>
+                          <span className="text-sm text-slate-700">
+                            {getActionLabel(log.action)}
+                          </span>
                         </TableCell>
                         <TableCell>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                               const newSet = new Set(expandedLogs)
                               if (expandedLogs.has(log.id)) {
@@ -364,29 +449,42 @@ export default function AuditLogsPage() {
                               }
                               setExpandedLogs(newSet)
                             }}
-                            className="text-xs hover:underline flex items-center gap-1"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8"
                           >
-                            Detay
-                            <ChevronDown className={`h-3 w-3 transition-transform ${expandedLogs.has(log.id) ? 'rotate-180' : ''}`} />
-                          </button>
+                            {expandedLogs.has(log.id) ? 'Gizle' : 'Göster'}
+                            <ChevronDown 
+                              className={cn(
+                                "ml-1 h-4 w-4 transition-transform",
+                                expandedLogs.has(log.id) && "rotate-180"
+                              )} 
+                            />
+                          </Button>
                         </TableCell>
                       </TableRow>
                       {expandedLogs.has(log.id) && (
                         <TableRow>
-                          <TableCell colSpan={6} className="bg-muted/30">
-                            <div className="space-y-2 text-xs py-2">
-                              <div className="flex gap-2">
-                                <span className="font-medium text-foreground">Kullanıcı ID:</span>
-                                <span className="text-muted-foreground">{log.actorId || '-'}</span>
-                              </div>
-                              <div className="flex gap-2">
-                                <span className="font-medium text-foreground">Alan ID:</span>
-                                <span className="text-muted-foreground">{log.entityId || '-'}</span>
+                          <TableCell colSpan={6} className="bg-slate-50 border-slate-100">
+                            <div className="p-4 space-y-3 text-sm">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <span className="font-medium text-slate-700">Kullanıcı ID:</span>
+                                  <span className="ml-2 text-slate-600">
+                                    {log.actorId || '-'}
+                                  </span>
+                                </div>
+                                <div>
+                                  <span className="font-medium text-slate-700">Alan ID:</span>
+                                  <span className="ml-2 text-slate-600">
+                                    {log.entityId || '-'}
+                                  </span>
+                                </div>
                               </div>
                               {log.metadata && (
-                                <div className="space-y-1 pt-1 border-t">
-                                  <span className="font-medium text-foreground block mb-1">Detaylar:</span>
-                                  <div className="space-y-1">
+                                <div className="pt-3 border-t border-slate-200">
+                                  <span className="font-medium text-slate-700 block mb-2">
+                                    Detaylar:
+                                  </span>
+                                  <div className="bg-white rounded-lg p-3 border border-slate-200 text-xs font-mono">
                                     {formatMetadata(log.metadata)}
                                   </div>
                                 </div>
@@ -395,7 +493,7 @@ export default function AuditLogsPage() {
                           </TableCell>
                         </TableRow>
                       )}
-                    </>
+                    </React.Fragment>
                   ))}
                 </TableBody>
               </Table>

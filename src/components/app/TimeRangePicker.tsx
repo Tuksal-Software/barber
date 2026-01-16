@@ -40,28 +40,18 @@ export const TimeRangePicker = memo(function TimeRangePicker({
             onClick={() => handleTimeClick(button.time)}
             disabled={button.disabled}
             className={cn(
-              "relative rounded-lg border-2 py-3 px-2 text-sm font-semibold transition-all duration-200 touch-manipulation",
-              "min-h-[48px] flex items-center justify-center",
+              "h-10 px-3 rounded-lg font-medium text-sm transition-all duration-200 border-2",
+              "flex items-center justify-center",
               button.disabled &&
-                "cursor-not-allowed bg-muted/30 text-muted-foreground opacity-50 border-border/40 hover:border-border/40 hover:bg-muted/30",
+                "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed",
               !button.disabled &&
                 !isSelected &&
-                "border-border/40 bg-muted/40 hover:border-primary/50 hover:bg-primary/30 active:scale-95",
+                "bg-white text-slate-900 border-slate-200 hover:bg-slate-100 hover:border-blue-300",
               isSelected &&
-                "border-primary bg-primary/20 text-primary-foreground shadow-md shadow-primary/20 ring-2 ring-primary/20"
+                "bg-blue-600 text-white border-blue-600"
             )}
           >
             {button.time}
-            {button.disabled && (
-              <span 
-                className="absolute -top-1 -right-1 text-[10px] px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none font-medium"
-                style={{
-                  animation: 'fadeIn 0.3s ease-in-out, scaleIn 0.3s ease-in-out'
-                }}
-              >
-                Dolu
-              </span>
-            )}
           </button>
         )
       })}
