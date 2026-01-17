@@ -12,7 +12,7 @@ export async function exampleUsage() {
   console.log('Müsait slotlar:', availableBefore)
 
   console.log('\n2. Randevu talebi oluşturuluyor...')
-  const requestId = await createAppointmentRequest({
+  const requestResult = await createAppointmentRequest({
     barberId,
     customerName: 'Test Müşteri',
     customerPhone: '+90 555 123 4567',
@@ -21,6 +21,13 @@ export async function exampleUsage() {
     requestedStartTime: '10:00',
     requestedEndTime: '11:00',
   })
+
+  if (typeof requestResult === 'object' && 'error' in requestResult) {
+    console.error('Randevu talebi oluşturma hatası:', requestResult.error)
+    return
+  }
+
+  const requestId = requestResult
   console.log('Randevu talebi ID:', requestId)
 
   console.log('\n3. Talepten sonra müsaitlik kontrolü (pending talepler bloklamaz)...')
@@ -28,10 +35,16 @@ export async function exampleUsage() {
   console.log('Müsait slotlar:', availableAfterRequest)
 
   console.log('\n4. Randevu talebi 30 dakika için onaylanıyor...')
-  await approveAppointmentRequest({
+  const approvalResult = await approveAppointmentRequest({
     appointmentRequestId: requestId,
     approvedDurationMinutes: 30,
   })
+
+  if (typeof approvalResult === 'object' && approvalResult !== null && 'error' in approvalResult) {
+    console.error('Onaylama hatası:', approvalResult.error)
+    return approvalResult.error
+  }
+
   console.log('Randevu onaylandı')
 
   console.log('\n5. Onaydan sonra müsaitlik kontrolü...')

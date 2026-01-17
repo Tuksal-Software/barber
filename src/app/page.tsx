@@ -125,6 +125,27 @@ export default function BookingPage() {
     }
   }, [formData.customerPhone, formData.customerName, setValue])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    const urlParams = new URLSearchParams(window.location.search)
+    const cancelParam = urlParams.get('cancel')
+    const phoneParam = urlParams.get('phone')
+    
+    if (cancelParam === '1') {
+      setShowCancelDialog(true)
+      setCancelStep(1)
+      
+      if (phoneParam) {
+        const decodedPhone = decodeURIComponent(phoneParam)
+        const normalized = normalizePhone(decodedPhone)
+        if (normalized.match(/^\+90[5][0-9]{9}$/)) {
+          setCancelPhone(normalized)
+        }
+      }
+    }
+  }, [])
+
   // Load time slots
   useEffect(() => {
     if (!selectedBarber || !selectedDate) {
@@ -203,7 +224,7 @@ export default function BookingPage() {
             ? 60 
             : 30
 
-        await createAppointmentRequest({
+        const result = await createAppointmentRequest({
           barberId: selectedBarber.id,
           customerName: data.customerName,
           customerPhone: data.customerPhone,
@@ -217,9 +238,20 @@ export default function BookingPage() {
           durationMinutes,
         })
 
+        if (result && typeof result === 'object' && 'error' in result) {
+          toast.error(result.error || "Randevu oluşturulurken hata oluştu")
+          return
+        }
+
         setShowSuccess(true)
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Randevu oluşturulurken hata oluştu")
+        console.error('Appointment creation error:', error)
+        const errorMessage = error instanceof Error 
+          ? error.message 
+          : typeof error === 'string'
+            ? error
+            : "Randevu oluşturulurken hata oluştu"
+        toast.error(errorMessage)
       }
     })
   })
@@ -402,8 +434,18 @@ export default function BookingPage() {
 
                   <Card className="bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-xl rounded-2xl overflow-hidden">
                     <CardContent className="p-0">
-                      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
-                        <h3 className="text-white font-semibold text-lg">Randevu Detayları</h3>
+                      <div className="relative h-48 overflow-hidden">
+                        <Image
+                          src="/background.jpeg"
+                          alt="Salon"
+                          fill
+                          className="object-cover"
+                          priority
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 px-6 py-4">
+                          <h3 className="text-white font-bold text-xl drop-shadow-lg">Randevu Detayları</h3>
+                        </div>
                       </div>
 
                       <div className="p-6 space-y-4">

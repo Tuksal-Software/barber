@@ -65,7 +65,7 @@ export async function getCustomerByPhone(phone: string): Promise<{ customerName:
 
 export async function createAppointmentRequest(
   input: CreateAppointmentRequestInput
-): Promise<string> {
+): Promise<string | { error: string }> {
   const {
     barberId,
     customerName,
@@ -102,7 +102,7 @@ export async function createAppointmentRequest(
   }
 
   if (!barberId || !customerName || !customerPhone || !date || !requestedStartTime) {
-    throw new Error('Tüm zorunlu alanlar doldurulmalıdır')
+    return { error: 'Tüm zorunlu alanlar doldurulmalıdır' }
   }
 
   const barber = await prisma.barber.findUnique({
@@ -111,11 +111,11 @@ export async function createAppointmentRequest(
   })
 
   if (!barber) {
-    throw new Error('Berber bulunamadı')
+    return { error: 'Berber bulunamadı' }
   }
 
   if (!barber.isActive) {
-    throw new Error('Berber aktif değil')
+    return { error: 'Berber aktif değil' }
   }
 
   let calculatedEndTime: string | null = null
@@ -166,7 +166,7 @@ export async function createAppointmentRequest(
     } catch (error) {
       console.error('Audit log error:', error)
     }
-    throw new Error('Aktif bir randevunuz bulunduğu için yeni randevu alamazsınız.')
+    return { error: 'Aktif bir randevunuz bulunduğu için yeni randevu alamazsınız.' }
   }
 
   const appointmentRequest = await prisma.appointmentRequest.create({
@@ -225,22 +225,23 @@ export async function createAppointmentRequest(
 
 export async function approveAppointmentRequest(
   input: ApproveAppointmentRequestInput
-): Promise<void> {
+): Promise<string | { error: string }> {
   const session = await requireAdmin()
 
   const { appointmentRequestId, approvedDurationMinutes } = input
 
   if (!appointmentRequestId || !approvedDurationMinutes) {
-    throw new Error('Randevu talebi ID ve onaylanan süre gereklidir')
+    return { error: 'Randevu talebi ID ve onaylanan süre gereklidir' }
   }
 
   if (![30, 60].includes(approvedDurationMinutes)) {
-    throw new Error('Geçersiz süre. 30 veya 60 dakika olmalıdır')
+    return { error: 'Geçersiz süre. 30 veya 60 dakika olmalıdır' }
   }
 
   let smsPayload: AppointmentApprovedPayload | null = null
 
-  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  try {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const appointmentRequest = await tx.appointmentRequest.findUnique({
       where: { id: appointmentRequestId },
     })
@@ -326,7 +327,11 @@ export async function approveAppointmentRequest(
       endTime: approvedEndTime,
       serviceType: appointmentRequest.serviceType || null,
     }
-  })
+    })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Randevu onaylama sırasında bir hata oluştu'
+    return { error: errorMessage }
+  }
 
   if (smsPayload) {
     await dispatchSms(SmsEvent.AppointmentApproved, smsPayload)
@@ -348,6 +353,8 @@ export async function approveAppointmentRequest(
   } catch (error) {
     console.error('Audit log error:', error)
   }
+
+  return appointmentRequestId
 }
 
 export async function cancelAppointmentRequest(
