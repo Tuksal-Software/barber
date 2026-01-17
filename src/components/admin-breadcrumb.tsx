@@ -20,6 +20,7 @@ const routeNames: Record<string, string> = {
   "working-hours": "Çalışma Saatleri",
   abonmanlar: "Abonmanlar",
   "manuel-randevu": "Manuel Randevu",
+  "engellenen-musteriler": "Engellenen Müşteriler",
   defter: "Defter",
   giderler: "Giderler",
   sabit: "Sabit Giderler",

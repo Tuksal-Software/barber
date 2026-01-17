@@ -10,6 +10,7 @@ import { dispatchSms, sendSmsForEvent } from '@/lib/sms/sms.dispatcher'
 import { SmsEvent } from '@/lib/sms/sms.events'
 import type { AppointmentApprovedPayload } from '@/lib/sms/sms.templates'
 import { auditLog } from '@/lib/audit/audit.logger'
+import { isCustomerBanned } from './banned-customer.actions'
 
 export interface CreateAppointmentRequestInput {
   barberId: string
@@ -77,6 +78,13 @@ export async function createAppointmentRequest(
     serviceType,
     durationMinutes,
   } = input
+
+  const isBanned = await isCustomerBanned(customerPhone)
+  if (isBanned) {
+    return { 
+      error: 'Hesabınız engellenmiş durumda. Randevu alamazsınız. Lütfen berberle iletişime geçin.' 
+    }
+  }
 
   try {
     await auditLog({
@@ -492,6 +500,11 @@ export async function createAdminAppointment(
     requestedStartTime,
     durationMinutes,
   } = input
+
+  const isBanned = await isCustomerBanned(customerPhone)
+  if (isBanned) {
+    throw new Error('Bu müşteri engellenmiş durumda. Randevu oluşturulamaz.')
+  }
 
   if (!barberId || !customerName || !customerPhone || !date || !requestedStartTime || !durationMinutes) {
     throw new Error('Tüm zorunlu alanlar doldurulmalıdır')

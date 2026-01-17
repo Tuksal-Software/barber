@@ -16,6 +16,7 @@ import {
   CalendarPlusIcon,
   RefreshCwIcon,
   Scissors,
+  ShieldBan,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -82,6 +83,12 @@ const navItems = [
     title: "Manuel Randevu",
     url: "/admin/manuel-randevu",
     icon: CalendarPlusIcon,
+    group: "business"
+  },
+  {
+    title: "Engellenen Müşteriler",
+    url: "/admin/engellenen-musteriler",
+    icon: ShieldBan,
     group: "business"
   },
   {
