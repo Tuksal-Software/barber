@@ -402,6 +402,14 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
       return { success: false, error: 'OTP kodunun süresi dolmuş. Lütfen tekrar deneyin.' }
     }
 
+    if (!otpRecord.appointmentId) {
+      await prisma.customerCancelOtp.update({
+        where: { id: otpRecord.id },
+        data: { used: true },
+      })
+      return { success: true }
+    }
+
     const appointment = await prisma.appointmentRequest.findUnique({
       where: { id: otpRecord.appointmentId },
       include: {
@@ -718,3 +726,102 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
   }
 }
 
+export async function requestViewAppointmentsOtp(phone: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const normalizedPhone = normalizePhone(phone)
+
+    if (!normalizedPhone.match(/^\+90[5][0-9]{9}$/)) {
+      return { success: false, error: 'Geçerli bir telefon numarası girin' }
+    }
+
+    try {
+      await auditLog({
+        actorType: 'customer',
+        actorId: normalizedPhone,
+        action: AuditAction.UI_CANCEL_ATTEMPT,
+        entityType: 'appointment',
+        entityId: null,
+        summary: 'Customer requested to view appointments',
+        metadata: { phone: normalizedPhone },
+      })
+    } catch (error) {
+      console.error('Audit log error:', error)
+    }
+
+    const otp = generateOtp()
+    const nowTR = getNowUTC()
+    const expiresAt = new Date(nowTR.getTime() + 10 * 60 * 1000)
+
+    await prisma.customerCancelOtp.deleteMany({
+      where: {
+        phone: normalizedPhone,
+        used: false,
+      },
+    })
+
+    await prisma.customerCancelOtp.create({
+      data: {
+        phone: normalizedPhone,
+        code: otp,
+        appointmentId: null,
+        expiresAt,
+        used: false,
+      },
+    })
+
+    const message = `Randevularınızı görüntülemek için onay kodunuz: ${otp}. 10 dakika geçerlidir.`
+
+    try {
+      await sendSms(normalizedPhone, message)
+      
+      await prisma.smsLog.create({
+        data: {
+          to: normalizedPhone,
+          message,
+          event: 'VIEW_APPOINTMENTS_OTP',
+          provider: 'vatansms',
+          status: 'success',
+          error: null,
+        },
+      })
+
+      await auditLog({
+        actorType: 'system',
+        actorId: 'system',
+        action: AuditAction.SMS_SENT,
+        entityType: 'sms',
+        entityId: null,
+        summary: 'View appointments OTP SMS sent',
+        metadata: { to: normalizedPhone, event: 'VIEW_APPOINTMENTS_OTP' },
+      })
+    } catch (smsError) {
+      console.error('SMS sending error:', smsError)
+      
+      await prisma.smsLog.create({
+        data: {
+          to: normalizedPhone,
+          message,
+          event: 'VIEW_APPOINTMENTS_OTP',
+          provider: 'vatansms',
+          status: 'error',
+          error: smsError instanceof Error ? smsError.message : String(smsError),
+        },
+      })
+
+      await auditLog({
+        actorType: 'system',
+        actorId: 'system',
+        action: AuditAction.SMS_FAILED,
+        entityType: 'sms',
+        entityId: null,
+        summary: 'View appointments OTP SMS failed',
+        metadata: { to: normalizedPhone, event: 'VIEW_APPOINTMENTS_OTP', error: smsError instanceof Error ? smsError.message : String(smsError) },
+      })
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('View appointments OTP error:', error)
+    return { success: false, error: 'Bir hata oluştu' }
+  }
+}

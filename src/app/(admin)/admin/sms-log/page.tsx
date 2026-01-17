@@ -155,6 +155,7 @@ export default function SmsLogPage() {
       CUSTOMER_CANCEL_ADMIN_NOTIFY: 'Müşteri İptali - Admin Bildirimi',
       CUSTOMER_CANCEL_SUCCESS: 'Müşteri İptali Başarılı',
       CUSTOMER_CANCEL_OTP: 'Müşteri İptali - OTP Kodu',
+      VIEW_APPOINTMENTS_OTP: 'Randevuları Görüntüleme - OTP Kodu',
     }
 
     return eventMap[event] || event
