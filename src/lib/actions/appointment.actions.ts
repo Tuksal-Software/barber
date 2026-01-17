@@ -489,6 +489,96 @@ export async function cancelAppointmentRequest(
     }
 
     if (appointmentRequest) {
+      const fullAppointment = await prisma.appointmentRequest.findUnique({
+        where: { id: appointmentRequestId },
+        select: {
+          cancelledBy: true,
+          customerName: true,
+          customerPhone: true,
+          date: true,
+          requestedStartTime: true,
+        },
+      })
+
+      if (fullAppointment?.cancelledBy === 'customer') {
+        const { formatDateTimeForSms } = await import('@/lib/time/formatDate')
+        const { sendSms } = await import('@/lib/sms/sms.service')
+        const { getAdminPhoneSetting } = await import('@/lib/settings/settings-helpers')
+        
+        const customerMessage = `Randevunuz başarıyla iptal edilmiştir. ${formatDateTimeForSms(fullAppointment.date, fullAppointment.requestedStartTime)}`
+
+        try {
+          await sendSms(fullAppointment.customerPhone, customerMessage)
+          try {
+            await prisma.smsLog.create({
+              data: {
+                to: fullAppointment.customerPhone,
+                message: customerMessage,
+                event: 'CUSTOMER_CANCEL_SUCCESS',
+                provider: 'vatansms',
+                status: 'success',
+                error: null,
+              },
+            })
+          } catch (error) {
+            console.error('SMS log error:', error)
+          }
+        } catch (smsError) {
+          try {
+            await prisma.smsLog.create({
+              data: {
+                to: fullAppointment.customerPhone,
+                message: customerMessage,
+                event: 'CUSTOMER_CANCEL_SUCCESS',
+                provider: 'vatansms',
+                status: 'error',
+                error: smsError instanceof Error ? smsError.message : String(smsError),
+              },
+            })
+          } catch (error) {
+            console.error('SMS log error:', error)
+          }
+        }
+
+        const adminPhone = await getAdminPhoneSetting()
+        if (adminPhone && adminPhone.trim()) {
+          const adminMessage = `📌 Müşteri tarafından iptal edildi:\n${fullAppointment.customerName} – ${formatDateTimeForSms(fullAppointment.date, fullAppointment.requestedStartTime)}`
+          
+          try {
+            await sendSms(adminPhone, adminMessage)
+            try {
+              await prisma.smsLog.create({
+                data: {
+                  to: adminPhone,
+                  message: adminMessage,
+                  event: 'CUSTOMER_CANCEL_ADMIN_NOTIFY',
+                  provider: 'vatansms',
+                  status: 'success',
+                  error: null,
+                },
+              })
+            } catch (error) {
+              console.error('SMS log error:', error)
+            }
+          } catch (smsError) {
+            try {
+              await prisma.smsLog.create({
+                data: {
+                  to: adminPhone,
+                  message: adminMessage,
+                  event: 'CUSTOMER_CANCEL_ADMIN_NOTIFY',
+                  provider: 'vatansms',
+                  status: 'error',
+                  error: smsError instanceof Error ? smsError.message : String(smsError),
+                },
+              })
+            } catch (error) {
+              console.error('SMS log error:', error)
+            }
+          }
+        }
+      }
+
       try {
         const { notifyWaitingCustomers } = await import('./appointment-waitlist.actions')
         await notifyWaitingCustomers({

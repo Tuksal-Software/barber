@@ -314,7 +314,7 @@ model CustomerCancelOtp {
   id            String   @id @default(cuid())
   phone         String   @db.VarChar(20)
   code          String   @db.VarChar(10)
-  appointmentId String
+  appointmentId String?
   expiresAt     DateTime @db.DateTime(0)
   used          Boolean  @default(false)
   createdAt     DateTime @default(now()) @db.DateTime(0)

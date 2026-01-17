@@ -20,6 +20,7 @@ import {
   X,
   Scissors,
   Bell,
+  Map,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
@@ -36,9 +37,11 @@ import { getCustomerTimeButtonsV2 } from "@/lib/actions/availability.actions"
 import { createAppointmentRequest, getCustomerByPhone } from "@/lib/actions/appointment.actions"
 import { createWaitlistRequest, getTimeRanges, getBarberWorkingHoursForDate } from "@/lib/actions/appointment-waitlist.actions"
 import { parseTimeToMinutes } from "@/lib/time"
-import { requestCancelOtp, confirmCancelOtp } from "@/lib/actions/customer-cancel.actions"
+import { requestCancelOtp, confirmCancelOtp, requestViewAppointmentsOtp } from "@/lib/actions/customer-cancel.actions"
 import { getShopName } from "@/lib/actions/settings.actions"
 import { getEnableServiceSelectionSetting } from "@/lib/settings/settings-helpers"
+import { getCustomerAppointments, type CustomerAppointmentsResponse } from "@/lib/actions/customer-appointments.actions"
+import { cancelAppointmentByCustomer } from "@/lib/actions/customer-appointments.actions"
 import type { BarberListItem } from "@/lib/actions/barber.actions"
 import type { CustomerTimeButton } from "@/lib/actions/availability.actions"
 
@@ -91,6 +94,14 @@ export default function BookingPage() {
   const [waitlistPhone, setWaitlistPhone] = useState("")
   const [waitlistName, setWaitlistName] = useState("")
   const [bookedSlotsCount, setBookedSlotsCount] = useState(0)
+  const [showMyAppointmentsDialog, setShowMyAppointmentsDialog] = useState(false)
+  const [myAppointmentsPhone, setMyAppointmentsPhone] = useState("")
+  const [myAppointmentsOtp, setMyAppointmentsOtp] = useState("")
+  const [myAppointmentsStep, setMyAppointmentsStep] = useState(1)
+  const [loadingMyAppointments, setLoadingMyAppointments] = useState(false)
+  const [customerAppointments, setCustomerAppointments] = useState<CustomerAppointmentsResponse | null>(null)
+  const [showCancelConfirmDialog, setShowCancelConfirmDialog] = useState(false)
+  const [appointmentToCancel, setAppointmentToCancel] = useState<string | null>(null)
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -352,6 +363,110 @@ export default function BookingPage() {
     setOtpSent(false)
   }
 
+  const handleMyAppointmentsPhoneSubmit = async () => {
+    if (!myAppointmentsPhone.match(/^\+90[5][0-9]{9}$/)) {
+      toast.error("Geçerli bir telefon numarası girin")
+      return
+    }
+
+    setLoadingMyAppointments(true)
+    try {
+      const result = await requestViewAppointmentsOtp(myAppointmentsPhone)
+      if (result.success) {
+        setMyAppointmentsStep(2)
+        toast.success("Onay kodu gönderildi")
+      } else {
+        toast.error(result.error || "Bir hata oluştu")
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bir hata oluştu")
+    } finally {
+      setLoadingMyAppointments(false)
+    }
+  }
+
+  const handleMyAppointmentsOtpSubmit = async () => {
+    if (!myAppointmentsOtp || myAppointmentsOtp.length !== 6) {
+      toast.error("Geçerli bir kod girin")
+      return
+    }
+
+    setLoadingMyAppointments(true)
+    try {
+      const result = await confirmCancelOtp(myAppointmentsPhone, myAppointmentsOtp)
+      
+      if (!result.success) {
+        toast.error(result.error || "Kod hatalı")
+        setLoadingMyAppointments(false)
+        return
+      }
+
+      const appointments = await getCustomerAppointments(myAppointmentsPhone)
+      setCustomerAppointments(appointments)
+      setMyAppointmentsStep(3)
+      toast.success("Randevularınız yüklendi")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bir hata oluştu")
+    } finally {
+      setLoadingMyAppointments(false)
+    }
+  }
+
+  const handleCancelAppointmentClick = (appointmentId: string) => {
+    setAppointmentToCancel(appointmentId)
+    setShowCancelConfirmDialog(true)
+  }
+
+  const handleConfirmCancelAppointment = async () => {
+    if (!appointmentToCancel) return
+
+    setLoadingMyAppointments(true)
+    try {
+      const result = await cancelAppointmentByCustomer(appointmentToCancel, myAppointmentsPhone)
+      
+      if (result.success) {
+        toast.success("Randevu iptal edildi")
+        
+        const appointments = await getCustomerAppointments(myAppointmentsPhone)
+        setCustomerAppointments(appointments)
+        
+        setShowCancelConfirmDialog(false)
+        setAppointmentToCancel(null)
+      } else {
+        toast.error(result.error || "İptal edilemedi")
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Bir hata oluştu")
+    } finally {
+      setLoadingMyAppointments(false)
+    }
+  }
+
+  const getStatusBadge = (status: string, cancelledBy: string | null) => {
+    if (status === 'cancelled') {
+      return (
+        <Badge className="bg-red-100 text-red-700 border-red-200">
+          🔴 İptal Edildi
+          {cancelledBy === 'customer' && ' (Siz)'}
+          {cancelledBy === 'admin' && ' (İşletme)'}
+        </Badge>
+      )
+    }
+    
+    switch (status) {
+      case 'pending':
+        return <Badge className="bg-amber-100 text-amber-700 border-amber-200">🟡 Beklemede</Badge>
+      case 'approved':
+        return <Badge className="bg-green-100 text-green-700 border-green-200">🟢 Onaylandı</Badge>
+      case 'done':
+        return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">✅ Tamamlandı</Badge>
+      case 'rejected':
+        return <Badge className="bg-slate-100 text-slate-700 border-slate-200">⚫ Reddedildi</Badge>
+      default:
+        return <Badge className="bg-slate-100 text-slate-700 border-slate-200">{status}</Badge>
+    }
+  }
+
   const normalizePhone = (value: string): string => {
     const digits = value.replace(/\D/g, "")
     if (digits.length === 0) return ""
@@ -393,22 +508,45 @@ export default function BookingPage() {
                   className="rounded-lg object-contain"
                   priority
               />
-              <h1 className="text-xl font-bold text-slate-900">{shopName}</h1>
             </div>
-            <Button
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowMyAppointmentsDialog(true)
+                  setMyAppointmentsStep(1)
+                  setMyAppointmentsPhone("")
+                  setMyAppointmentsOtp("")
+                  setCustomerAppointments(null)
+                }}
+                className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              >
+                <CalendarIcon className="w-4 h-4 mr-1" />
+                Randevularım
+              </Button>
+              
+              <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleCancelModalOpen}
                 className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-            >
-              <X className="w-4 h-4 mr-1" />
-              Randevu İptal
-            </Button>
+              >
+                <X className="w-4 h-4 mr-1" />
+                Randevu İptal
+              </Button>
+            </div>
           </div>
         </header>
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8 max-w-4xl min-h-[calc(100vh-80px)]">
+          {!showSuccess && (
+            <div className="text-center mb-6">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{shopName}</h1>
+            </div>
+          )}
+
           {/* Progress Indicator */}
           {!showSuccess && (
               <div className="mb-12">
@@ -1045,46 +1183,64 @@ export default function BookingPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="py-4">
+            <AnimatePresence mode="wait">
               {cancelStep === 1 ? (
-                <div className="space-y-2">
-                  <Label className="text-slate-900 font-medium">Telefon Numarası</Label>
-                  <Input
-                    type="tel"
-                    value={cancelPhone}
-                    onChange={(e) => {
-                      const normalized = normalizePhone(e.target.value)
-                      if (normalized.length <= 13) {
-                        setCancelPhone(normalized)
-                      }
-                    }}
-                    placeholder="+90 555 123 4567"
-                    maxLength={13}
-                    className="h-12 bg-white border-slate-300 text-slate-900 text-base"
-                  />
-                </div>
+                <motion.div
+                  key="cancel-step1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="py-4"
+                >
+                  <div className="space-y-2">
+                    <Label className="text-slate-900 font-medium">Telefon Numarası</Label>
+                    <Input
+                      type="tel"
+                      value={cancelPhone}
+                      onChange={(e) => {
+                        const normalized = normalizePhone(e.target.value)
+                        if (normalized.length <= 13) {
+                          setCancelPhone(normalized)
+                        }
+                      }}
+                      placeholder="+90 555 123 4567"
+                      maxLength={13}
+                      className="h-12 bg-white border-slate-300 text-slate-900 text-base"
+                    />
+                  </div>
+                </motion.div>
               ) : (
-                <div className="space-y-2">
-                  <Label className="text-slate-900 font-medium">Onay Kodu</Label>
-                  <Input
-                    type="text"
-                    value={cancelOtp}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "")
-                      if (digits.length <= 6) {
-                        setCancelOtp(digits)
-                      }
-                    }}
-                    placeholder="000000"
-                    maxLength={6}
-                    className="h-14 text-center text-xl tracking-wider bg-white border-slate-300 text-slate-900 font-semibold"
-                  />
-                  <p className="text-xs text-slate-500 text-center mt-2">
-                    6 haneli kodu telefonunuza gönderilen SMS'ten alabilirsiniz
-                  </p>
-                </div>
+                <motion.div
+                  key="cancel-step2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="py-4"
+                >
+                  <div className="space-y-2">
+                    <Label className="text-slate-900 font-medium">Onay Kodu</Label>
+                    <Input
+                      type="text"
+                      value={cancelOtp}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "")
+                        if (digits.length <= 6) {
+                          setCancelOtp(digits)
+                        }
+                      }}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="h-14 text-center text-xl tracking-wider bg-white border-slate-300 text-slate-900 font-semibold"
+                    />
+                    <p className="text-xs text-slate-500 text-center mt-2">
+                      6 haneli kodu telefonunuza gönderilen SMS'ten alabilirsiniz
+                    </p>
+                  </div>
+                </motion.div>
               )}
-            </div>
+            </AnimatePresence>
 
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button
@@ -1285,6 +1441,317 @@ export default function BookingPage() {
               >
                 <Bell className="w-4 h-4 mr-2" />
                 {loadingWaitlist ? "Kaydediliyor..." : "Haber Ver"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog 
+          open={showMyAppointmentsDialog} 
+          onOpenChange={(open) => {
+            setShowMyAppointmentsDialog(open)
+            if (!open) {
+              setMyAppointmentsStep(1)
+              setMyAppointmentsPhone("")
+              setMyAppointmentsOtp("")
+              setCustomerAppointments(null)
+            }
+          }}
+        >
+          <DialogContent className="bg-white border-slate-200 max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900 text-xl flex items-center gap-2">
+                <CalendarIcon className="w-5 h-5 text-blue-600" />
+                Randevularım
+              </DialogTitle>
+              <DialogDescription className="text-slate-600">
+                {myAppointmentsStep === 1 && "Randevularınızı görmek için telefon numaranızı girin"}
+                {myAppointmentsStep === 2 && "Telefonunuza gönderilen kodu girin"}
+                {myAppointmentsStep === 3 && "Gelecek ve geçmiş randevularınız"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              {myAppointmentsStep === 1 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label className="text-slate-900 font-medium">Telefon Numarası</Label>
+                    <Input
+                      type="tel"
+                      value={myAppointmentsPhone}
+                      onChange={(e) => {
+                        const normalized = normalizePhone(e.target.value)
+                        if (normalized.length <= 13) {
+                          setMyAppointmentsPhone(normalized)
+                        }
+                      }}
+                      placeholder="+90 555 123 4567"
+                      maxLength={13}
+                      className="h-12 bg-white border-slate-300 text-slate-900"
+                    />
+                  </div>
+                  
+                  <Button
+                    onClick={handleMyAppointmentsPhoneSubmit}
+                    disabled={loadingMyAppointments || !myAppointmentsPhone.match(/^\+90[5][0-9]{9}$/)}
+                    className="w-full bg-blue-500 hover:bg-blue-600 text-white h-12"
+                  >
+                    {loadingMyAppointments ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Gönderiliyor...
+                      </>
+                    ) : (
+                      "Kod Gönder"
+                    )}
+                  </Button>
+                </motion.div>
+              )}
+
+              {myAppointmentsStep === 2 && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label className="text-slate-900 font-medium">Onay Kodu</Label>
+                    <Input
+                      type="text"
+                      value={myAppointmentsOtp}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "")
+                        if (digits.length <= 6) {
+                          setMyAppointmentsOtp(digits)
+                        }
+                      }}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="h-14 text-center text-xl tracking-wider bg-white border-slate-300 text-slate-900 font-semibold"
+                    />
+                    <p className="text-xs text-slate-500 text-center">
+                      {myAppointmentsPhone} numarasına gönderilen 6 haneli kodu girin
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setMyAppointmentsStep(1)}
+                      className="flex-1 border-slate-300"
+                    >
+                      Geri
+                    </Button>
+                    <Button
+                      onClick={handleMyAppointmentsOtpSubmit}
+                      disabled={loadingMyAppointments || myAppointmentsOtp.length !== 6}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                    >
+                      {loadingMyAppointments ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          Yükleniyor...
+                        </>
+                      ) : (
+                        "Onayla"
+                      )}
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {myAppointmentsStep === 3 && customerAppointments && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6"
+                >
+                  {customerAppointments.upcoming ? (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                        <CalendarIcon className="w-5 h-5 text-blue-600" />
+                        Bir Sonraki Randevu
+                      </h3>
+                      
+                      <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 shadow-md">
+                        <CardContent className="p-5 space-y-4">
+                          <div className="flex items-start gap-4">
+                            <Avatar className="h-16 w-16 ring-2 ring-blue-300">
+                              <AvatarImage 
+                                src={customerAppointments.upcoming.barberImage || undefined} 
+                                alt={customerAppointments.upcoming.barberName} 
+                              />
+                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-lg">
+                                {customerAppointments.upcoming.barberName[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            
+                            <div className="flex-1">
+                              <p className="font-bold text-slate-900 text-lg">
+                                {customerAppointments.upcoming.barberName}
+                              </p>
+                              {customerAppointments.upcoming.serviceType && (
+                                <p className="text-sm text-slate-600 mt-1">
+                                  {customerAppointments.upcoming.serviceType === "sac" && "✂️ Saç"}
+                                  {customerAppointments.upcoming.serviceType === "sakal" && "🪒 Sakal"}
+                                  {customerAppointments.upcoming.serviceType === "sac_sakal" && "💈 Saç + Sakal"}
+                                </p>
+                              )}
+                            </div>
+                            
+                            {getStatusBadge(customerAppointments.upcoming.status, customerAppointments.upcoming.cancelledBy)}
+                          </div>
+
+                          <div className="space-y-2 bg-white/60 rounded-lg p-3">
+                            <div className="flex items-center gap-2 text-slate-900">
+                              <CalendarIcon className="w-4 h-4 text-blue-600" />
+                              <span className="font-medium">
+                                {format(new Date(customerAppointments.upcoming.date), "d MMMM yyyy, EEEE", { locale: tr })}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-slate-900">
+                              <Clock className="w-4 h-4 text-blue-600" />
+                              <span className="font-bold text-blue-600 text-lg">
+                                {customerAppointments.upcoming.requestedStartTime}
+                              </span>
+                            </div>
+                          </div>
+
+                          {(customerAppointments.upcoming.status === 'pending' || customerAppointments.upcoming.status === 'approved') && (
+                            <Button
+                              variant="destructive"
+                              onClick={() => handleCancelAppointmentClick(customerAppointments.upcoming!.id)}
+                              className="w-full bg-red-600 hover:bg-red-700"
+                            >
+                              <X className="w-4 h-4 mr-2" />
+                              Randevuyu İptal Et
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      <Card className="bg-white border-slate-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Map className="w-4 h-4 text-slate-600" />
+                            <h4 className="font-semibold text-slate-900">Konum</h4>
+                          </div>
+                          <div className="w-full h-64 rounded-lg overflow-hidden">
+                            <iframe 
+                              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3008.184267822226!2d28.899196276427258!3d41.06496461593192!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x14cab1dc19257ddd%3A0xaa0cc11aa4d14bf1!2sThe%20Men&#39;s%20Hair%20Salon!5e0!3m2!1str!2str!4v1768680065785!5m2!1str!2str" 
+                              width="100%" 
+                              height="100%" 
+                              style={{ border: 0 }} 
+                              allowFullScreen 
+                              loading="lazy" 
+                              referrerPolicy="no-referrer-when-downgrade"
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-slate-50 rounded-lg border border-slate-200">
+                      <CalendarIcon className="w-12 h-12 mx-auto text-slate-300 mb-3" />
+                      <p className="text-slate-600 font-medium">Yaklaşan randevunuz bulunmuyor</p>
+                    </div>
+                  )}
+
+                  {customerAppointments.past.length > 0 && (
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-slate-600" />
+                        Geçmiş Randevular ({customerAppointments.past.length})
+                      </h3>
+
+                      <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                        {customerAppointments.past.map((appointment) => (
+                          <Card key={appointment.id} className="bg-white border-slate-200 hover:shadow-md transition-shadow">
+                            <CardContent className="p-4">
+                              <div className="flex items-start gap-3">
+                                <Avatar className="h-12 w-12 flex-shrink-0">
+                                  <AvatarImage src={appointment.barberImage || undefined} alt={appointment.barberName} />
+                                  <AvatarFallback className="bg-slate-200 text-slate-700 font-semibold">
+                                    {appointment.barberName[0]}
+                                  </AvatarFallback>
+                                </Avatar>
+
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold text-slate-900 truncate">
+                                        {appointment.barberName}
+                                      </p>
+                                      <p className="text-sm text-slate-600">
+                                        {format(new Date(appointment.date), "d MMM yyyy", { locale: tr })} • {appointment.requestedStartTime}
+                                      </p>
+                                      {appointment.serviceType && (
+                                        <p className="text-xs text-slate-500 mt-1">
+                                          {appointment.serviceType === "sac" && "✂️ Saç"}
+                                          {appointment.serviceType === "sakal" && "🪒 Sakal"}
+                                          {appointment.serviceType === "sac_sakal" && "💈 Saç + Sakal"}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex-shrink-0">
+                                      {getStatusBadge(appointment.status, appointment.cancelledBy)}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showCancelConfirmDialog} onOpenChange={setShowCancelConfirmDialog}>
+          <DialogContent className="bg-white border-slate-200 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900">Randevuyu İptal Et</DialogTitle>
+              <DialogDescription className="text-slate-600">
+                Bu randevuyu iptal etmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="border-t border-slate-200 pt-4 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowCancelConfirmDialog(false)
+                  setAppointmentToCancel(null)
+                }}
+                disabled={loadingMyAppointments}
+                className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              >
+                Vazgeç
+              </Button>
+              <Button
+                onClick={handleConfirmCancelAppointment}
+                disabled={loadingMyAppointments}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {loadingMyAppointments ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    İptal Ediliyor...
+                  </>
+                ) : (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Evet, İptal Et
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
