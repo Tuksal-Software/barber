@@ -99,6 +99,23 @@
   .scrollbar-stable {
     scrollbar-gutter: stable;
   }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thumb-slate-300::-webkit-scrollbar-thumb {
+    background-color: rgb(203 213 225);
+    border-radius: 3px;
+  }
+  .scrollbar-thumb-slate-300::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(148 163 184);
+  }
+  .scrollbar-track-transparent::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 @keyframes fadeIn {

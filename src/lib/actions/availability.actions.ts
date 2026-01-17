@@ -324,7 +324,7 @@ export async function getCustomerTimeButtonsV2(
                 timeButtons.set(gapTime, false)
             }
         }
-    } else if (durationMinutes === 60 && !enableServiceSelection) {
+    } else if (durationMinutes === 60) {
         const gapButtons = new Set<string>()
 
         for (const slot of appointmentSlots) {
@@ -332,7 +332,7 @@ export async function getCustomerTimeButtonsV2(
             const slotEnd = parseTimeToMinutes(slot.endTime)
             const slotDuration = slotEnd - slotStart
 
-            if (slotDuration === 30) {
+            if (slotDuration === 30 || slotDuration === 60) {
                 const gapStart = slotEnd
                 const gapEnd = gapStart + 30
 
