@@ -11,6 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import type { ExpenseItem } from "@/lib/actions/expense.actions"
 import { formatDateTimeLongTR } from "@/lib/time/formatDate"
+import { Receipt } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface ExpenseTableProps {
   expenses: ExpenseItem[]
@@ -26,12 +28,12 @@ const categoryLabels: Record<string, string> = {
 }
 
 const categoryColors: Record<string, string> = {
-  rent: "bg-red-500/10 text-red-700 dark:text-red-400",
-  electricity: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
-  water: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
-  product: "bg-green-500/10 text-green-700 dark:text-green-400",
-  staff: "bg-purple-500/10 text-purple-700 dark:text-purple-400",
-  other: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
+  rent: "bg-red-50 text-red-700 border-red-200",
+  electricity: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  water: "bg-blue-50 text-blue-700 border-blue-200",
+  product: "bg-green-50 text-green-700 border-green-200",
+  staff: "bg-purple-50 text-purple-700 border-purple-200",
+  other: "bg-slate-100 text-slate-700 border-slate-200",
 }
 
 export function ExpenseTable({ expenses }: ExpenseTableProps) {
@@ -44,8 +46,14 @@ export function ExpenseTable({ expenses }: ExpenseTableProps) {
 
   if (expenses.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        Bu tarih için gider bulunamadı
+      <div className="text-center py-12">
+        <div className="text-slate-400 mb-2">
+          <Receipt className="h-12 w-12 mx-auto" />
+        </div>
+        <p className="text-slate-600 font-medium">Gider bulunamadı</p>
+        <p className="text-slate-500 text-sm mt-1">
+          Bu tarih için kayıtlı gider bulunmuyor
+        </p>
       </div>
     )
   }
@@ -54,31 +62,33 @@ export function ExpenseTable({ expenses }: ExpenseTableProps) {
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
-          <TableRow>
-            <TableHead>Kategori</TableHead>
-            <TableHead>Tutar</TableHead>
-            <TableHead>Açıklama</TableHead>
-            <TableHead>Oluşturulma</TableHead>
+          <TableRow className="border-slate-200 bg-slate-50/50 hover:bg-slate-50/50">
+            <TableHead className="text-slate-700 font-semibold">Kategori</TableHead>
+            <TableHead className="text-slate-700 font-semibold">Tutar</TableHead>
+            <TableHead className="text-slate-700 font-semibold">Açıklama</TableHead>
+            <TableHead className="text-slate-700 font-semibold">Oluşturulma</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {expenses.map((expense) => (
-            <TableRow key={expense.id} className="hover:bg-muted/50">
+            <TableRow 
+              key={expense.id} 
+              className="border-slate-100 hover:bg-slate-50 transition-colors"
+            >
               <TableCell>
-                <Badge
-                  variant="outline"
-                  className={categoryColors[expense.category] || ""}
-                >
+                <Badge className={cn("font-normal", categoryColors[expense.category] || categoryColors.other)}>
                   {categoryLabels[expense.category] || expense.category}
                 </Badge>
               </TableCell>
-              <TableCell className="font-medium">
+              <TableCell className="font-semibold text-slate-900">
                 {formatCurrency(expense.amount)}
               </TableCell>
-              <TableCell className="max-w-xs truncate">
-                {expense.description || "-"}
+              <TableCell className="max-w-xs">
+                <span className="text-slate-700">
+                  {expense.description || "-"}
+                </span>
               </TableCell>
-              <TableCell className="text-muted-foreground text-sm">
+              <TableCell className="text-slate-600 text-sm">
                 {formatDateTimeLongTR(expense.createdAt)}
               </TableCell>
             </TableRow>

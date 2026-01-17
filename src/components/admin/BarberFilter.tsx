@@ -1,6 +1,12 @@
 "use client"
 
-import { cn } from "@/lib/utils"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface Barber {
   id: string
@@ -10,13 +16,15 @@ interface Barber {
 interface BarberFilterProps {
   barbers: Barber[]
   selectedBarberId: string | null
-  onBarberChange: (barberId: string | null) => void
+  onSelect?: (barberId: string | null) => void
+  onBarberChange?: (barberId: string | null) => void
   showLabel?: boolean
 }
 
 export function BarberFilter({
   barbers,
   selectedBarberId,
+  onSelect,
   onBarberChange,
   showLabel = false,
 }: BarberFilterProps) {
@@ -24,43 +32,38 @@ export function BarberFilter({
     return null
   }
 
+  const handleChange = onSelect || onBarberChange
+
   return (
-    <div className="flex items-end gap-1 border-b border-border/40">
-      {showLabel && (
-        <span className="text-xs text-muted-foreground font-medium mr-2 pb-2.5">Berber:</span>
-      )}
-      <div className="flex gap-0 overflow-x-auto scrollbar-hide -mb-px">
-        <button
-          onClick={() => onBarberChange(null)}
-          className={cn(
-            "flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-all relative",
-            "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-            "border-b-2 border-transparent",
-            selectedBarberId === null
-              ? "text-foreground border-primary"
-              : "text-muted-foreground hover:text-foreground/90 hover:border-border"
-          )}
+    <Select
+      value={selectedBarberId || "all"}
+      onValueChange={(value) => {
+        if (handleChange) {
+          handleChange(value === "all" ? null : value)
+        }
+      }}
+    >
+      <SelectTrigger className="border-slate-300 bg-white text-slate-900 hover:bg-slate-50 focus:ring-2 focus:ring-blue-500">
+        <SelectValue placeholder="Tüm Berberler" />
+      </SelectTrigger>
+      <SelectContent className="bg-white border-slate-200">
+        <SelectItem 
+          value="all"
+          className="text-slate-900 focus:bg-slate-100 focus:text-slate-900"
         >
-          Tümü
-        </button>
+          Tüm Berberler
+        </SelectItem>
         {barbers.map((barber) => (
-          <button
-            key={barber.id}
-            onClick={() => onBarberChange(barber.id)}
-            className={cn(
-              "flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-all relative",
-              "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-              "border-b-2 border-transparent",
-              selectedBarberId === barber.id
-                ? "text-foreground border-primary"
-                : "text-muted-foreground hover:text-foreground/90 hover:border-border"
-            )}
+          <SelectItem 
+            key={barber.id} 
+            value={barber.id}
+            className="text-slate-900 focus:bg-slate-100 focus:text-slate-900"
           >
             {barber.name}
-          </button>
+          </SelectItem>
         ))}
-      </div>
-    </div>
+      </SelectContent>
+    </Select>
   )
 }
 

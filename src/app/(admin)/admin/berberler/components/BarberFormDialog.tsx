@@ -159,15 +159,13 @@ export function BarberFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="sm:max-w-[500px] bg-white border-slate-200">
+        <DialogHeader className="border-b border-slate-200 pb-4">
+          <DialogTitle className="text-slate-900">
             {barber ? "Berber Düzenle" : "Yeni Berber Ekle"}
           </DialogTitle>
-          <DialogDescription>
-            {barber
-              ? "Berber bilgilerini düzenleyin"
-              : "Yeni bir berber ekleyin"}
+          <DialogDescription className="text-slate-600">
+            {barber ? "Berber bilgilerini düzenleyin" : "Yeni bir berber ekleyin"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -220,8 +218,8 @@ export function BarberFormDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">
-                Ad Soyad <span className="text-destructive">*</span>
+              <Label htmlFor="name" className="text-slate-700">
+                Ad Soyad <span className="text-red-600">*</span>
               </Label>
               <Input
                 id="name"
@@ -229,11 +227,12 @@ export function BarberFormDialog({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Örn: Ahmet Yılmaz"
                 required
+                className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="experience">Deneyim (Yıl)</Label>
+              <Label htmlFor="experience" className="text-slate-700">Deneyim (Yıl)</Label>
               <Input
                 id="experience"
                 type="number"
@@ -241,29 +240,35 @@ export function BarberFormDialog({
                 value={experience}
                 onChange={(e) => setExperience(parseInt(e.target.value) || 0)}
                 placeholder="0"
+                className="border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
               />
             </div>
 
             {barber && (
-              <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-                <p className="font-medium mb-1">Bilgi:</p>
-                <p>Email: {barber.email}</p>
-                <p className="text-xs mt-1">
+              <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-sm">
+                <p className="font-medium text-blue-900 mb-1">Bilgi:</p>
+                <p className="text-blue-800">Email: {barber.email}</p>
+                <p className="text-xs text-blue-700 mt-1">
                   Email ve rol değiştirilemez
                 </p>
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t border-slate-200 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
             >
               İptal
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
               {loading ? "Kaydediliyor..." : barber ? "Güncelle" : "Oluştur"}
             </Button>
           </DialogFooter>

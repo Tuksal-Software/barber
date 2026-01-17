@@ -61,42 +61,44 @@ export function BarberDeleteDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent className="bg-white border-slate-200">
         <AlertDialogHeader>
-          <AlertDialogTitle>Berberi Pasifleştir</AlertDialogTitle>
-          <AlertDialogDescription className="space-y-2">
+          <AlertDialogTitle className="text-slate-900">Berberi Pasifleştir</AlertDialogTitle>
+          <AlertDialogDescription className="space-y-2 text-slate-600">
             <p>
               <strong>{barber.name}</strong> adlı berberi pasifleştirmek
               istediğinize emin misiniz?
             </p>
             {futureAppointmentCount > 0 && (
-              <div className="rounded-md bg-destructive/10 p-3 mt-3">
-                <p className="font-medium text-destructive mb-1">
+              <div className="rounded-md bg-red-50 border border-red-200 p-3 mt-3">
+                <p className="font-medium text-red-900 mb-1">
                   ⚠️ Uyarı
                 </p>
-                <p className="text-sm">
+                <p className="text-sm text-red-800">
                   Bu berbere ait <strong>{futureAppointmentCount}</strong> aktif
                   randevu bulunmaktadır.
                 </p>
-                <p className="text-sm mt-1">
+                <p className="text-sm text-red-800 mt-1">
                   Devam ederseniz <strong>TÜM randevular iptal edilecek</strong> ve
                   müşterilere <strong>SMS gönderilmeyecektir</strong>.
                 </p>
               </div>
             )}
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-slate-500 mt-2">
               Pasifleştirilen berber listeden tamamen kaybolacaktır.
             </p>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>İptal</AlertDialogCancel>
+          <AlertDialogCancel className="border-slate-300 bg-white text-slate-700 hover:bg-slate-100">
+            İptal
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
             disabled={loading}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            className="bg-red-600 hover:bg-red-700 text-white"
           >
-            {loading ? "İşleniyor..." : "Pasifleştir"}
+            {loading ? "Pasifleştiriliyor..." : "Evet, Pasifleştir"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
