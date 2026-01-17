@@ -372,3 +372,20 @@ model SystemJobLog {
   @@index([ranAt])
   @@map("system_job_logs")
 }
+
+model BannedCustomer {
+  id            String   @id @default(cuid())
+  customerPhone String   @unique @db.VarChar(20)
+  customerName  String   @db.VarChar(255)
+  reason        String?  @db.Text
+  banType       String   @db.VarChar(20)
+  bannedAt      DateTime @default(now()) @db.DateTime(0)
+  bannedUntil   DateTime? @db.DateTime(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.DateTime(0)
+  updatedAt     DateTime @updatedAt @db.DateTime(0)
+
+  @@index([customerPhone])
+  @@index([isActive])
+  @@map("banned_customers")
+}
