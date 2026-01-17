@@ -364,7 +364,7 @@ export default function BookingPage() {
                 className="text-slate-600 hover:text-slate-900 hover:bg-slate-100"
             >
               <X className="w-4 h-4 mr-1" />
-              İptal Et
+              Randevu İptal
             </Button>
           </div>
         </header>
