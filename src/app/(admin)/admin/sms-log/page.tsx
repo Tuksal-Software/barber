@@ -151,6 +151,10 @@ export default function SmsLogPage() {
       SubscriptionCreated: 'Abonelik Oluşturuldu',
       SubscriptionCancelled: 'Abonelik İptal Edildi',
       AdminAppointmentCreated: 'Yönetici Randevu Oluşturdu',
+      WAITLIST_NOTIFICATION: 'Bekleme Listesi Bildirimi',
+      CUSTOMER_CANCEL_ADMIN_NOTIFY: 'Müşteri İptali - Admin Bildirimi',
+      CUSTOMER_CANCEL_SUCCESS: 'Müşteri İptali Başarılı',
+      CUSTOMER_CANCEL_OTP: 'Müşteri İptali - OTP Kodu',
     }
 
     return eventMap[event] || event

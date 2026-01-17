@@ -17,6 +17,7 @@ import {
   RefreshCwIcon,
   Scissors,
   ShieldBan,
+  Bell,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
@@ -89,6 +90,12 @@ const navItems = [
     title: "Engellenen Müşteriler",
     url: "/admin/engellenen-musteriler",
     icon: ShieldBan,
+    group: "business"
+  },
+  {
+    title: "Bekleme Listesi",
+    url: "/admin/bekleme-listesi",
+    icon: Bell,
     group: "business"
   },
   {

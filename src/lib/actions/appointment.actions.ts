@@ -463,7 +463,12 @@ export async function cancelAppointmentRequest(
   try {
     const appointmentRequest = await prisma.appointmentRequest.findUnique({
       where: { id: appointmentRequestId },
-      select: { status: true },
+      select: { 
+        status: true,
+        barberId: true,
+        date: true,
+        requestedStartTime: true,
+      },
     })
 
     try {
@@ -481,6 +486,19 @@ export async function cancelAppointmentRequest(
       })
     } catch (error) {
       console.error('Audit log error:', error)
+    }
+
+    if (appointmentRequest) {
+      try {
+        const { notifyWaitingCustomers } = await import('./appointment-waitlist.actions')
+        await notifyWaitingCustomers({
+          barberId: appointmentRequest.barberId,
+          date: appointmentRequest.date,
+          cancelledTime: appointmentRequest.requestedStartTime,
+        })
+      } catch (error) {
+        console.error('Waitlist notification error:', error)
+      }
     }
   } catch {
   }

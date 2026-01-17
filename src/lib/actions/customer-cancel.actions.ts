@@ -9,6 +9,7 @@ import { getNowUTC } from '@/lib/time'
 import { formatDateTimeForSms } from '@/lib/time/formatDate'
 import { getSetting } from '@/lib/settings/settings.service'
 import { defaultSettings } from '@/lib/settings/defaults'
+import { notifyWaitingCustomers } from './appointment-waitlist.actions'
 
 function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
@@ -699,6 +700,16 @@ export async function confirmCancelOtp(phone: string, code: string): Promise<{ s
           console.error('Audit log error:', error)
         }
       }
+    }
+
+    try {
+      await notifyWaitingCustomers({
+        barberId: appointment.barberId,
+        date: appointment.date,
+        cancelledTime: appointment.requestedStartTime,
+      })
+    } catch (error) {
+      console.error('Waitlist notification error:', error)
     }
 
     return { success: true }

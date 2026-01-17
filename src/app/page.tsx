@@ -19,6 +19,7 @@ import {
   Phone,
   X,
   Scissors,
+  Bell,
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
@@ -28,10 +29,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { cn } from "@/lib/utils"
 import { getActiveBarbers } from "@/lib/actions/barber.actions"
 import { getCustomerTimeButtonsV2 } from "@/lib/actions/availability.actions"
 import { createAppointmentRequest, getCustomerByPhone } from "@/lib/actions/appointment.actions"
+import { createWaitlistRequest, getTimeRanges, getBarberWorkingHoursForDate } from "@/lib/actions/appointment-waitlist.actions"
+import { parseTimeToMinutes } from "@/lib/time"
 import { requestCancelOtp, confirmCancelOtp } from "@/lib/actions/customer-cancel.actions"
 import { getShopName } from "@/lib/actions/settings.actions"
 import { getEnableServiceSelectionSetting } from "@/lib/settings/settings-helpers"
@@ -80,6 +84,13 @@ export default function BookingPage() {
   const [otpSent, setOtpSent] = useState(false)
   const [loadingCancel, setLoadingCancel] = useState(false)
   const [cancelStep, setCancelStep] = useState(1)
+  const [showWaitlistDialog, setShowWaitlistDialog] = useState(false)
+  const [timeRanges, setTimeRanges] = useState<{ morning: any; evening: any } | null>(null)
+  const [selectedTimeRange, setSelectedTimeRange] = useState<'morning' | 'evening'>('morning')
+  const [loadingWaitlist, setLoadingWaitlist] = useState(false)
+  const [waitlistPhone, setWaitlistPhone] = useState("")
+  const [waitlistName, setWaitlistName] = useState("")
+  const [bookedSlotsCount, setBookedSlotsCount] = useState(0)
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -150,6 +161,7 @@ export default function BookingPage() {
   useEffect(() => {
     if (!selectedBarber || !selectedDate) {
       setTimeButtons([])
+      setBookedSlotsCount(0)
       return
     }
 
@@ -157,11 +169,11 @@ export default function BookingPage() {
       try {
         setLoadingSlots(true)
         const dateStr = format(selectedDate!, "yyyy-MM-dd")
-        const durationMinutes = !enableServiceSelection 
-          ? 60 
-          : selectedServiceType === "sac_sakal" 
-            ? 60 
-            : 30
+        const durationMinutes = !enableServiceSelection
+            ? 60
+            : selectedServiceType === "sac_sakal"
+                ? 60
+                : 30
         const buttons = await getCustomerTimeButtonsV2({
           barberId: selectedBarber!.id,
           date: dateStr,
@@ -169,9 +181,35 @@ export default function BookingPage() {
           enableServiceSelection,
         })
         setTimeButtons(buttons)
+
+        const workingHours = await getBarberWorkingHoursForDate(
+            selectedBarber!.id,
+            dateStr
+        )
+
+        if (workingHours) {
+          // Direkt olarak disabled olan buttonları say
+          const booked = buttons.filter(b => b.disabled).length
+
+          console.log('🔍 WAITLIST DEBUG:', {
+            workingHours,
+            totalButtons: buttons.length,
+            availableSlots: buttons.filter(b => !b.disabled).length,
+            booked,
+            'bookedSlotsCount >= 3': booked >= 3,
+            'buttons sample': buttons.slice(0, 3).map(b => ({ time: b.time, disabled: b.disabled }))
+          })
+
+          setBookedSlotsCount(booked)
+        } else {
+          console.log('❌ Working hours bulunamadı!')
+          setBookedSlotsCount(0)
+        }
       } catch (error) {
-        toast.error("Müsait saatler yüklenirken hata oluştu")
+        console.error("Error loading slots:", error)
+        toast.error("Saatler yüklenirken hata oluştu")
         setTimeButtons([])
+        setBookedSlotsCount(0)
       } finally {
         setLoadingSlots(false)
       }
@@ -749,6 +787,37 @@ export default function BookingPage() {
                           </CardContent>
                         </Card>
 
+                        {selectedBarber && selectedDate && !loadingSlots && bookedSlotsCount >= 3 && (
+                          <div className="mt-6">
+                            <Button
+                              variant="outline"
+                              onClick={async () => {
+                                setLoadingWaitlist(true)
+                                try {
+                                  const ranges = await getTimeRanges(
+                                    selectedBarber.id,
+                                    format(selectedDate, "yyyy-MM-dd")
+                                  )
+                                  setTimeRanges(ranges)
+                                  setShowWaitlistDialog(true)
+                                } catch (error) {
+                                  toast.error("Bir hata oluştu")
+                                } finally {
+                                  setLoadingWaitlist(false)
+                                }
+                              }}
+                              className="w-full border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 font-semibold py-6 text-base"
+                              disabled={loadingWaitlist}
+                            >
+                              <Bell className="w-5 h-5 mr-2" />
+                              {loadingWaitlist ? "Yükleniyor..." : "Randevu Açılırsa Haber Ver 🔔"}
+                            </Button>
+                            <p className="text-xs text-slate-500 text-center mt-2">
+                              İstediğiniz saat müsait değil mi? Açılınca haber verelim!
+                            </p>
+                          </div>
+                        )}
+
                         <Button
                             onClick={handleBack}
                             className="w-full mt-6 h-12 bg-white text-slate-700 border-2 border-slate-300 hover:bg-slate-50 flex-shrink-0"
@@ -1056,6 +1125,166 @@ export default function BookingPage() {
                 ) : (
                   "Onayla"
                 )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showWaitlistDialog} onOpenChange={setShowWaitlistDialog}>
+          <DialogContent className="bg-white border-slate-200 max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-amber-600" />
+                Randevu Açılırsa Haber Ver
+              </DialogTitle>
+              <DialogDescription className="text-slate-600">
+                {selectedDate && format(selectedDate, "d MMMM yyyy", { locale: tr })} tarihinde randevu açılırsa size SMS göndereceğiz
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-900 font-medium">
+                  Seçili Tarih: {selectedDate && format(selectedDate, "d MMMM yyyy", { locale: tr })}
+                </p>
+                <p className="text-xs text-blue-700 mt-1">
+                  Berber: {selectedBarber?.name}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="waitlist-phone" className="text-slate-700">
+                    Telefon Numarası *
+                  </Label>
+                  <Input
+                    id="waitlist-phone"
+                    type="tel"
+                    placeholder="+90 555 123 4567"
+                    value={waitlistPhone}
+                    onChange={async (e) => {
+                      const normalized = normalizePhone(e.target.value)
+                      setWaitlistPhone(normalized)
+                      
+                      if (/^\+90[5][0-9]{9}$/.test(normalized)) {
+                        try {
+                          const customer = await getCustomerByPhone(normalized)
+                          if (customer?.customerName && !waitlistName) {
+                            setWaitlistName(customer.customerName)
+                            toast.success("Müşteri bilgisi bulundu")
+                          }
+                        } catch (error) {
+                        }
+                      }
+                    }}
+                    className="border-slate-300 bg-white text-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="waitlist-name" className="text-slate-700">
+                    Adınız Soyadınız *
+                  </Label>
+                  <Input
+                    id="waitlist-name"
+                    placeholder="Ad Soyad"
+                    value={waitlistName}
+                    onChange={(e) => setWaitlistName(e.target.value)}
+                    className="border-slate-300 bg-white text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-slate-900 font-medium">
+                  Hangi saat aralığını tercih edersiniz?
+                </Label>
+                
+                {timeRanges && (
+                  <RadioGroup 
+                    value={selectedTimeRange} 
+                    onValueChange={(v: 'morning' | 'evening') => setSelectedTimeRange(v)}
+                    className="space-y-2"
+                  >
+                    <div className="flex items-center space-x-3 border-2 border-slate-200 rounded-lg p-3 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer">
+                      <RadioGroupItem value="morning" id="morning" />
+                      <Label 
+                        htmlFor="morning" 
+                        className="flex-1 cursor-pointer text-slate-900 font-medium"
+                      >
+                        {timeRanges.morning.label}
+                      </Label>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 border-2 border-slate-200 rounded-lg p-3 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer">
+                      <RadioGroupItem value="evening" id="evening" />
+                      <Label 
+                        htmlFor="evening" 
+                        className="flex-1 cursor-pointer text-slate-900 font-medium"
+                      >
+                        {timeRanges.evening.label}
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                )}
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <p className="text-xs text-slate-600">
+                  ℹ️ Seçtiğiniz saat aralığında bir randevu iptal edildiğinde size SMS göndereceğiz. Her tarih için sadece bir bildirim talebi oluşturabilirsiniz.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="border-t border-slate-200 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowWaitlistDialog(false)
+                  setWaitlistPhone("")
+                  setWaitlistName("")
+                }}
+                className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              >
+                İptal
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!waitlistPhone || !waitlistPhone.match(/^\+90[5][0-9]{9}$/)) {
+                    toast.error("Lütfen geçerli bir telefon numarası girin")
+                    return
+                  }
+
+                  if (!waitlistName || waitlistName.trim().length < 2) {
+                    toast.error("Lütfen adınızı ve soyadınızı girin")
+                    return
+                  }
+
+                  setLoadingWaitlist(true)
+                  try {
+                    await createWaitlistRequest({
+                      customerPhone: waitlistPhone,
+                      customerName: waitlistName.trim(),
+                      barberId: selectedBarber!.id,
+                      preferredDate: format(selectedDate!, "yyyy-MM-dd"),
+                      timeRangeType: selectedTimeRange,
+                    })
+                    
+                    toast.success("Bildirim talebiniz oluşturuldu! Randevu açılınca size haber vereceğiz.")
+                    setShowWaitlistDialog(false)
+                    setWaitlistPhone("")
+                    setWaitlistName("")
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Bir hata oluştu")
+                  } finally {
+                    setLoadingWaitlist(false)
+                  }
+                }}
+                disabled={loadingWaitlist}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                <Bell className="w-4 h-4 mr-2" />
+                {loadingWaitlist ? "Kaydediliyor..." : "Haber Ver"}
               </Button>
             </DialogFooter>
           </DialogContent>

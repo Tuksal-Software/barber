@@ -27,6 +27,7 @@ const routeNames: Record<string, string> = {
   "sms-log": "SMS Logları",
   "audit-logs": "Sistem Logları",
   settings: "Ayarlar",
+  "bekleme-listesi": "Bekleme Listesi",
 }
 
 export function AdminBreadcrumb() {
