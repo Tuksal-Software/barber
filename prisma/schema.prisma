@@ -144,6 +144,7 @@ model Barber {
   appointmentSlots     AppointmentSlot[]
   ledgerEntries        LedgerEntry[]
   subscriptions        Subscription[]
+  waitlistRequests     AppointmentWaitlist[]
 
   @@index([email])
   @@map("barbers")
@@ -388,4 +389,22 @@ model BannedCustomer {
   @@index([customerPhone])
   @@index([isActive])
   @@map("banned_customers")
+}
+
+model AppointmentWaitlist {
+  id            String   @id @default(cuid())
+  customerPhone String   @db.VarChar(20)
+  customerName  String   @db.VarChar(255)
+  barberId      String
+  preferredDate String   @db.VarChar(191)
+  timeRangeType String   @db.VarChar(20)
+  status        String   @default("active") @db.VarChar(20)
+  createdAt     DateTime @default(now()) @db.DateTime(0)
+  notifiedAt    DateTime? @db.DateTime(0)
+  
+  barber        Barber   @relation(fields: [barberId], references: [id], onDelete: Cascade)
+  
+  @@unique([customerPhone, barberId, preferredDate])
+  @@index([barberId, preferredDate, status])
+  @@map("appointment_waitlist")
 }
