@@ -15,21 +15,20 @@ import {
   RepeatIcon,
   CalendarPlusIcon,
   RefreshCwIcon,
-  Scissors,
   ShieldBan,
   Bell,
+  LogOut,
 } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useTransition } from "react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
-import { NavUser } from "@/components/nav-user"
 import Link from "next/link"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -42,6 +41,7 @@ import {
 import { logout } from "@/lib/actions/auth.actions"
 import { getSessionClient } from "@/lib/actions/auth-client.actions"
 import { getShopName } from "@/lib/actions/settings.actions"
+import { getBarberById } from "@/lib/actions/barber.actions"
 
 const navItems = [
   {
@@ -148,7 +148,11 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
   const pathname = usePathname()
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [user, setUser] = React.useState<{ name: string; email: string; avatar: string } | null>(null)
+  const [user, setUser] = React.useState<{ 
+    name: string
+    email: string
+    image?: string | null
+  } | null>(null)
   const [shopName, setShopName] = React.useState<string>("Barberiax")
   const { isMobile, setOpenMobile } = useSidebar()
 
@@ -156,10 +160,21 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
     async function loadUser() {
       const session = await getSessionClient()
       if (session) {
+        let barberImage: string | null = null
+        
+        try {
+          const barber = await getBarberById(session.userId)
+          if (barber) {
+            barberImage = barber.image
+          }
+        } catch (error) {
+          console.error('Error loading barber image:', error)
+        }
+
         setUser({
           name: session.name,
           email: session.email,
-          avatar: "",
+          image: barberImage,
         })
       }
     }
@@ -220,13 +235,33 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
                   }
                 }}
               >
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Scissors className="size-4" />
-                </div>
+                <Avatar className="h-8 w-8 ring-2 ring-white/20">
+                  <AvatarImage 
+                    src={user?.image || undefined}
+                    alt={user?.name || "Admin"} 
+                  />
+                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-bold">
+                    {user?.name?.[0]?.toUpperCase() || "A"}
+                  </AvatarFallback>
+                </Avatar>
+
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{shopName}</span>
-                  <span className="truncate text-xs">Burak Şirin</span>
+                  <span className="truncate text-xs">{user?.name || "Admin"}</span>
                 </div>
+
+                <button
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleLogout()
+                  }}
+                  disabled={isPending}
+                  className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/10 transition-colors"
+                  title="Çıkış Yap"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -274,15 +309,6 @@ export function AdminSidebar({ ...props }: React.ComponentProps<typeof Sidebar>)
           )
         })}
       </SidebarContent>
-      <SidebarFooter>
-        {user && (
-          <NavUser 
-            user={user}
-            onLogout={handleLogout}
-            isPending={isPending}
-          />
-        )}
-      </SidebarFooter>
     </Sidebar>
   )
 }
