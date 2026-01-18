@@ -557,6 +557,20 @@ export async function updateBarberImage(
   }
 }
 
+export async function getBarberById(barberId: string) {
+  const barber = await prisma.barber.findUnique({
+    where: { id: barberId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+    },
+  })
+
+  return barber
+}
+
 
 
 
